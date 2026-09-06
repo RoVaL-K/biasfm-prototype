@@ -113,7 +113,7 @@
       const content = `
         <div class="modal-header">
           <div class="modal-badges">
-            <span class="pill pill-song">Song Inspector</span>
+            <span class="pill pill-song">Song &amp; Credits</span>
             <span class="pill pill-muted">${esc(song.generation || 'Korea')}</span>
             <span class="pill pill-accent">${esc(song.duration)}</span>
           </div>
@@ -214,7 +214,9 @@
         </div>
       `;
 
-      this.createModalContainer(content);
+      const modal=this.createModalContainer(content);
+      modal.querySelector('.modal-footer').insertAdjacentHTML('afterbegin',`<button id="song-save" class="btn btn-accent" aria-pressed="${biasApp.likedSongs.has(songId)}">${biasApp.likedSongs.has(songId)?'★ Gemerkt':'☆ Merken'}</button>`);
+      modal.querySelector('#song-save').onclick=e=>{biasApp.toggleLike(songId);const liked=biasApp.likedSongs.has(songId);e.currentTarget.textContent=liked?'★ Gemerkt':'☆ Merken';e.currentTarget.setAttribute('aria-pressed',String(liked));};
     }
 
     // 2. Artist Detail Modal

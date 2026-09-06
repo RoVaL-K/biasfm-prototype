@@ -52,14 +52,15 @@ test('HTTP server serves the actual app and protects private files and malformed
     assert.equal((await fetch(origin+'/api/listening?provider=no&username=test')).status,400);
   }finally{await new Promise(resolve=>server.close(resolve));}
 });
-test('Every view renders, dock controls stay inside the dock and navigation renders once',()=>{
+test('Every public and personal view renders without a player and navigation renders once',()=>{
   const {w,close}=app();try {
-    for(const route of ['home','charts','kalender','catalog','game','stats','profile','curation','legal']) {w.biasApp.navigateTo(route);assert.ok(w.document.querySelector('#main-content h1'),route);}
-    assert.ok(w.document.querySelector('#bottom-dock .dock-wrap .dock-actions'));
+    for(const route of ['home','charts','kalender','catalog','game','stats','profile','settings','saved','curation','legal','admin']) {w.biasApp.navigateTo(route);assert.ok(w.document.querySelector('#main-content h1'),route);}
+    assert.equal(w.document.querySelector('#bottom-dock'),null);
+    assert.equal(w.document.querySelectorAll('.desktop-nav a').length,4);
     assert.equal(w.document.querySelector('#dock-total-time'),null);
     w.biasApp.navigateTo('home');assert.ok(!w.document.querySelector('#main-content').textContent.includes('78%'));
     let count=0;const render=w.biasStatsView.render.bind(w.biasStatsView);w.biasStatsView.render=c=>{count++;render(c);};w.biasApp.navigateTo('stats');assert.equal(count,1);
-    const initial=w.biasApp.currentTrack.id;w.document.querySelector('#dock-next-btn').click();assert.notEqual(w.biasApp.currentTrack.id,initial);w.document.querySelector('#dock-prev-btn').click();assert.equal(w.biasApp.currentTrack.id,initial);
+    w.biasApp.loadTrackToDock('track-ditto');assert.ok(w.document.querySelector('[role=dialog]'));
   }finally{close();}
 });
 test('Favorites, custom aliases, riddle answers and profile survive a reload',()=>{
@@ -113,7 +114,7 @@ test('Stats render imported figures and preserve prior results when refresh fail
   }finally{close();}
 });
 test('Corrupt saved types recover safely',()=>{
-  const {w,close}=app({biasfm_profile:'null',biasfm_tracked_comebacks:'{}',biasfm_custom_comebacks:'null'});try{w.biasApp.navigateTo('profile');assert.ok(w.document.querySelector('.fan-username'));}finally{close();}
+  const {w,close}=app({biasfm_profile:'null',biasfm_tracked_comebacks:'{}',biasfm_custom_comebacks:'null'});try{w.biasApp.navigateTo('profile');assert.ok(w.document.querySelector('.profile-display h2'));}finally{close();}
 });
 test('A full browser store cannot report an unsaved profile or riddle as saved',()=>{
   const {w,close}=app();try {
@@ -132,7 +133,7 @@ test('Spotify link validation and playlist persistence work without OAuth creden
     assert.throws(()=>w.biasApi.spotifyUrl('https://open.spotify.com.evil.test/user/x','user'));
     assert.throws(()=>w.biasApi.spotifyUrl('javascript:alert(1)','user'));
     assert.throws(()=>w.biasApi.spotifyUrl('https://open.spotify.com/playlist/not-an-id','playlist'));
-    w.biasApp.navigateTo('profile');w.document.querySelector('#spotify-profile-url').value='https://open.spotify.com/user/test';w.document.querySelector('#spotify-link-form').dispatchEvent(new w.Event('submit',{cancelable:true}));
+    w.biasApp.navigateTo('settings');w.document.querySelector('#spotify-profile-url').value='https://open.spotify.com/user/test';w.document.querySelector('#spotify-link-form').dispatchEvent(new w.Event('submit',{cancelable:true}));
     assert.equal(w.biasStore.profile.spotifyProfileUrl,'https://open.spotify.com/user/test');
     w.document.querySelector('#playlist-name').value='<b>My music</b>';w.document.querySelector('#playlist-url').value='https://open.spotify.com/playlist/1234567890123456789012';w.document.querySelector('#playlist-link-form').dispatchEvent(new w.Event('submit',{cancelable:true}));
     assert.equal(w.biasStore.profile.spotifyPlaylists.length,1);assert.equal(w.document.querySelector('.playlist-card b').textContent,'<b>My music</b>');
@@ -190,4 +191,61 @@ test('Release feed rejects incomplete dates and mismatched artists and retains s
     {id:'6493859c-f44d-4b8d-b5bd-bb79a5e34aa9',title:'Incomplete','first-release-date':'2026','artist-credit':[{artist:{name:'NewJeans',id:'49204a7a-ed85-407a-828f-6fd46f1d8126'}}]}
   ]};
   const r=await fetchReleases(async()=>({ok:true,json:async()=>fixture}),new Date('2026-09-06T00:00:00Z'));assert.equal(r.items.length,1);assert.equal(r.items[0].sourceName,'MusicBrainz');assert.ok(r.items[0].sourceUrl.startsWith('https://musicbrainz.org/release-group/'));
+});
+
+test('Profile editing is separate, optional identity and independent theme survive reload',()=>{
+ const {w,close}=app();let saved;
+ try{
+  w.biasApp.navigateTo('profile');assert.equal(w.document.querySelector('#prof-username'),null);
+  w.biasApp.navigateTo('settings');
+  const productColor=w.document.documentElement.style.getPropertyValue('--bias');
+  w.biasProfileView.selectColor('#ff4d6d','Blink Pink');
+  assert.equal(w.document.documentElement.style.getPropertyValue('--bias'),productColor);
+  assert.notEqual(w.biasStore.profile.accentColor,'#ff4d6d');
+  w.document.querySelector('#prof-username').value='a valid name';w.biasProfileView.saveProfile();assert.equal(w.biasApp.currentRoute,'settings');
+  w.document.querySelector('#prof-username').value='music-fan';w.document.querySelector('#prof-ult-artist').value='';
+  w.document.querySelector('#prof-bio').value='<b>Independent music</b>';
+  w.document.querySelector('#profile-theme').value='light';w.biasProfileView.saveProfile();
+  assert.equal(w.biasApp.currentRoute,'profile');assert.equal(w.biasStore.profile.ultBiasArtist,'');
+  assert.equal(w.biasStore.profile.accentColor,'#ff4d6d');assert.equal(w.biasStore.theme,'light');
+  assert.equal(w.document.querySelector('.profile-display b'),null);
+  saved=Object.fromEntries(Object.keys(w.localStorage).map(k=>[k,w.localStorage.getItem(k)]));
+ }finally{close();}
+ const b=app(saved);try{assert.equal(b.w.biasStore.theme,'light');assert.equal(b.w.biasStore.profile.username,'music-fan');assert.equal(b.w.document.documentElement.style.getPropertyValue('--bias'),'#167d78');}finally{b.close();}
+});
+test('Song details provide favorites and streaming links without a playback dock',()=>{
+ const {w,close}=app();try{w.biasModals.openSongModal('track-ditto');w.document.querySelector('#song-save').click();assert.ok(w.biasApp.likedSongs.has('track-ditto'));assert.ok(w.document.querySelector('.deeplink-btn.spotify').href.startsWith('https://open.spotify.com/'));w.biasModals.closeCurrentModal();w.biasApp.navigateTo('saved');assert.ok(w.document.querySelector('[data-favorite-open="track-ditto"]'));w.document.querySelector('[data-favorite-remove="track-ditto"]').click();assert.equal(w.biasApp.likedSongs.size,0);}finally{close();}
+});
+test('Daily modes have independent six-guess limits, aliases, persistence and spoilers only on completion',()=>{
+ const {w,close}=app();try{
+  w.biasApp.navigateTo('game');const g=w.biasGameView;
+  g.choose('artist');const a=g.targetArtist;assert.ok(!w.document.querySelector('.clues-list').textContent.includes(a.name));g.submitGuess(a.hangul);assert.equal(g.state().status,'won');
+  g.choose('credits');assert.equal(g.state().status,'playing');g.submitGuess(g.targetSong.credits.producers[0]);assert.equal(g.state().status,'won');
+  g.choose('release');assert.equal(g.state().status,'playing');g.submitGuess('first wrong');g.submitGuess('first wrong');assert.equal(g.state().guesses.length,1);for(let i=1;i<6;i++)g.submitGuess('wrong '+i);assert.equal(g.state().status,'lost');g.submitGuess(g.targetSong.title);assert.equal(g.state().guesses.length,6);
+  g.choose('artist');assert.equal(g.state().status,'won');
+ }finally{close();}
+});
+test('Calendar navigates across years and exposes selected-day releases without fabricated timeline steps',()=>{
+ const {w,close}=app();try{
+  w.biasStore.addCustomComeback({id:'test-calendar',act:'Artist',title:'Album',date:'2027-01-02',type:'Album',genres:['Indie']});
+  w.biasApp.navigateTo('kalender');const calendar=w.biasCalendarView;calendar.month='2026-12';calendar.setView('calendar');calendar.moveMonth(1);
+  assert.equal(calendar.month,'2027-01');assert.equal(w.document.querySelectorAll('[data-day]').length,42);
+  w.document.querySelector('[data-day="2027-01-02"]').click();assert.ok(w.document.querySelector('.calendar-day-detail').textContent.includes('Album'));
+  calendar.openDetails('test-calendar');assert.ok(!w.document.querySelector('[role=dialog]').textContent.includes('Konzept-Fotos'));
+  calendar.moveMonth(-1);assert.equal(calendar.month,'2026-12');
+ }finally{close();}
+});
+test('Chart source deep links resolve to their own perspective and genre does not imply generation',()=>{
+ const {w,close}=app();try{
+  w.biasApp.navigateTo('home');w.document.querySelector('a[href="#charts/korea"]').click();assert.equal(w.biasApp.currentRoute,'charts');assert.ok(w.document.querySelector('#korea-chart-source'));
+  w.biasChartsView.switchSource('catalog');assert.equal(w.document.querySelector('#gen-wrap').hidden,true);
+  w.document.querySelector('[data-tag="Idol"]').click();assert.equal(w.document.querySelector('#gen-wrap').hidden,false);
+  w.document.querySelector('[data-tag="Indie"]').click();assert.equal(w.document.querySelector('#gen-wrap').hidden,true);assert.equal(w.biasChartsView.activeGen,'Alle');
+ }finally{close();}
+});
+test('Listening period is validated and sent to Last.fm instead of relabelling annual results',async()=>{
+ let requested;
+ const result=await getListening('lastfm','tester',async url=>{requested=new URL(url);return {ok:true,json:async()=>({topartists:{artist:[{name:'NewJeans',playcount:'3'}]}})};},'test-key','7day');
+ assert.equal(requested.searchParams.get('period'),'7day');assert.equal(result.periodLabel,'Letzte 7 Tage');
+ await assert.rejects(getListening('lastfm','tester',undefined,'test-key','invalid'),/Zeitraum/);
 });

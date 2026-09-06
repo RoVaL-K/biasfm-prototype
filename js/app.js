@@ -44,14 +44,16 @@
         stats: window.biasStatsView,
         profile: window.biasProfileView,
         curation: window.biasCurationView,
-        konzept: window.biasKonzeptView,
+        settings: {render:c=>biasProfileView.renderEdit(c)},
+        saved: {render:c=>biasProfileView.renderSaved(c)},
+        admin: {render:c=>{c.innerHTML='<h1 class="view-title">Redaktion</h1><div id="admin-content"></div>';biasEditorial.render(c.querySelector('#admin-content'));}},
         legal: window.biasLegalView
       };
 
       document.addEventListener('keydown', e => {
         const target=e.target.closest('[role="button"][tabindex="0"]');
         if (target && e.target === target && (e.key === 'Enter' || e.key === ' ')) {e.preventDefault();target.click();}
-        if (e.key === 'Escape') this.closeMobileNav();
+        if (e.key === 'Escape') {this.closeMobileNav();document.querySelectorAll('.account-menu[open]').forEach(menu=>{menu.open=false;menu.querySelector('summary').focus();});}
       });
       this.initRouting();
       this.initThemeToggle();
@@ -69,10 +71,7 @@
 
       this.updateHeaderProfileBadge(biasStore.profile);
 
-      // Default track in bottom dock
-      if (BIAS_DATA.songs && BIAS_DATA.songs.length > 0) {
-        this.loadTrackToDock(BIAS_DATA.songs[0].id, false);
-      }
+
 
       window.addEventListener('error', event => {
         if (/speicher|storage|quota/i.test(event.message || '')) this.showToast('Speichern fehlgeschlagen. Bitte prüfe den lokalen Browserspeicher.');
@@ -90,14 +89,16 @@
 
       // Intercept clicks on links with data-route or # to prevent anchor jump
       document.addEventListener('click', (e) => {
+        if(!e.target.closest('.account-menu'))document.querySelectorAll('.account-menu[open]').forEach(menu=>menu.open=false);
         const link = e.target.closest('a[data-route], a[href^="#"]');
         if (link && !link.closest('.toc-list')) {
           const href = link.getAttribute('href');
           const dataRoute = link.getAttribute('data-route');
-          const route = dataRoute || (href ? href.replace('#', '') : '');
+          const destination=dataRoute || (href ? href.replace('#','') : '');
+          const route = destination.split(/[/?]/)[0];
           if (route && this.views[route]) {
             e.preventDefault();
-            this.navigateTo(route);
+            if(destination.includes('/')) {history.pushState(null,'',`#${destination}`);this.navigateTo(route,false);} else this.navigateTo(route);
           }
         }
       });
@@ -110,6 +111,7 @@
         route = 'home';
       }
 
+      document.querySelectorAll('.account-menu[open]').forEach(menu=>menu.open=false);
       this.currentRoute = route;
       if (updateHash) {
         history.pushState(null, '', route === 'home' ? location.pathname + location.search : `#${route}`);
@@ -126,7 +128,7 @@
       const mainContainer = document.getElementById('main-content');
       if (mainContainer && this.views[route]) {
         mainContainer.innerHTML = '';
-        document.title = `${({home:'Entdecken',charts:'Charts',kalender:'Comeback Radar',catalog:'Katalog',stats:'Hörstatistik',profile:'Mein Profil',game:'Tagesrätsel',curation:'Meine Sammlung',legal:'Informationen'})[route] || 'bias.fm'} · bias.fm`;
+        document.title = `${({home:'Entdecken',charts:'Charts',kalender:'Comeback Radar',catalog:'Entdecken',settings:'Einstellungen',saved:'Gemerkt',admin:'Redaktion',stats:'Hörstatistik',profile:'Mein Profil',game:'Tagesrätsel',curation:'Meine Sammlung',legal:'Informationen'})[route] || 'bias.fm'} · bias.fm`;
         this.views[route].render(mainContainer);
         // Instant top reset without smooth animation lag
         window.scrollTo(0, 0);
@@ -203,6 +205,7 @@
       if (!song) return;
 
       this.currentTrack = song;
+      if (!document.getElementById('bottom-dock')) {if(autoPlay)biasModals.openSongModal(songId);return;}
 
       const dock = document.getElementById('bottom-dock');
       const thumb = document.getElementById('dock-thumb');
@@ -271,27 +274,10 @@
     }
 
     toggleLike(songId) {
-      const likeBtn = document.getElementById('dock-like-btn');
-      if (this.likedSongs.has(songId)) {
-        this.likedSongs.delete(songId);
-        if (likeBtn) {
-          likeBtn.innerHTML = '♡';
-          likeBtn.classList.remove('is-liked');
-        }
-        this.showToast('Aus Favoriten entfernt');
-      } else {
-        this.likedSongs.add(songId);
-        if (likeBtn) {
-          likeBtn.innerHTML = '♥';
-          likeBtn.classList.add('is-liked');
-        }
-        this.showToast('Zu deinen Favoriten hinzugefügt! ♥');
-        this.playUiTone(587.33, 'sine', 0.12);
-      }
-      try {
-        localStorage.setItem('biasfm_liked_tracks', JSON.stringify(Array.from(this.likedSongs)));
-        if(this.currentTrack) this.loadTrackToDock(this.currentTrack.id, false);
-      } catch (e) {}
+      if(!BIAS_DATA.songs.some(s=>s.id===songId))return;
+      const next=new Set(this.likedSongs);if(next.has(songId))next.delete(songId);else next.add(songId);
+      try{localStorage.setItem('biasfm_liked_tracks',JSON.stringify([...next]));}catch{this.showToast('Deine Favoriten konnten nicht gespeichert werden.');return;}
+      this.likedSongs=next;this.showToast(next.has(songId)?'Zu deinen Favoriten hinzugefügt.':'Aus Favoriten entfernt.');
     }
 
     playUiTone(freq, type = 'sine', duration = 0.1) {
@@ -340,8 +326,7 @@
         ultBiasArtist: art.id,
         biasLine: biasStore.profile.biasLine.filter(id => id !== art.id),
         ultBiasMember: '',
-        accentColor: art.fandomColor,
-        fandomName: art.fandomName || art.name
+
       });
 
       this.showToast(`${art.name} ist jetzt dein Ult Bias! ★`);

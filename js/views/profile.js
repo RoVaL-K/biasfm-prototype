@@ -1,5 +1,5 @@
-// js/views/profile.js — Fan Profile, Ult Bias, Bias-Line & Fandom Accent Settings
-// Handover v2: 1 Ult + 3 Bias-Line (Solos oder Gruppen + Mitglied), Bias Wrecker, Fandom-Farben.
+// js/views/profile.js — Fan Profile, Ult / Lieblingsact, Favoriten & Fandom Accent Settings
+// Handover v2: 1 Ult + 3 Favoriten (Solos oder Gruppen + Mitglied), Wildcard, Fandom-Farben.
 
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) {
@@ -16,7 +16,24 @@
 
   class ProfileView {
     render(container) {
+      const {cover}=biasUI,p=biasStore.profile;
+      const ult=BIAS_DATA.artists.find(a=>a.id===p.ultBiasArtist),wild=BIAS_DATA.artists.find(a=>a.id===p.biasWrecker);
+      container.innerHTML=`<div class="view-profile"><div class="view-header"><div><p class="hero-eyebrow">Deine Musik-Identität</p><h1 class="view-title">Mein Profil</h1></div><a href="#settings" class="btn btn-ghost">Profil bearbeiten ✎</a></div><section class="profile-display"><div class="profile-art" aria-hidden="true">${cover(ult?.name || p.username,'bias.fm',true)}</div><div class="profile-display-copy"><div class="profile-avatar">${esc(p.username.slice(0,2).toUpperCase())}</div><h2>${esc(p.username)}</h2><p>${esc(p.bio || 'Musik, die bleibt. Dein Geschmack hat hier Platz.')}</p><dl><div><dt>Ult / Lieblingsact</dt><dd>${esc(ult?.name || 'Noch offen')}${ult&&p.ultBiasMember?' · '+esc(p.ultBiasMember):''}</dd></div><div><dt>Favoriten</dt><dd>${p.biasLine.map(id=>BIAS_DATA.artists.find(a=>a.id===id)?.name).filter(Boolean).map(esc).join(' · ') || 'Noch keine ausgewählt'}</dd></div>${wild?`<div><dt>Wildcard</dt><dd>${esc(wild.name)}</dd></div>`:''}</dl></div></section><p class="section-note">Dein Profil ist lokal auf diesem Gerät gespeichert. Es ist noch kein öffentliches Konto.</p><div class="import-actions"><a class="btn btn-ghost" href="#stats">Meine Stats →</a><a class="btn btn-ghost" href="#saved">Gemerkt (${biasApp.likedSongs.size}) →</a></div><section id="profile-favorites" class="settings-card"></section></div>`;
+      this.favorites(container.querySelector('#profile-favorites'),6);
+      if(window.biasConnections)biasConnections.mount(container,false);
+    }
+    favorites(section,limit=Infinity) {
+      const songs=BIAS_DATA.songs.filter(s=>biasApp.likedSongs.has(s.id));
+      section.innerHTML=`<h2>Deine gespeicherten Songs <span class="pill pill-muted">${songs.length}</span></h2>${songs.length?songs.slice(0,limit).map(song=>`<div class="favorite-row">${biasUI.cover(song.title,song.artistName)}<button class="text-action" data-favorite-open="${song.id}">${esc(song.title)}<small>${esc(song.artistName)}</small></button><button class="btn btn-ghost" data-favorite-remove="${song.id}" aria-label="${esc(song.title)} aus Favoriten entfernen">Entfernen</button></div>`).join(''):'<p>Noch keine Favoriten. Öffne einen Song und wähle Merken.</p><a href="#catalog">Musik entdecken →</a>'}`;
+      section.onclick=e=>{const open=e.target.closest('[data-favorite-open]'),remove=e.target.closest('[data-favorite-remove]');if(open)biasModals.openSongModal(open.dataset.favoriteOpen);if(remove){biasApp.toggleLike(remove.dataset.favoriteRemove);this.favorites(section,limit);}};
+    }
+    renderSaved(container) {
+      container.innerHTML='<div class="view-header"><h1 class="view-title">Gemerkt</h1><a href="#curation" class="btn btn-ghost">Eigene Termine & Suchaliase →</a></div><section class="settings-card" id="saved-songs"></section><a href="#kalender" class="btn btn-ghost">Gemerkte Releases im Radar →</a>';
+      this.favorites(container.querySelector('#saved-songs'));
+    }
+    renderEdit(container) {
       const profile = biasStore.profile;
+      this.draftColor=profile.accentColor;this.draftFandom=profile.fandomName;
       const ultArtist = (BIAS_DATA.artists || []).find(a => a.id === profile.ultBiasArtist) || BIAS_DATA.artists[0];
       const wreckerArtist = (BIAS_DATA.artists || []).find(a => a.id === profile.biasWrecker);
 
@@ -26,10 +43,10 @@
             <div>
               <div class="pill-row">
                 <span class="pill pill-accent">Fandom Identity</span>
-                <span class="pill pill-muted">Gedeckelt auf 1 Ult + 3 Bias-Line</span>
+                <span class="pill pill-muted">Lokal auf diesem Gerät</span>
               </div>
-              <h1 class="view-title">Dein Fan-Profil &amp; Bias-Einstellungen</h1>
-              <p class="view-subtitle">Deine persönliche Identität für Charts, Comeback-Tracking und die Community.</p>
+              <h1 class="view-title">Profil bearbeiten</h1>
+              <p class="view-subtitle">Dein Lieblingsact, deine Favoriten und dein Erscheinungsbild.</p>
             </div>
           </div>
 
@@ -52,15 +69,15 @@
 
                 <div class="fan-bias-summary">
                   <div class="bias-field-row">
-                    <span class="field-k">Ult Bias:</span>
+                    <span class="field-k">Ult / Lieblingsact:</span>
                     <span class="field-v"><b>${esc(ultArtist.name)}</b> ${profile.ultBiasMember ? `(${esc(profile.ultBiasMember)})` : ''}</span>
                   </div>
                   <div class="bias-field-row">
-                    <span class="field-k">Bias Wrecker:</span>
+                    <span class="field-k">Wildcard:</span>
                     <span class="field-v">${wreckerArtist ? esc(wreckerArtist.name) : 'Keiner'}</span>
                   </div>
                   <div class="bias-field-row">
-                    <span class="field-k">Bias-Line:</span>
+                    <span class="field-k">Favoriten:</span>
                     <div class="bias-line-chips">
                       ${(profile.biasLine || []).map(bId => {
                         const bArt = (BIAS_DATA.artists || []).find(a => a.id === bId);
@@ -83,16 +100,16 @@
                 <h3 class="settings-section-title">1. Profil-Details</h3>
                 <div class="form-group">
                   <label for="prof-username" class="form-label">Nutzername / Handle</label>
-                  <input type="text" id="prof-username" value="${esc(profile.username)}" class="text-input">
+                  <input type="text" id="prof-username" value="${esc(profile.username.toLowerCase())}" class="text-input" minlength="3" maxlength="20" pattern="[a-z0-9_-]{3,20}"><p class="section-note">3–20 Kleinbuchstaben, Zahlen, - oder _. Lokal gespeichert; kein global reservierter Benutzername.</p><label for="prof-bio" class="form-label">Bio (optional)</label><textarea id="prof-bio" class="text-input" maxlength="280">${esc(profile.bio || '')}</textarea>
                 </div>
 
-                <h3 class="settings-section-title" style="margin-top:24px">2. Ult Bias auswählen</h3>
-                <p class="section-note">Solos sind als ganzer Act wählbar; Gruppen bieten zusätzlich eine optionale Mitgliederauswahl.</p>
+                <h3 class="settings-section-title" style="margin-top:24px">2. Ult / Lieblingsact auswählen</h3>
+                <p class="section-note">Du musst keinen Bias wählen. Solo-Acts, Bands und Producer sind willkommen.</p>
                 
                 <div class="form-grid-2">
                   <div class="form-group">
                     <label for="prof-ult-artist" class="form-label">Künstler / Act</label>
-                    <select id="prof-ult-artist" class="select-input">
+                    <select id="prof-ult-artist" class="select-input"><option value="">Kein Lieblingsact gewählt</option>
                       ${BIAS_DATA.artists.map(a => `
                         <option value="${a.id}" ${a.id === profile.ultBiasArtist ? 'selected' : ''}>
                           ${esc(a.name)} (${esc(a.hangul)})
@@ -114,9 +131,9 @@
                   </div>
                 </div>
 
-                <h3 class="settings-section-title" style="margin-top:24px">3. Bias-Line &amp; Wrecker</h3>
+                <h3 class="settings-section-title" style="margin-top:24px">3. Favoriten &amp; Wrecker</h3>
                 <div class="form-group">
-                  <label class="form-label">Bias-Line (Maximal 3 weitere Künstler)</label>
+                  <label class="form-label">Favoriten (Maximal 3 weitere Künstler)</label>
                   <div class="bias-line-selector">
                     ${BIAS_DATA.artists.filter(a => a.id !== profile.ultBiasArtist).map(a => {
                       const isSelected = (profile.biasLine || []).includes(a.id);
@@ -131,7 +148,7 @@
                 </div>
 
                 <div class="form-group" style="margin-top:16px">
-                  <label for="prof-wrecker" class="form-label">Bias Wrecker</label>
+                  <label for="prof-wrecker" class="form-label">Wildcard</label>
                   <select id="prof-wrecker" class="select-input">
                     <option value="">Keiner gewählt</option>
                     ${BIAS_DATA.artists.filter(a => a.id !== profile.ultBiasArtist).map(a => `
@@ -142,7 +159,7 @@
                   </select>
                 </div>
 
-                <h3 class="settings-section-title" style="margin-top:24px">4. Deine Akzentfarbe</h3>
+                <h3 class="settings-section-title" style="margin-top:24px">4. Dein Profil-Akzent</h3>
                 <p class="section-note">Wähle eine der 8 kuratierten Fandom-Farben — passend zu deinem Musikgeschmack.</p>
                 <div class="fandom-swatches-grid">
                   ${BIAS_DATA.fandomColors.map(fc => `
@@ -170,13 +187,14 @@
         </div>
       `;
 
+      container.querySelector('.profile-card-col')?.remove();
+      container.querySelector('.profile-layout-grid').classList.add('profile-edit-layout');
+      container.querySelector('.view-header').insertAdjacentHTML('beforeend','<a href="#profile" class="btn btn-ghost">Zurück zum Profil</a>');
+      container.querySelector('.form-save-bar').insertAdjacentHTML('beforebegin',`<h3 class="settings-section-title">Produkt-Theme</h3><p class="section-note">Die Produktpalette bleibt unabhängig von deinem Profil-Akzent.</p><label for="profile-theme">Erscheinungsbild</label><select id="profile-theme" class="select-input">${[['dark','Mono Mint'],['night','Seoul Night Market'],['light','Warm Paper']].map(([id,label])=>`<option value="${id}" ${biasStore.theme===id?'selected':''}>${label}</option>`).join('')}</select>`);
       this.attachEvents(container);
-      if(window.biasConnections) biasConnections.mount(container);
-      const favorites = BIAS_DATA.songs.filter(song => biasApp.likedSongs.has(song.id));
-      const section = document.createElement('section'); section.className = 'settings-card favorites-section';
-      section.innerHTML = `<h2>Deine gespeicherten Songs <span class="pill pill-muted">${favorites.length}</span></h2><p class="section-note">Dein Profil und deine Sammlung werden in diesem Browser gespeichert.</p>${favorites.length ? favorites.map(song => `<div class="favorite-row"><button class="text-action" data-favorite-open="${song.id}">${esc(song.title)} <span class="section-note">${esc(song.artistName)}</span></button><button class="btn btn-ghost btn-sm" data-favorite-remove="${song.id}" aria-label="${esc(song.title)} aus Favoriten entfernen">Entfernen</button></div>`).join('') : '<p>Noch keine Favoriten. Wähle einen Song und tippe auf das Herz.</p><a class="btn btn-ghost" href="#charts">Songs entdecken →</a>'}`;
-      section.addEventListener('click', e => {const open=e.target.closest('[data-favorite-open]');const remove=e.target.closest('[data-favorite-remove]');if(open) biasModals.openSongModal(open.dataset.favoriteOpen);if(remove){biasApp.toggleLike(remove.dataset.favoriteRemove);this.render(container);}});
-      container.querySelector('.view-profile').appendChild(section);
+      if(window.biasConnections)biasConnections.mount(container,true);
+      const memberGroup=container.querySelector('#member-select-group');
+      if(memberGroup)memberGroup.hidden=!BIAS_DATA.artists.find(a=>a.id===profile.ultBiasArtist)?.members?.length;
     }
 
     attachEvents(container) {
@@ -188,17 +206,17 @@
         artistSelect.addEventListener('change', () => {
           const art = (BIAS_DATA.artists || []).find(a => a.id === artistSelect.value);
           if (art && art.members && art.members.length > 0) {
-            memberGroup.style.display = 'block';
+            memberGroup.hidden=false;memberGroup.style.display = 'block';
             memberSelect.innerHTML = `<option value="">Ganze Gruppe (OT)</option>` +
               art.members.map(m => `<option value="${esc(m.name)}">${esc(m.name)} (${esc(m.hangul)})</option>`).join('');
           } else {
-            memberGroup.style.display = 'none';
+            memberGroup.hidden=true;memberGroup.style.display = 'none';
             memberSelect.innerHTML = `<option value="">Solo-Act</option>`;
           }
         });
       }
 
-      // Toggle Bias-Line selection (max 3)
+      // Toggle Favoriten selection (max 3)
       const chips = container.querySelectorAll('.bias-select-chip');
       chips.forEach(chip => {
         chip.addEventListener('click', () => {
@@ -207,7 +225,7 @@
             chip.classList.remove('is-selected');
           } else {
             if (selected.length >= 3) {
-              biasApp.showToast('Maximal 3 Künstler in der Bias-Line erlaubt!');
+              biasApp.showToast('Maximal 3 Künstler in der Favoriten erlaubt!');
               return;
             }
             chip.classList.add('is-selected');
@@ -217,7 +235,7 @@
     }
 
     selectColor(colorHex, fandomName) {
-      biasStore.setAccentColor(colorHex, fandomName);
+      this.draftColor=colorHex;this.draftFandom=fandomName;
       const cards = document.querySelectorAll('.fandom-swatch-card');
       cards.forEach(c => c.classList.toggle('is-active', c.dataset.color === colorHex));
       const ring = document.querySelector('.fan-avatar-ring');
@@ -243,20 +261,24 @@
       const ultBiasMember = ultMemberSelect ? ultMemberSelect.value : '';
       const biasWrecker = wreckerSelect ? wreckerSelect.value : '';
 
-      if (!username || username.length > 40) { biasApp.showToast('Bitte einen Nutzernamen mit 1 bis 40 Zeichen eingeben.'); usernameInput.focus(); return; }
+      if (!/^[a-z0-9_-]{3,20}$/.test(username)) {biasApp.showToast('Bitte 3–20 Kleinbuchstaben, Zahlen, - oder _ verwenden.');usernameInput.focus();return;}
       biasStore.updateProfile({
         username,
+        bio: document.getElementById('prof-bio').value.trim().slice(0,280),
+        accentColor:this.draftColor,
+        fandomName:this.draftFandom,
         ultBiasArtist,
         ultBiasMember,
         biasLine,
         biasWrecker: biasWrecker === ultBiasArtist ? "" : biasWrecker
       });
 
+      biasStore.setTheme(document.getElementById('profile-theme').value);
       biasApp.showToast('Profil erfolgreich gespeichert!');
       
       const appContainer = document.getElementById('main-content');
       if (appContainer) {
-        this.render(appContainer);
+        biasApp.navigateTo('profile');
       }
     }
   }

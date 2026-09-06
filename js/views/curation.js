@@ -37,12 +37,12 @@
           <div class="filter-bar">
             <div class="tag-tabs" id="curation-tabs">
               <button class="tag-tab ${this.activeTab === 'comebacks' ? 'is-active' : ''}" data-tab="comebacks">
-                Comeback einreichen (${biasStore.customComebacks.length})
+                Persönliche Termine (${biasStore.customComebacks.length})
               </button>
               <button class="tag-tab ${this.activeTab === 'aliases' ? 'is-active' : ''}" data-tab="aliases">
                 Hangul- &amp; Alias-Pflege (${biasStore.curationAliases.length})
               </button>
-              <button class="tag-tab ${this.activeTab === 'editorial' ? 'is-active' : ''}" data-tab="editorial">Öffentliche Redaktion</button>
+
               <button class="tag-tab ${this.activeTab === 'duplicates' ? 'is-active' : ''}" data-tab="duplicates">
                 Scrobble-Duplikate Queue
               </button>
@@ -98,7 +98,7 @@
           <!-- Form -->
           <div class="curation-box">
             <h3 class="box-title">+ Neues Comeback im Radar erfassen</h3>
-            <p class="box-sub">Einträge erscheinen nach dem Speichern sofort im Comeback-Radar und werden in iCal-Exporte integriert.</p>
+            <p class="box-sub">Deine Einträge erscheinen nur in deinem lokalen Radar. Sie werden nicht öffentlich eingereicht.</p>
 
             <form id="new-comeback-form" class="studio-form" onsubmit="biasCurationView.handleSubmitComeback(event)">
               <div class="form-grid-2">
@@ -141,13 +141,14 @@
                 </div>
               </div>
 
+              <div class="form-group"><label for="cb-source" class="form-label">Offizielle Quelle (optional für persönliche Termine)</label><input id="cb-source" type="url" class="text-input" placeholder="https://…"></div>
               <div class="form-group">
                 <label class="form-label">Teaser / Video-Link (optional)</label>
                 <input type="url" id="cb-teaser" placeholder="https://youtube.com/watch?v=..." class="text-input">
               </div>
 
               <div class="form-group">
-                <label class="form-label">Redaktionelle Notiz / Beschreibung</label>
+                <label class="form-label">Persönliche Notiz</label>
                 <textarea id="cb-desc" rows="2" placeholder="Besonderheiten, beteiligte Produzenten, Formate..." class="text-input"></textarea>
               </div>
 
@@ -159,13 +160,13 @@
 
           <!-- Custom Submissions List -->
           <div class="curation-box">
-            <h3 class="box-title">Eigene eingereichte Comebacks (${customList.length})</h3>
+            <h3 class="box-title">Persönliche Termine (${customList.length})</h3>
             <p class="box-sub">Nur in diesem Browser gespeichert.</p>
 
             <div class="custom-cb-list">
               ${customList.length === 0 ? `
                 <div class="empty-state-box">
-                  <p>Noch keine eigenen Einträge eingereicht. Fülle das Formular links aus, um einen Termin zu adden!</p>
+                  <p>Noch keine persönlichen Termine. Ergänze Künstler, Titel und Datum.</p>
                 </div>
               ` : customList.map(cb => `
                 <div class="custom-cb-card">
@@ -195,10 +196,12 @@
       const date = document.getElementById('cb-date').value;
       const type = document.getElementById('cb-type').value;
       const genresInput = document.getElementById('cb-genres').value;
+      const sourceUrl = document.getElementById('cb-source').value.trim();
       const teaserUrl = document.getElementById('cb-teaser').value.trim();
       const description = document.getElementById('cb-desc').value.trim();
 
       if (!act || !title || act.length > 120 || title.length > 200 || description.length > 2000 || !/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(date))) {biasApp.showToast('Bitte Titel, Künstler und ein gültiges Datum prüfen.');return;}
+      if(sourceUrl&&!/^https?:\/\//i.test(sourceUrl)){biasApp.showToast('Bitte eine gültige Quellen-URL eingeben.');return;}
       if (teaserUrl && !/^https?:\/\//i.test(teaserUrl)) {biasApp.showToast('Bitte einen Link mit https:// oder http:// eingeben.');return;}
       if (biasStore.customComebacks.some(cb => cb.id !== this.editingId && cb.act.toLowerCase() === act.toLowerCase() && cb.title.toLowerCase() === title.toLowerCase() && cb.date === date)) {biasApp.showToast('Dieser Termin ist bereits gespeichert.');return;}
       const genres = genresInput.split(',').map(g => g.trim()).filter(Boolean);
@@ -212,8 +215,9 @@
         type,
         genres,
         teaserUrl,
+        sourceUrl,
         description,
-        status: 'Community Announced',
+        status: 'Persönlicher Termin',
         pipelineStep: 1,
         isTracked: true
       };
@@ -231,7 +235,7 @@
     editComeback(id) {
       const cb = biasStore.customComebacks.find(c => c.id === id);if(!cb) return;
       this.editingId = id;
-      const fields = {'cb-act':'act','cb-hangul':'actHangul','cb-title':'title','cb-date':'date','cb-type':'type','cb-teaser':'teaserUrl','cb-desc':'description'};
+      const fields = {'cb-act':'act','cb-hangul':'actHangul','cb-title':'title','cb-date':'date','cb-type':'type','cb-teaser':'teaserUrl','cb-desc':'description','cb-source':'sourceUrl'};
       for(const [field,key] of Object.entries(fields)) document.getElementById(field).value = cb[key] || '';
       document.getElementById('cb-genres').value = cb.genres.join(', ');
       document.getElementById('cb-act').focus();

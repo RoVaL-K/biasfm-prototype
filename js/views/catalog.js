@@ -24,8 +24,8 @@
         <div class="view-catalog">
           <div class="view-header">
             <div>
-              <h1 class="view-title">Katalog &amp; Produzenten-Graph</h1>
-              <p class="view-subtitle">Fokus-A Kuration · Ausgewogene Mischung aus Idol, Indie, R&amp;B und Beatmakern</p>
+              <h1 class="view-title">Entdecken</h1>
+              <p class="view-subtitle">Artists, Releases und die Menschen hinter der Musik.</p>
             </div>
             <div class="chart-controls">
               <input type="text" id="cat-search-input" placeholder="Artist, Hangul, Beatmaker, Label..." value="${esc(this.searchQuery)}" class="chart-search-input">
@@ -35,8 +35,9 @@
           <!-- Category Tabs -->
           <div class="filter-bar">
             <div class="tag-tabs" id="cat-tabs">
-              <button class="tag-tab ${this.activeTab === 'all' ? 'is-active' : ''}" data-tab="all">Alle (${(BIAS_DATA.artists.length + BIAS_DATA.producers.length)})</button>
+              <button class="tag-tab ${this.activeTab === 'all' ? 'is-active' : ''}" data-tab="all">Artists &amp; Credits</button>
               <button class="tag-tab ${this.activeTab === 'producers' ? 'is-active' : ''}" data-tab="producers">Produzenten (${BIAS_DATA.producers.length})</button>
+              ${[['releases','Releases'],['labels','Labels'],['genres','Genres']].map(([id,label])=>`<button class="tag-tab ${this.activeTab===id?'is-active':''}" data-tab="${id}">${label}</button>`).join('')}
               <button class="tag-tab ${this.activeTab === 'indie' ? 'is-active' : ''}" data-tab="indie">Indie &amp; Rock</button>
               <button class="tag-tab ${this.activeTab === 'idol' ? 'is-active' : ''}" data-tab="idol">Idol Acts</button>
               <button class="tag-tab ${this.activeTab === 'rnb' ? 'is-active' : ''}" data-tab="rnb">R&amp;B &amp; Hiphop</button>
@@ -76,7 +77,15 @@
       const grid = document.getElementById('catalog-grid');
       if (!grid) return;
 
-      const q = this.searchQuery;
+      const q = biasCore.normalize(this.searchQuery);
+      const matches=(...values)=>!q||values.flat().some(v=>biasCore.normalize(v).includes(q));
+      if(this.activeTab==='releases'){
+        grid.innerHTML=BIAS_DATA.songs.filter(s=>matches(s.title,s.hangulTitle,s.artistName,s.album)).map(s=>`<button class="release-discovery" onclick="biasModals.openSongModal('${s.id}')">${biasUI.cover(s.album,s.artistName,true)}<strong>${esc(s.album)}</strong><span>${esc(s.artistName)} · ${s.releaseYear}</span><small>${esc(s.title)} · Credits & Links →</small></button>`).join('') || '<p>Keine Releases gefunden.</p>';return;
+      }
+      if(['labels','genres'].includes(this.activeTab)){
+        const groups=new Map();for(const a of BIAS_DATA.artists){for(const key of this.activeTab==='labels'?[a.agency || 'Independent']:a.genres){if(!groups.has(key))groups.set(key,[]);groups.get(key).push(a);}}
+        grid.innerHTML=[...groups].filter(([key,artists])=>matches(key,artists.map(a=>a.name))).map(([key,artists])=>`<article class="catalog-card"><h2>${esc(key)}</h2><p class="section-note">${artists.length} Acts im Katalog</p>${artists.map(a=>`<button class="text-action" onclick="biasModals.openArtistModal('${a.id}')">${esc(a.name)} →</button>`).join('<br>')}</article>`).join('') || '<p>Keine Einträge gefunden.</p>';return;
+      }
       let items = [];
 
       // 1. Gather Artists
@@ -92,7 +101,7 @@
           }
 
           if (matchesTab) {
-            const matchesQuery = !q ||
+            const matchesQuery = matches(a.name,a.hangul,a.romanized,a.aliases || [],biasStore.curationAliases.filter(x=>x.artistId===a.id).map(x=>x.alias),a.agency) || !q ||
               a.name.toLowerCase().includes(q) ||
               a.hangul.toLowerCase().includes(q) ||
               a.romanized.toLowerCase().includes(q) ||

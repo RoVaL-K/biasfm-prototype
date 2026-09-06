@@ -18,7 +18,9 @@
       this.activeTag = 'Alle';
       this.activeGen = 'Alle';
       this.searchQuery = '';
-      this.source='catalog';
+      this.source='community';
+      this.pageSize=25;
+      this.koreaSource='circle';
       this.liveTag='k-pop';
       this.liveResult=null;
       this.liveError='';
@@ -26,7 +28,10 @@
     }
 
     render(container) {
-      if(this.source === 'live') {this.renderLive(container);return;}
+      const routeSource=location.hash.split('/')[1]?.split('?')[0];
+      if(['community','korea','live','catalog'].includes(routeSource))this.source=routeSource;
+      if(['community','korea'].includes(this.source)){this.renderOverview(container);return;}
+      if(this.source === 'live') {this.renderLive(container);if(!this.liveResult&&!this.liveLoading&&!this.liveError&&typeof fetch==='function')this.loadLive();return;}
       container.innerHTML = `
         <div class="view-charts">
           <!-- Clean View Header without floating search input -->
@@ -37,11 +42,11 @@
                 <span class="pill pill-muted">Idol · Indie · R&B · Hiphop</span>
               </div>
               <h1 class="view-title">Songs für deine Sammlung</h1>
-              <p class="view-subtitle">Entdecke den bestehenden Katalog nach Genre, Generation und Künstler. Deine persönlichen Hörzahlen findest du unter Stats.</p>
+              <p class="view-subtitle">Kuratierte Songs, keine Rangliste. Filtere nach Szene und entdecke die Credits.</p>
             </div>
           </div>
 
-          <div class="source-tabs"><button class="source-tab is-active" onclick="biasChartsView.switchSource('catalog')">Katalog</button><button class="source-tab" onclick="biasChartsView.switchSource('live')">Last.fm-Charts ↗</button></div>
+          ${this.sourceTabs()}
           <!-- Unified Spotify/Tidal Style Toolbar (Tabs + Search + Generation in one row) -->
           <div class="charts-toolbar-bar">
             <div class="tag-tabs" id="chart-tag-tabs">
@@ -57,13 +62,13 @@
                 <input type="text" id="chart-filter-input" placeholder="Titel, Hangul, Artist filtern..." value="${esc(this.searchQuery)}" class="chart-search-input">
               </div>
 
-              <div class="gen-select-wrap">
+              <div class="gen-select-wrap" id="gen-wrap" ${this.activeTag==='Idol'?'':'hidden'}>
                 <select id="gen-filter" class="select-input chart-gen-select" title="Nach Generation filtern">
                   <option value="Alle" ${this.activeGen === 'Alle' ? 'selected' : ''}>Alle Generationen</option>
                   <option value="4th Gen" ${this.activeGen === '4th Gen' ? 'selected' : ''}>4th Gen (2018–2022)</option>
                   <option value="3rd Gen" ${this.activeGen === '3rd Gen' ? 'selected' : ''}>3rd Gen (2012–2017)</option>
                   <option value="2nd Gen" ${this.activeGen === '2nd Gen' ? 'selected' : ''}>2nd Gen (&lt;2012)</option>
-                  <option value="Indie" ${this.activeGen === 'Indie' ? 'selected' : ''}>Indie &amp; Classic</option>
+
                 </select>
               </div>
             </div>
@@ -78,7 +83,7 @@
               <span class="col-tags">Tags</span>
               <span class="col-producers">Credits</span>
               <span class="col-plays">Jahr</span>
-              <span class="col-actions">Abspielen</span>
+              <span class="col-actions">Links &amp; Credits</span>
             </div>
             <div id="chart-rows-container" class="chart-rows"></div>
           </div>
@@ -90,13 +95,19 @@
     }
 
     switchSource(source) {
-      this.source=source;this.render(document.getElementById('main-content'));
+      this.source=source;history.replaceState(null,'',`#charts/${source}`);this.render(document.getElementById('main-content'));
       if(source==='live'&&!this.liveResult)this.loadLive();
     }
 
+    sourceTabs() {return `<div class="source-tabs" aria-label="Chart-Perspektive">${[['community','Community'],['korea','Korea Charts'],['live','Last.fm Signals'],['catalog','Songs']].map(([id,label])=>`<button class="source-tab ${this.source===id?'is-active':''}" aria-pressed="${this.source===id}" onclick="biasChartsView.switchSource('${id}')">${label}</button>`).join('')}</div>`;}
+    renderOverview(container) {
+      container.innerHTML=`<div class="view-charts"><div class="view-header"><div><p class="hero-eyebrow">Zwei Perspektiven. Klare Quellen.</p><h1 class="view-title">Charts</h1><p class="view-subtitle">Unsere Community und externe Musikcharts bleiben getrennt.</p></div></div>${this.sourceTabs()}<section class="chart-preview"><h2>${this.source==='community'?'Community Charts':'Korea Charts'}</h2>${biasUI.chartEmpty(this.source)}${this.source==='korea'?`<div class="form-group"><label for="korea-chart-source">Quelle</label><select id="korea-chart-source" class="select-input"><option value="circle" ${this.koreaSource==='circle'?'selected':''}>Circle Chart</option><option value="melon" ${this.koreaSource==='melon'?'selected':''}>Melon TOP100</option></select><a id="korea-chart-link" class="btn btn-ghost" target="_blank" rel="noopener">Original-Rangliste öffnen ↗</a></div>`:'<details><summary>Wie die Community Charts entstehen sollen</summary><p>Nur ausdrücklich freigegebene Hörverläufe bestätigter Konten zählen. Doppelte Plays werden bereinigt; Zeitraum, Teilnehmerzahl und Aktualisierung werden je Liste ausgewiesen. Bis diese Daten vorliegen, wird kein Ranking angezeigt.</p></details>'}</section></div>`;
+      const select=container.querySelector('#korea-chart-source');if(select){const update=()=>{this.koreaSource=select.value;container.querySelector('#korea-chart-link').href=select.value==='melon'?'https://www.melon.com/chart/index.htm':'https://circlechart.kr/';};select.onchange=update;update();}
+    }
     renderLive(container) {
-      container.innerHTML=`<div class="view-charts"><div class="view-header"><div><span class="pill pill-accent">Last.fm · Tag-Charts</span><h1 class="view-title">Was die Community hört.</h1><p class="view-subtitle">Die von Last.fm gelieferten Top-Titel pro Genre-Tag. Kein persönliches Ranking und keine Wochenchart.</p></div></div><div class="source-tabs"><button class="source-tab" onclick="biasChartsView.switchSource('catalog')">Katalog</button><button class="source-tab is-active">Last.fm-Charts ↗</button></div><div class="charts-toolbar-bar"><label>Genre <select id="live-chart-tag" class="select-input">${['k-pop','k-indie','k-hiphop','k-rnb'].map(tag=>`<option ${tag===this.liveTag?'selected':''}>${tag}</option>`).join('')}</select></label><button id="refresh-live-chart" class="btn btn-ghost" ${this.liveLoading?'disabled':''}>Aktualisieren</button></div>${this.liveLoading?'<div class="stats-empty" role="status"><h2>Charts werden geladen …</h2></div>':this.liveError?`<div class="stats-empty"><h2>Charts gerade nicht verfügbar</h2><p role="alert">${esc(this.liveError)}</p><button class="btn btn-accent" onclick="biasChartsView.loadLive()">Erneut versuchen</button><button class="btn btn-ghost" onclick="biasChartsView.switchSource('catalog')">Katalog entdecken</button></div>`:this.liveResult?`<p class="section-note">Abgerufen ${new Date(this.liveResult.fetchedAt).toLocaleString('de-DE')} · <a href="${esc(this.liveResult.sourceUrl)}" target="_blank" rel="noopener">Quelle: Last.fm ↗</a></p><div class="live-chart-list">${this.liveResult.items.map(song=>`<a class="live-chart-row" href="${esc(song.url)}" target="_blank" rel="noopener"><b class="mono">${song.rank}</b><span><strong>${esc(song.title)}</strong><small>${esc(song.artist)}</small></span><span>Auf Spotify suchen ↗</span></a>`).join('') || '<p>Keine Titel für diesen Tag vorhanden.</p>'}</div>`:''}</div>`;
-      container.querySelector('#live-chart-tag').onchange=e=>{this.liveTag=e.target.value;this.loadLive();};
+      container.innerHTML=`<div class="view-charts"><div class="view-header"><div><span class="pill pill-accent">Last.fm · Tag-Charts</span><h1 class="view-title">Last.fm Signals</h1><p class="view-subtitle">Die von Last.fm gelieferten Top-Titel pro Genre-Tag. Kein persönliches Ranking und keine Wochenchart.</p></div></div>${this.sourceTabs()}<div class="charts-toolbar-bar"><label>Genre <select id="live-chart-tag" class="select-input">${['k-pop','k-indie','k-hiphop','k-rnb'].map(tag=>`<option ${tag===this.liveTag?'selected':''}>${tag}</option>`).join('')}</select></label><button id="refresh-live-chart" class="btn btn-ghost" ${this.liveLoading?'disabled':''}>Aktualisieren</button></div>${this.liveLoading?'<div class="stats-empty" role="status"><h2>Charts werden geladen …</h2></div>':this.liveError?`<div class="stats-empty"><h2>Charts gerade nicht verfügbar</h2><p role="alert">${esc(this.liveError)}</p><button class="btn btn-accent" onclick="biasChartsView.loadLive()">Erneut versuchen</button><button class="btn btn-ghost" onclick="biasChartsView.switchSource('catalog')">Katalog entdecken</button></div>`:this.liveResult?`<p class="section-note">Abgerufen ${new Date(this.liveResult.fetchedAt).toLocaleString('de-DE')} · <a href="${esc(this.liveResult.sourceUrl)}" target="_blank" rel="noopener">Quelle: Last.fm ↗</a></p><div class="live-chart-list">${this.liveResult.items.slice(0,this.pageSize).map(song=>`<a class="live-chart-row" href="${esc(song.url)}" target="_blank" rel="noopener"><b class="mono">${song.rank}</b><span><strong>${esc(song.title)}</strong><small>${esc(song.artist)}</small></span><span>Auf Spotify suchen ↗</span></a>`).join('') || '<p>Keine Titel für diesen Tag vorhanden.</p>'}</div>${this.liveResult.items.length>this.pageSize?'<button class="btn btn-ghost" id="load-chart-more">25 weitere laden</button>':''}`:''}</div>`;
+      container.querySelector('#load-chart-more')?.addEventListener('click',()=>{this.pageSize+=25;this.renderLive(container);});
+      container.querySelector('#live-chart-tag').onchange=e=>{this.liveTag=e.target.value;this.pageSize=25;this.loadLive();};
       container.querySelector('#refresh-live-chart').onclick=()=>this.loadLive();
     }
 
@@ -114,6 +125,9 @@
           tabs.forEach(t => t.classList.remove('is-active'));
           tab.classList.add('is-active');
           this.activeTag = tab.dataset.tag;
+          if(this.activeTag!=='Idol')this.activeGen='Alle';
+          container.querySelector('#gen-wrap').hidden=this.activeTag!=='Idol';
+          container.querySelector('#gen-filter').value=this.activeGen;
           this.updateRows();
         });
       });
@@ -169,7 +183,7 @@
       }
 
       // Sort by plays descending
-      filtered.sort((a, b) => b.plays - a.plays);
+      filtered.sort((a, b) => b.releaseYear - a.releaseYear || a.title.localeCompare(b.title));
 
       if (filtered.length === 0) {
         container.innerHTML = `
@@ -198,15 +212,11 @@
         return `
           <div role="button" tabindex="0" class="chart-row-item ${isCurrent ? 'is-active-track' : ''}" onclick="biasApp.loadTrackToDock('${s.id}')">
             <div class="col-rank">
-              <span class="rank-num">${idx + 1}</span>
+              <span class="rank-num">♪</span>
 
             </div>
 
-            <!-- Thumbnail Cover with Play Hover -->
-            <div class="track-thumb-box" style="background:${s.coverGradient || 'linear-gradient(135deg, #1e3a8a, #38bdf8)'}">
-              <span class="thumb-icon">♪</span>
-              <div class="thumb-hover-play">▶</div>
-            </div>
+            ${biasUI.cover(s.title,s.artistName)}
 
             <div class="col-title">
               <div class="track-names">

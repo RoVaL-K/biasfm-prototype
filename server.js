@@ -59,13 +59,14 @@ function createServer(options={}) {
         if (req.method === 'HEAD') return send(405,'');
         const provider = url.searchParams.get('provider') || '';
         const username = url.searchParams.get('username') || '';
-        const key = `${provider}:${username}`;
+        const period=url.searchParams.get('period') || '12month';
+        const key = `${provider}:${username}:${period}`;
         const saved = cache.get(key);
         if (saved && saved.expires > Date.now()) return send(200, JSON.stringify(saved.data));
         if (active >= 4) return send(429, JSON.stringify({error:'Gerade laufen mehrere Importe. Bitte in einem Moment erneut versuchen.'}));
         active++;
         try {
-          const data = await getListening(provider, username);
+          const data = await getListening(provider, username,undefined,undefined,period);
           if (cache.size >= 100) cache.delete(cache.keys().next().value);
           cache.set(key, {data, expires:Date.now()+300000});
           return send(200, JSON.stringify(data));

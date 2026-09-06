@@ -14,13 +14,20 @@
     const data=await response.json();if(!response.ok)throw Error(data.error || 'Anfrage fehlgeschlagen.');return data;
   }
   const connections={status:null,playlists:[],nextOffset:null,error:'',loading:false,
-    mount(container){
+    mount(container,editable=true){
+      this.editable=editable;
       const section=document.createElement('section');section.id='music-connections';section.className='settings-card connections-section';container.querySelector('.view-profile').appendChild(section);this.render();
       if(typeof fetch==='function')this.loadStatus();
     },
     render(){
       const box=document.getElementById('music-connections');if(!box)return;
       const profile=biasStore.profile,status=this.status;
+      if(!this.editable){
+        const safe=(url,type)=>{try{return spotifyUrl(url || '',type);}catch{return '';}};
+        const url=safe(status?.connected?status.profile.url:profile.spotifyProfileUrl,'user');
+        const lists=[...(Array.isArray(profile.spotifyPlaylists)?profile.spotifyPlaylists:[]),...(status?.connected?this.playlists:[])].filter(p=>safe(p.url,'playlist'));
+        box.innerHTML=`<div class="connection-heading"><h2>Deine Playlists</h2><a class="btn btn-ghost" href="#settings">Verbindungen bearbeiten</a></div>${url?`<a href="${esc(url)}" target="_blank" rel="noopener">Spotify-Profil öffnen ↗</a><p class="section-note">${status?.connected?'Mit Spotify verbunden.':'Selbst hinterlegter Profil-Link.'}</p>`:''}<div class="playlist-grid">${lists.map(p=>`<a class="playlist-card" href="${esc(safe(p.url,'playlist'))}" target="_blank" rel="noopener"><span class="playlist-symbol">♫</span><span><strong>${esc(p.name)}</strong><small>Auf Spotify öffnen ↗</small></span></a>`).join('') || '<p class="section-note">Noch keine Playlist hinterlegt. Ergänze deine Verbindungen in den Einstellungen.</p>'}</div>`;return;
+      }
       this.error = this.error || '';
       const saved=Array.isArray(profile.spotifyPlaylists)?profile.spotifyPlaylists:[];
       const state=new URLSearchParams(location.hash.split('?')[1] || '').get('spotify');

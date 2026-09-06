@@ -135,3 +135,34 @@ Der anschließende Auftrag „alles umsetzen“ zieht die besprochenen Spotify-F
 **Prüfung:** 15 automatisierte Tests erfolgreich; reale ListenBrainz- und MusicBrainz-Abfragen; zusätzliche Browserprüfung auf Desktop und Mobilgerät. Die geprüften Spotify- und Last.fm-Abläufe ersetzen keine abschließende Verifikation mit den tatsächlichen Anbieterzugängen.
 
 **Verbleibende Freischaltungen:** Spotify-App registrieren/Client-ID hinterlegen, Last.fm-Schlüssel hinterlegen, HTTPS-Hosting mit dauerhaftem Speicher wählen und Betreiberangaben ergänzen. Die Anwendung zeigt fehlende Zugänge als solche an.
+
+## Überarbeitung nach dem Feedback-Dokument (7. September 2026)
+
+Die vollständige, unveränderte Entscheidungsvorlage liegt unter `docs/improvementV1-feedback.md`. Sie unterscheidet V1-Aufgaben, optionale Varianten und ausdrücklich spätere P2-Ideen. Die folgende Übersicht ersetzt frühere Designentscheidungen dieses Arbeitsstands.
+
+### Umgesetzt
+
+- **Navigation:** Entdecken, Charts, Radar, Rätsel; Suche und persönliches Menü. Profil, Stats, Gemerkt und Einstellungen liegen im persönlichen Bereich. Konzept und Redaktion sind keine öffentlichen Navigationspunkte; der geschützte Redaktionszugang bleibt unter `#admin` erreichbar.
+- **Startseite:** zentrierter Hero mit einer Hauptaktion, Drei-Schritte-Erklärung, zwei getrennte Chart-Perspektiven, kompakte Radar-/Daily-Einstiege. Kein Begrüßungsdashboard, keine Farbwahl im Hero, keine Song-Schnellzugriffs-Doppelung und keine Player-Leiste.
+- **Charts:** getrennte Community-, Korea- und Last.fm-Perspektiven. Circle und Melon sind Original-Quellenlinks, keine kopierten Rankings. Last.fm zeigt Quelle und Abrufzeit und lädt zunächst 25 Zeilen. Der vorhandene Songkatalog ist ausdrücklich keine Rangliste; Generation wird nur im Idol-Filter angezeigt. Links auf `#charts/community` und `#charts/korea` öffnen die jeweilige Perspektive.
+- **Entdecken:** Artists/Credits, Releases, Labels, Genres sowie bestehende Szene-Einstiege; Hangul, Romanisierung und eigene Suchaliase bleiben nutzbar.
+- **Radar:** kompakte Agenda und Monatsraster, Monatswechsel über Jahresgrenzen, Auswahl einzelner Tage, Merken und Export. Details enthalten tatsächliche vorhandene Ereignisse und das Veröffentlichungsdatum. Keine erfundene Vier-Schritt-Pipeline. Originalquelle und Anbieterlinks liegen in den Details; im Monatsmodus exportiert der Kalender die Auswahl des angezeigten Monats.
+- **Profil:** eigenständige Fan-Karte mit gestaltetem Hintergrund, Bio, optionalem Lieblingsact, Favoriten und Wildcard. Einstellungen liegen separat. Neue Profile starten ohne vorgegebene Lieblingskünstler. Verbindungen werden im Profil angezeigt und in den Einstellungen bearbeitet. Benutzernamen werden lokal auf 3–20 Kleinbuchstaben/Zahlen/Bindestrich/Unterstrich geprüft; keine globale Reservierung wird behauptet.
+- **Erscheinungsbild:** Mono Mint, Seoul Night Market und Warm Paper. Der Profil-Akzent verändert weder Produktpalette noch Hauptbuttons. Eine Farbauswahl im Editor wird erst mit Speichern übernommen.
+- **Rätsel:** drei unabhängige tägliche Modi (Release/Song, Artist, Credits), sechs Versuche, schrittweise Hinweise, Autocomplete, Aliasabgleich, Spielhilfe und spoilerfreies Ergebnis. Persistenz je Modus, konsistenter Tageswechsel um 00:00 KST. Keine Lyrics oder Audio-Clips.
+- **Stats:** zuerst öffentliche Hörhistorie abfragen, erst danach echte Diagramme. „Dein Korea-Mix“, explizit nicht zugeordnete Plays, Top 10/20/50 und tatsächliche Last.fm-Zeiträume (7 Tage, 1/3 Monate, 1 Jahr, gesamter Verlauf). ListenBrainz bleibt ausdrücklich eine Stichprobe bis 1.000 zuletzt übermittelter Plays. Eine öffentliche Namensabfrage wird nicht als bestätigte Kontoverknüpfung bezeichnet.
+- **Bedienung:** Favoriten direkt im Songdialog, auf Mobile Details als Bottom Sheet, sichtbare Fokuszustände, reduzierbare Animationen, mehr Platz ohne unteren Player. Favoriten und gemerkte Termine melden fehlgeschlagenes Speichern nicht als Erfolg.
+
+### Voraussetzungen und bewusst offene Teile
+
+- **Echte Benutzerkonten, Follow und öffentliche Profile:** benötigen eine zentrale Identitäts- und Datenverwaltung. Es gibt weiter lokale Profile. Deshalb werden Login, Rollen, 180-Tage-Namenswechsel und Namensquarantäne nicht simuliert.
+- **Community Top 10:** benötigt bestätigte Konten, Einwilligung, Deduplizierung und reale gemeinsame Listens. Bis dahin wird ein ausdrücklich benannter Leerzustand gezeigt. Keine lokalen Likes oder Katalogdaten werden als Charts ausgegeben.
+- **Eingebundene Korea Top 10/100:** benötigt eine erlaubte Datenquelle. Aktuell führen Quellenlinks zu den Originalranglisten. Last.fm-Tag-Charts sind eine getrennte Quelle, keine koreanische Markt- oder Wochenchart.
+- **Release-Vorschläge:** der Radar erklärt die Kontovoraussetzung und ermöglicht als nutzbaren Ersatz persönliche Termine mit Quellenlink. Diese werden ausdrücklich nicht als öffentlich eingereicht oder in Prüfung dargestellt. Öffentliche Submission-Queue, eigene Einreichungsstatus und Kontorollen bleiben an das Kontosystem gebunden.
+- **Originalcover/Artistfotos:** keine ungeprüften Fanbilder übernommen. Eigene gestaltete Ersatzmotive werden als solche bezeichnet. Lizenzierte Originalbilder können später ergänzt werden.
+- **Öffentliches Backend:** Spotify-Anmeldung, Hördatenimport und Redaktion brauchen weiter Serverhosting und Anbieterzugänge. GitHub Pages allein betreibt diese Funktionen nicht.
+- **P2:** Audio-Clips, Spotify-Dateiimport, Fan Spaces, Reviews, freier Hex-Editor, Sammlung/Crowdfunding und Monetarisierung bleiben wie im Dokument vorgesehen spätere Arbeit.
+
+### Prüfung
+
+21 automatisierte Tests decken bestehende Funktionen und die neuen Profil-, Theme-, Daily-, Monatskalender-, Quellen- und Zeitraumabläufe ab. Ergänzend wurden Startseite, Profil/Editor, helles Theme und mobile Kalender-/Rätselansichten im Browser geprüft. Quellenlinks zu Circle Chart und Melon sowie die unterstützten Last.fm-Zeiträume wurden an den Originalseiten abgeglichen.

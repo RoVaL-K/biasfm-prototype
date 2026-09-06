@@ -109,3 +109,11 @@ Für Docker einen dauerhaften Datenträger nach `/app/.data` einbinden, `APP_ORI
 15 automatisierte Tests prüfen die Hauptabläufe, Spotify-PKCE und Session-Isolation, Playlist-Daten, Redaktionsrechte, Speicherung über Serverneustarts, Versionskonflikte und eindeutige Release-Zuordnung. Der MusicBrainz-Liveabruf lieferte im Test acht passende Einträge. Desktop- und Mobilansichten wurden zusätzlich im Browser geprüft. Die Namenszuordnung in Hörstatistiken nutzt MusicBrainz-IDs, wenn der Dienst sie mitliefert; andernfalls bleibt sie eine offengelegte Schätzung anhand der Namen.
 
 Verwendete Primärdokumentation: [Spotify PKCE](https://developer.spotify.com/documentation/web-api/tutorials/code-pkce-flow), [Benutzer-Playlists](https://developer.spotify.com/documentation/web-api/reference/get-a-list-of-current-users-playlists), [Spotify-Änderungen 2026](https://developer.spotify.com/documentation/web-api/tutorials/february-2026-migration-guide), [Rücksprungadressen](https://developer.spotify.com/documentation/web-api/concepts/redirect_uri), [MusicBrainz-Suchfelder](https://musicbrainz.org/doc/Indexed_Search_Syntax), [Last.fm-Tag-Charts](https://www.last.fm/api/show/tag.getTopTracks).
+
+## Produktüberarbeitung: Improvement V1
+
+Das Feedback unter `docs/improvementV1-feedback.md` ist als priorisierte Produktvorlage übernommen. Der genaue Implementierungsstand und die noch erforderlichen Daten-/Kontovoraussetzungen stehen am Ende von `improvementV1.md`.
+
+Öffentliche Navigation: Entdecken, Charts, Radar, Rätsel. Persönliche Bereiche: `#profile`, `#settings`, `#saved`, `#stats`. Redaktion: `#admin` (bestehender serverseitiger Schlüssel erforderlich). Die Player-Leiste ist entfernt; Songdetails enthalten Merken und direkte Anbieterlinks. Drei unabhängige Daily-Modi wechseln gemeinsam um 00:00 KST. Die drei Produkt-Themes bleiben unabhängig vom Profil-Akzent.
+
+Charts unterscheiden Community (noch keine gemeinsamen Hördaten), Korea-Originalquellen und Last.fm-Tag-Signale. Externe Rankings werden nicht kopiert oder aus Katalogdaten erfunden. Original-Referenzen: [Circle Chart](https://circlechart.kr/), [Melon](https://www.melon.com/chart/index.htm). Die Last.fm-Zeitraumauswahl verwendet die [dokumentierten Perioden](https://www.last.fm/api/show/user.getTopArtists), mit gesonderten Cache-Einträgen pro Zeitraum.

@@ -26,16 +26,6 @@
 <body>
 <a class="skip-link" href="#main-content">Zum Inhalt</a>
 
-  <!-- Top Announcement Notice -->
-  <div class="top-notice-bar">
-    <div class="wrap notice-inner">
-      <div class="notice-text">
-        <span class="notice-badge">Korean Music Discovery</span>
-        <span>bias.fm verbindet Hördaten &amp; Discovery für koreanische Musik aller Genres ohne eigenen Player.</span>
-      </div>
-    </div>
-  </div>
-
   <!-- Main Navigation Header -->
   <header class="main-header">
     <div class="wrap nav-wrap">
@@ -47,15 +37,11 @@
 
       <!-- Navigation Links -->
       <nav class="desktop-nav" aria-label="Hauptnavigation">
-        <a href="#home" class="nav-link" data-route="home">Home</a>
-        <a href="#charts" class="nav-link" data-route="charts">Entdecken</a>
-        <a href="#kalender" class="nav-link" data-route="kalender">Radar</a>
-        <a href="#catalog" class="nav-link" data-route="catalog">Katalog &amp; Produzenten</a>
-        <a href="#game" class="nav-link" data-route="game">Rätsel</a>
-        <a href="#stats" class="nav-link" data-route="stats">Stats</a>
-        <a href="#profile" class="nav-link" data-route="profile">Profil</a>
-        <a href="#curation" class="nav-link" data-route="curation">Sammlung</a>
-      </nav>
+<a href="#catalog" class="nav-link" data-route="catalog">Entdecken</a>
+<a href="#charts" class="nav-link" data-route="charts">Charts</a>
+<a href="#kalender" class="nav-link" data-route="kalender">Radar</a>
+<a href="#game" class="nav-link" data-route="game">Rätsel</a>
+</nav>
 
       <!-- Right Header Actions -->
       <div class="header-right-actions">
@@ -70,9 +56,7 @@
         </button>
 
         <!-- Current Ult Bias Badge Button -->
-        <button class="user-badge-btn" id="header-ult-badge" onclick="biasApp.navigateTo('profile')" title="Dein Ult Bias">
-          ★ NewJeans
-        </button>
+        <details class="account-menu"><summary aria-label="Persönlicher Bereich">Mein Bereich ▾</summary><div class="account-dropdown"><p>Auf diesem Gerät</p><a href="#profile">Mein Profil</a><a href="#stats">Meine Stats</a><a href="#saved">Gemerkt</a><a href="#settings">Einstellungen</a></div></details>
         <!-- Theme Toggle -->
         <button class="theme-btn" id="theme-toggle-btn" title="Farbschema wechseln (Dunkel / Hell)" aria-label="Farbschema wechseln">
           ◐
@@ -93,60 +77,18 @@
       <button class="btn btn-ghost btn-sm" onclick="biasApp.closeMobileNav()" aria-label="Menü schließen">✕</button>
     </div>
     <nav class="drawer-nav">
-      <a href="#home" class="drawer-link">Home</a>
-      <a href="#charts" class="drawer-link">Entdecken</a>
-      <a href="#kalender" class="drawer-link">Comeback Radar</a>
-      <a href="#catalog" class="drawer-link">Katalog &amp; Produzenten</a>
-      <a href="#game" class="drawer-link">Rätsel des Tages</a>
-      <a href="#stats" class="drawer-link">Korea-Anteil Rechner</a>
-      <a href="#profile" class="drawer-link">Mein Fan-Profil</a>
-      <a href="#curation" class="drawer-link">Meine Sammlung</a>
-      <a href="#legal" class="drawer-link">Recht &amp; Datenschutz</a>
-    </nav>
+<a href="#home" class="drawer-link">Startseite</a>
+<a href="#catalog" class="drawer-link">Entdecken</a>
+<a href="#charts" class="drawer-link">Charts</a>
+<a href="#kalender" class="drawer-link">Radar</a>
+<a href="#game" class="drawer-link">Rätsel</a>
+</nav>
   </aside>
 
   <!-- Dynamic Main Content Wrapper -->
   <main id="main-content" class="main-content wrap" role="main" tabindex="-1"></main>
 
-  <!-- Persistent Bottom Now-Playing & Deep-Link Dock (Spotify / Tidal Style) -->
-  <aside class="bottom-dock" id="bottom-dock" aria-label="Aktueller Track &amp; Schnell-Abspiel-Leiste">
-    <div class="dock-wrap">
-      <!-- Left Track Info -->
-      <div class="dock-track-info">
-        <div class="dock-thumb" id="dock-thumb" onclick="if(biasApp.currentTrack) biasModals.openSongModal(biasApp.currentTrack.id)">
-          <span style="font-size:18px;color:#fff">♪</span>
-        </div>
-        <div class="dock-titles">
-          <span class="dock-title-text" id="dock-title">Ditto</span>
-          <span class="dock-artist-text" id="dock-artist">NewJeans · OMG</span>
-        </div>
-        <button class="dock-like-btn" id="dock-like-btn" title="Zu Favoriten hinzufügen">♡</button>
-      </div>
 
-      <!-- Center Playback Controls & Progress Bar -->
-      <div class="dock-controls">
-        <div class="dock-buttons-row">
-          <button class="dock-ctrl-btn" id="dock-prev-btn" title="Vorheriger Track">⏮</button>
-          <button class="dock-play-circle" id="dock-play-btn" title="Auf Spotify öffnen" aria-label="Ausgewählten Song auf Spotify öffnen">▶</button>
-          <button class="dock-ctrl-btn" id="dock-next-btn" title="Nächster Track">⏭</button>
-        </div>
-        <p class="dock-hint">Musik beim Streamingdienst öffnen</p>
-      </div>
-
-      <!-- Right Actions & Deep-Links -->
-      <div class="dock-actions">
-        <button class="btn btn-ghost btn-sm" id="dock-credits-btn" title="Vollständige Credits &amp; ISRC ansehen">
-          Credits
-        </button>
-        <a href="https://open.spotify.com" target="_blank" rel="noopener" class="dock-deeplink-btn spotify" id="dock-spotify-btn" title="Auf Spotify öffnen">
-          <span>●</span> Spotify
-        </a>
-        <a href="https://music.apple.com" target="_blank" rel="noopener" class="dock-deeplink-btn apple" id="dock-apple-btn" title="Auf Apple Music öffnen">
-          <span></span> Apple
-        </a>
-      </div>
-    </div>
-  </aside>
 
   <!-- Global Footer -->
   <footer class="main-footer" role="contentinfo">
@@ -162,7 +104,7 @@
           <ul>
             <li><a href="#charts">Songs entdecken</a></li>
             <li><a href="#kalender">Comeback Radar</a></li>
-            <li><a href="#catalog">Produzenten-Graph</a></li>
+            <li><a href="#catalog">Entdecken &amp; Credits</a></li>
             <li><a href="#game">Rätsel des Tages</a></li>
           </ul>
         </div>
@@ -170,9 +112,9 @@
         <div class="footer-col">
           <h5>Stats &amp; Community</h5>
           <ul>
-            <li><a href="#stats">Korea-Anteil</a></li>
-            <li><a href="#profile">Ult Bias &amp; Line</a></li>
-            <li><a href="#curation">Meine Sammlung</a></li>
+            <li><a href="#stats">Dein Korea-Mix</a></li>
+            <li><a href="#profile">Mein Profil</a></li>
+            <li><a href="#saved">Gemerkt</a></li>
 
           </ul>
         </div>
@@ -197,6 +139,7 @@
 
   <!-- Scripts -->
   <script src="js/data.js"></script>
+  <script src="js/ui.js"></script>
   <script src="js/core.js"></script>
   <script src="js/store.js"></script>
   <script src="js/search.js"></script>
@@ -211,7 +154,7 @@
   <script src="js/editorial.js"></script>
   <script src="js/views/profile.js"></script>
   <script src="js/views/curation.js"></script>
-  <script src="js/views/konzept.js"></script>
+
   <script src="js/views/legal.js"></script>
   <script src="js/app.js"></script>
   <script>

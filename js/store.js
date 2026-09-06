@@ -20,11 +20,11 @@
   };
 
   const DEFAULT_PROFILE = {
-    username: 'Musikfan',
-    ultBiasArtist: 'newjeans',
-    ultBiasMember: 'Hanni',
-    biasLine: ['sumin', 'black-skirts', 'gidle'],
-    biasWrecker: 'bibi',
+    username: 'musikfan',
+    ultBiasArtist: '',
+    ultBiasMember: '',
+    biasLine: [],
+    biasWrecker: '',
     accentColor: '#38bdf8', // Default Tokki Blue
     fandomName: 'Tokki Sky Blue'
   };
@@ -60,7 +60,7 @@
       if (typeof this.profile.username !== 'string') this.profile.username = DEFAULT_PROFILE.username;
       if (!Array.isArray(this.profile.biasLine)) this.profile.biasLine = [];
       this.theme = getItem(STORAGE_KEYS.THEME, 'dark');
-      this.accentColor = getItem(STORAGE_KEYS.COLOR, this.profile.accentColor || '#38bdf8');
+      this.accentColor = this.profile.accentColor || getItem(STORAGE_KEYS.COLOR,'#38bdf8');
       this.trackedComebacks = new Set(getItem(STORAGE_KEYS.TRACKED_CBS, []));
       this.customComebacks = getItem(STORAGE_KEYS.CUSTOM_CBS, []);
       this.activePersonaId = getItem(STORAGE_KEYS.ACTIVE_PERSONA, 'persona-indie');
@@ -88,19 +88,20 @@
     applyThemeAndColor() {
       if (typeof document === 'undefined') return;
       const root = document.documentElement;
-      root.setAttribute('data-theme', this.theme);
-      root.style.setProperty('--bias', this.accentColor);
-      if (/^#[0-9a-f]{6}$/i.test(this.accentColor)) {
-        const rgb = this.accentColor.slice(1).match(/.{2}/g).map(n => parseInt(n,16)).join(', ');
-        root.style.setProperty('--bias-rgb',rgb);
-        root.style.setProperty('--bias-glow',`rgba(${rgb}, 0.28)`);
-        root.style.setProperty('--bias-glow-soft',`rgba(${rgb}, 0.08)`);
-      }
+      const palettes={dark:['#37d9a5','55, 217, 165'],night:['#2ed6a1','46, 214, 161'],light:['#167d78','22, 125, 120']};
+      const palette=palettes[this.theme] || palettes.dark;
+      root.setAttribute('data-theme', palettes[this.theme] ? this.theme : 'dark');
+      root.style.setProperty('--profile-accent', /^#[0-9a-f]{6}$/i.test(this.accentColor)?this.accentColor:'#38bdf8');
+      root.style.setProperty('--bias',palette[0]);
+      root.style.setProperty('--bias-rgb',palette[1]);
+      root.style.setProperty('--bias-glow',`rgba(${palette[1]}, .2)`);
+      root.style.setProperty('--bias-glow-soft',`rgba(${palette[1]}, .08)`);
     }
 
     setTheme(theme) {
-      this.theme = theme;
+      if(!['dark','night','light'].includes(theme))return;
       setItem(STORAGE_KEYS.THEME, theme);
+      this.theme = theme;
       this.applyThemeAndColor();
       this.emit('themeChange', theme);
     }
@@ -112,35 +113,25 @@
     }
 
     setAccentColor(colorHex, fandomName) {
-      this.accentColor = colorHex;
-      this.profile.accentColor = colorHex;
-      if (fandomName) this.profile.fandomName = fandomName;
-      setItem(STORAGE_KEYS.COLOR, colorHex);
-      setItem(STORAGE_KEYS.PROFILE, this.profile);
-      this.applyThemeAndColor();
-      this.emit('colorChange', { colorHex, fandomName });
-      this.emit('profileChange', this.profile);
+      if(!/^#[0-9a-f]{6}$/i.test(colorHex))return;
+      this.updateProfile({accentColor:colorHex,...(fandomName?{fandomName}:{})});
     }
 
     updateProfile(updates) {
-      const nextProfile = { ...this.profile, ...updates };
-      setItem(STORAGE_KEYS.PROFILE, nextProfile);
-      this.profile = nextProfile;
-      if (updates.accentColor) {
-        this.setAccentColor(updates.accentColor, updates.fandomName);
-      }
-      this.emit('profileChange', this.profile);
+      const nextProfile={...this.profile,...updates};
+      setItem(STORAGE_KEYS.PROFILE,nextProfile);
+      this.profile=nextProfile;
+      if(updates.accentColor){this.accentColor=updates.accentColor;this.applyThemeAndColor();this.emit('colorChange',{colorHex:this.accentColor,fandomName:this.profile.fandomName});}
+      this.emit('profileChange',this.profile);
     }
 
     toggleTrackComeback(comebackId) {
-      if (this.trackedComebacks.has(comebackId)) {
-        this.trackedComebacks.delete(comebackId);
-      } else {
-        this.trackedComebacks.add(comebackId);
-      }
-      setItem(STORAGE_KEYS.TRACKED_CBS, Array.from(this.trackedComebacks));
-      this.emit('comebacksChange', this.trackedComebacks);
-      return this.trackedComebacks.has(comebackId);
+      const next=new Set(this.trackedComebacks);
+      if(next.has(comebackId))next.delete(comebackId);else next.add(comebackId);
+      setItem(STORAGE_KEYS.TRACKED_CBS,[...next]);
+      this.trackedComebacks=next;
+      this.emit('comebacksChange',next);
+      return next.has(comebackId);
     }
 
     isTracked(comebackId) {
