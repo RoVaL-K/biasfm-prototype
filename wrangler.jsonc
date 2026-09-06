@@ -1,0 +1,14 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "biasfm-prototype",
+  "pages_build_output_dir": "./dist",
+  "compatibility_date": "2026-09-06",
+  "compatibility_flags": ["nodejs_compat"],
+  "kv_namespaces": [
+    {"binding": "SESSIONS", "id": "d84e82bd81b14e0e9eb9f587a33946b7"},
+    {"binding": "CACHE", "id": "c703ec55566d4c058e084b1c54595df0"}
+  ],
+  "d1_databases": [
+    {"binding": "DB", "database_name": "biasfm-production", "database_id": "3c6b4865-49f6-49ce-83c3-f5182f6b4a80"}
+  ]
+}

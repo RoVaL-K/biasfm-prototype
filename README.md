@@ -53,9 +53,21 @@ Offizielle Schnittstellenbeschreibung: [Last.fm user.getTopArtists](https://www.
 
 ## Hosting
 
-Der vorhandene GitHub-Pages-Workflow veröffentlicht nur statische Dateien. Er kann den Node-Endpunkt `/api/listening` nicht ausführen. Für die serverseitigen Anbieterabfragen, Spotify-OAuth und öffentliche Redaktion ist Node-fähiges Hosting oder eine getrennte, passend konfigurierte API erforderlich. Ein fehlender API-Endpunkt wird in der Oberfläche erklärt; persönliche Funktionen und der lokale Spotify-Dateiimport bleiben auf GitHub Pages nutzbar.
+Der vorhandene GitHub-Pages-Workflow veröffentlicht nur statische Dateien. Er kann den Node-Endpunkt `/api/listening` nicht ausführen. Die GitHub-Seite bleibt deshalb der statische Frontend-Mirror; für serverseitige Anbieterabfragen, Spotify-OAuth und öffentliche Redaktion verwendet sie automatisch die Cloudflare-API.
 
 Der Server liefert ausschließlich öffentliche HTML-, CSS- und JavaScript-Dateien und den definierten API-Endpunkt aus. Projektdateien, `.env`, Git-Metadaten und Serverquelltext sind darüber nicht erreichbar.
+
+### Cloudflare Pages (Produktion)
+
+Das Projekt ist zusätzlich als Cloudflare-Pages-Projekt `biasfm-prototype` veröffentlicht: [biasfm-prototype.pages.dev](https://biasfm-prototype.pages.dev/). Die Dateien unter `functions/` werden bei jedem GitHub-Push als Pages Functions bereitgestellt. Dadurch laufen die dynamischen Abläufe am selben Ursprung wie die Produktionsseite:
+
+- `functions/api/listening.js` importiert öffentliche ListenBrainz- und Last.fm-Daten.
+- `functions/api/releases.js` lädt den Live-Radar aus MusicBrainz und ergänzt veröffentlichte Redaktionseinträge.
+- `functions/api/spotify/*` übernimmt PKCE, sichere Sitzungen und Playlist-Abfragen, sobald eine Spotify-Client-ID hinterlegt ist.
+- `functions/api/editorial/*` speichert und verwaltet veröffentlichte Einträge in der D1-Datenbank `biasfm-production`.
+- KV `BIASFM_CACHE` hält zeitlich begrenzte Provider-Antworten; KV `BIASFM_SESSIONS` hält die kurzlebigen Spotify-Sitzungen.
+
+Die Bindings sind in [wrangler.jsonc](wrangler.jsonc) dokumentiert. Anbieter- und Redaktionsschlüssel werden ausschließlich als Cloudflare-Umgebungsvariablen gesetzt und nie in Git committed. Ohne `LASTFM_API_KEY`, `SPOTIFY_CLIENT_ID` und `EDITORIAL_TOKEN` bleiben die jeweiligen optionalen Funktionen abgeschaltet, während Gesundheitstest, MusicBrainz-Radar und das statische Frontend weiter funktionieren.
 
 ## Prüfen
 
@@ -101,7 +113,7 @@ Die Anwendung lädt eine vorhandene `.env` beim Start selbst. Extern gesetzte Um
 
 ### Server-Hosting
 
-Ein `Dockerfile` für Node 22 mit einem unprivilegierten Benutzer, Healthcheck und persistentem Volume liegt bei. `npm run build` prüft JavaScript und erstellt ausschließlich öffentliche statische Dateien unter `dist/`. Der GitHub-Pages-Workflow veröffentlicht nur dieses Verzeichnis und führt zuvor Tests aus. GitHub Pages allein führt weiterhin keine API aus; für alle Funktionen muss die gesamte Node-Anwendung bereitgestellt werden.
+Ein `Dockerfile` für Node 22 mit einem unprivilegierten Benutzer, Healthcheck und persistentem Volume liegt bei. `npm run build` prüft JavaScript und erstellt ausschließlich öffentliche statische Dateien unter `dist/`. Der GitHub-Pages-Workflow veröffentlicht nur dieses Verzeichnis und führt zuvor Tests aus. Für die produktiven dynamischen Funktionen wird Cloudflare Pages verwendet; der Node-Server bleibt für lokale Entwicklung und alternative Deployments verfügbar.
 
 Für Docker einen dauerhaften Datenträger nach `/app/.data` einbinden, `APP_ORIGIN` auf die HTTPS-Adresse setzen und Konfigurationswerte als Umgebungsvariablen übergeben. Der Container benötigt einen vorgeschalteten HTTPS-Endpunkt. Ein Container-Build wurde in diesem Durchgang nicht ausgeführt; der lokale Node-Server und der statische Build wurden geprüft.
 

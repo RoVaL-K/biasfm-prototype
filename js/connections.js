@@ -8,8 +8,13 @@
     if(!match || match[1]!==type || (type==='playlist'&&!/^[a-zA-Z0-9]{22}$/.test(match[2])))throw Error(type==='user'?'Bitte einen Spotify-Profil-Link verwenden.':'Bitte einen Spotify-Playlist-Link verwenden.');
     return `https://open.spotify.com/${type}/${match[2]}`;
   }
+  function apiUrl(url) {
+    if (/^https?:\/\//i.test(url)) return url;
+    const base=String(root.BIAS_API_BASE || '');
+    return `${base.replace(/\/$/,'')}/${String(url).replace(/^\//,'')}`;
+  }
   async function api(url,options={}) {
-    const response=await fetch(url,{...options,signal:options.signal || AbortSignal.timeout(20000)});
+    const response=await fetch(apiUrl(url),{credentials:'include',...options,signal:options.signal || AbortSignal.timeout(20000)});
     if(!(response.headers.get('content-type')||'').includes('application/json')) throw Error('Die Verbindung benötigt den bias.fm-Server.');
     const data=await response.json();if(!response.ok)throw Error(data.error || 'Anfrage fehlgeschlagen.');return data;
   }
@@ -33,7 +38,7 @@
       const state=new URLSearchParams(location.hash.split('?')[1] || '').get('spotify');
       box.innerHTML=`<div class="connection-heading"><div><span class="pill pill-accent">Deine Musik, verbunden</span><h2>Spotify &amp; deine Playlists</h2><p class="section-note">Deine Sammlung bleibt bei Spotify. Hier findest du den direkten Weg dorthin.</p></div><span class="provider-mark">Spotify ↗</span></div>
         ${state==='cancelled'?'<p role="status">Die Anmeldung wurde abgebrochen. Du kannst es jederzeit erneut versuchen.</p>':state==='failed'?'<p role="alert" class="inline-error">Spotify konnte die Verbindung nicht abschließen. Bitte prüfe die App-Freigabe und versuche es erneut.</p>':''}
-        <div class="connection-account">${status?.connected?`<div><span class="connection-dot"></span> Verbunden als <a href="${esc(status.profile.url)}" target="_blank" rel="noopener">${esc(status.profile.name)}</a></div><button class="btn btn-ghost" id="spotify-disconnect">Verbindung trennen</button>`:status?.configured?'<p>Melde dich bei Spotify an, um deine zugänglichen Playlists zu laden.</p><a class="btn btn-accent" href="api/spotify/connect">Mit Spotify verbinden</a>':`<p class="section-note">${status?'Die automatische Anmeldung ist noch nicht freigeschaltet. Profil- und Playlist-Links kannst du bereits speichern.':'Spotify-Verfügbarkeit wird geprüft …'}</p>`}</div>
+        <div class="connection-account">${status?.connected?`<div><span class="connection-dot"></span> Verbunden als <a href="${esc(status.profile.url)}" target="_blank" rel="noopener">${esc(status.profile.name)}</a></div><button class="btn btn-ghost" id="spotify-disconnect">Verbindung trennen</button>`:status?.configured?'<p>Melde dich bei Spotify an, um deine zugänglichen Playlists zu laden.</p><a class="btn btn-accent" href="'+esc(apiUrl('api/spotify/connect'))+'">Mit Spotify verbinden</a>':`<p class="section-note">${status?'Die automatische Anmeldung ist noch nicht freigeschaltet. Profil- und Playlist-Links kannst du bereits speichern.':'Spotify-Verfügbarkeit wird geprüft …'}</p>`}</div>
         <form id="spotify-link-form" class="studio-form"><label class="form-label" for="spotify-profile-url">Dein Spotify-Profil-Link</label><div class="inline-form"><input type="url" id="spotify-profile-url" class="text-input" placeholder="https://open.spotify.com/user/…" value="${esc(profile.spotifyProfileUrl || '')}"><button class="btn btn-ghost" type="submit">Speichern</button>${profile.spotifyProfileUrl?`<a class="btn btn-ghost" href="${esc(profile.spotifyProfileUrl)}" target="_blank" rel="noopener">Profil öffnen ↗</a>`:''}</div><p class="section-note">Ein hinterlegter Link ist keine bestätigte Kontoverknüpfung.</p></form>
         <h3 class="settings-section-title">Deine Playlist-Links</h3><form id="playlist-link-form" class="inline-form"><input id="playlist-name" aria-label="Playlist-Name" class="text-input" placeholder="Name deiner Playlist" maxlength="100" required><input id="playlist-url" aria-label="Spotify-Playlist-Link" type="url" class="text-input" placeholder="https://open.spotify.com/playlist/…" required><button type="submit" class="btn btn-accent">Hinzufügen</button></form>
         <div class="playlist-grid">${saved.map((p,i)=>`<article class="playlist-card"><span class="playlist-symbol">♫</span><a href="${esc(p.url)}" target="_blank" rel="noopener"><b>${esc(p.name)}</b><span>Auf Spotify öffnen ↗</span></a><button class="btn btn-ghost btn-sm" data-remove-playlist="${i}" aria-label="${esc(p.name)} entfernen">✕</button></article>`).join('') || '<p class="section-note">Speichere Playlists, zu denen du immer wieder zurückkommst.</p>'}</div>
@@ -51,5 +56,5 @@
     async loadStatus(){try{this.status=await api('api/spotify/status');this.error='';if(this.status.connected)await this.loadPlaylists();else this.render();}catch(e){this.status={configured:false,connected:false};this.error=e.message;this.render();}},
     async loadPlaylists(offset=0){if(this.loading)return;this.loading=true;this.error='';this.render();try{const result=await api(`api/spotify/playlists?offset=${offset}`);this.playlists=offset?[...this.playlists,...result.items]:result.items;this.nextOffset=result.nextOffset;}catch(e){this.error=e.message;}finally{this.loading=false;this.render();}}
   };
-  root.biasConnections=connections;root.biasApi={request:api,spotifyUrl,esc};
+  root.biasConnections=connections;root.biasApi={request:api,url:apiUrl,spotifyUrl,esc};
 })(window);

@@ -43,11 +43,7 @@
       this.render(container);
       const timeout = setTimeout(() => this.controller.abort(), 120000);
       try {
-        const response = await fetch(`api/listening?${new URLSearchParams({provider:this.provider,username:this.username,period:this.period})}`,{signal:this.controller.signal});
-        if (!(response.headers.get('content-type') || '').includes('application/json')) throw new Error('Der Datenimport ist auf diesem Hosting noch nicht eingerichtet. Bitte öffne die Website über den bias.fm-Server.');
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.error || 'Import fehlgeschlagen. Bitte erneut versuchen.');
-        this.result = result;
+        this.result = await biasApi.request(`api/listening?${new URLSearchParams({provider:this.provider,username:this.username,period:this.period})}`,{signal:this.controller.signal});
       } catch(err) { this.error = err.name === 'AbortError' ? 'Import abgebrochen. Du kannst ihn jederzeit neu starten.' : err.message; }
       finally {clearTimeout(timeout);this.loading = false;if (biasApp.currentRoute === 'stats') this.render(container);}
     }

@@ -1,0 +1,11 @@
+import {failure, json, options} from '../../_lib/http.js';
+import {disconnect} from '../../_lib/spotify.js';
+
+export async function onRequest(context) {
+  if (context.request.method === 'OPTIONS') return options(context.request);
+  if (context.request.method !== 'POST') return json(context.request, {error: 'Methode nicht erlaubt.'}, 405);
+  try {
+    const result = await disconnect(context.request, context.env);
+    return json(context.request, {connected: result.connected}, 200, {'Set-Cookie': result.headers['Set-Cookie']});
+  } catch (error) { return failure(context.request, error); }
+}
