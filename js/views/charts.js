@@ -1,0 +1,244 @@
+// js/views/charts.js — Spotify Top 50 & Tidal Hi-Fi Charts Table
+
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) {
+    module.exports = factory();
+  } else {
+    root.biasChartsView = factory();
+  }
+})(typeof self !== 'undefined' ? self : this, function () {
+  function esc(s) {
+    return String(s || '').replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  }
+
+  class ChartsView {
+    constructor() {
+      this.activeTag = 'Alle';
+      this.activeGen = 'Alle';
+      this.searchQuery = '';
+    }
+
+    render(container) {
+      container.innerHTML = `
+        <div class="view-charts">
+          <!-- Clean View Header without floating search input -->
+          <div class="view-header">
+            <div>
+              <div class="pill-row">
+                <span class="pill pill-accent">Top 50 Community Charts</span>
+                <span class="pill pill-muted">Last.fm Scrobbles · Verifizierte Metadaten</span>
+              </div>
+              <h1 class="view-title">bias.fm Scrobble Charts</h1>
+              <p class="view-subtitle">Die meistgehörten koreanischen Tracks der Community · Hangul, Romanisierung und Produzenten-Credits</p>
+            </div>
+          </div>
+
+          <!-- Unified Spotify/Tidal Style Toolbar (Tabs + Search + Generation in one row) -->
+          <div class="charts-toolbar-bar">
+            <div class="tag-tabs" id="chart-tag-tabs">
+              <button class="tag-tab ${this.activeTag === 'Alle' ? 'is-active' : ''}" data-tag="Alle">Alle Genres</button>
+              <button class="tag-tab ${this.activeTag === 'Idol' ? 'is-active' : ''}" data-tag="Idol">Idol Pop</button>
+              <button class="tag-tab ${this.activeTag === 'Indie' ? 'is-active' : ''}" data-tag="Indie">Indie &amp; Rock</button>
+              <button class="tag-tab ${this.activeTag === 'Hiphop / R&B' ? 'is-active' : ''}" data-tag="Hiphop / R&B">Hiphop &amp; R&amp;B</button>
+              <button class="tag-tab ${this.activeTag === 'Ballade' ? 'is-active' : ''}" data-tag="Ballade">Ballade &amp; OST</button>
+            </div>
+
+            <div class="toolbar-right-controls">
+              <div class="chart-search-wrap">
+                <input type="text" id="chart-filter-input" placeholder="Titel, Hangul, Artist filtern..." value="${esc(this.searchQuery)}" class="chart-search-input">
+              </div>
+
+              <div class="gen-select-wrap">
+                <select id="gen-filter" class="select-input chart-gen-select" title="Nach Generation filtern">
+                  <option value="Alle" ${this.activeGen === 'Alle' ? 'selected' : ''}>Alle Generationen</option>
+                  <option value="4th Gen" ${this.activeGen === '4th Gen' ? 'selected' : ''}>4th Gen (2018–2022)</option>
+                  <option value="3rd Gen" ${this.activeGen === '3rd Gen' ? 'selected' : ''}>3rd Gen (2012–2017)</option>
+                  <option value="2nd Gen" ${this.activeGen === '2nd Gen' ? 'selected' : ''}>2nd Gen (&lt;2012)</option>
+                  <option value="Indie" ${this.activeGen === 'Indie' ? 'selected' : ''}>Indie &amp; Classic</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Chart Table List (Spotify / Tidal Style) -->
+          <div class="chart-table-wrap">
+            <div class="chart-table-head">
+              <span class="col-rank">#</span>
+              <span>Cover</span>
+              <span class="col-title">Titel &amp; Artist</span>
+              <span class="col-tags">Tags</span>
+              <span class="col-producers">Credits</span>
+              <span class="col-plays">Scrobbles</span>
+              <span class="col-actions">Abspielen</span>
+            </div>
+            <div id="chart-rows-container" class="chart-rows"></div>
+          </div>
+        </div>
+      `;
+
+      this.attachEvents(container);
+      this.updateRows();
+    }
+
+    attachEvents(container) {
+      const tabs = container.querySelectorAll('.tag-tab');
+      tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          tabs.forEach(t => t.classList.remove('is-active'));
+          tab.classList.add('is-active');
+          this.activeTag = tab.dataset.tag;
+          this.updateRows();
+        });
+      });
+
+      const genSelect = container.querySelector('#gen-filter');
+      if (genSelect) {
+        genSelect.addEventListener('change', (e) => {
+          this.activeGen = e.target.value;
+          this.updateRows();
+        });
+      }
+
+      const searchInput = container.querySelector('#chart-filter-input');
+      if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+          this.searchQuery = e.target.value.toLowerCase().trim();
+          this.updateRows();
+        });
+      }
+    }
+
+    updateRows() {
+      const container = document.getElementById('chart-rows-container');
+      if (!container) return;
+
+      let filtered = [...(BIAS_DATA.songs || [])];
+
+      // Filter by genre tag
+      if (this.activeTag !== 'Alle') {
+        filtered = filtered.filter(s => {
+          if (this.activeTag === 'Hiphop / R&B') {
+            return s.genres.includes('R&B') || s.genres.includes('Hiphop');
+          }
+          return s.genres.includes(this.activeTag);
+        });
+      }
+
+      // Filter by Generation
+      if (this.activeGen !== 'Alle') {
+        filtered = filtered.filter(s => (s.generation || '').toLowerCase().includes(this.activeGen.toLowerCase()));
+      }
+
+      // Filter by Search Query
+      if (this.searchQuery) {
+        filtered = filtered.filter(s => 
+          s.title.toLowerCase().includes(this.searchQuery) ||
+          (s.hangulTitle || '').toLowerCase().includes(this.searchQuery) ||
+          s.artistName.toLowerCase().includes(this.searchQuery) ||
+          s.album.toLowerCase().includes(this.searchQuery)
+        );
+      }
+
+      // Sort by plays descending
+      filtered.sort((a, b) => b.plays - a.plays);
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="chart-empty" style="padding:40px;text-align:center">
+            <p>Keine Titel für diesen Filter gefunden.</p>
+            <button class="btn btn-ghost btn-sm" onclick="biasChartsView.resetFilters()" style="margin-top:10px">Filter zurücksetzen</button>
+          </div>
+        `;
+        return;
+      }
+
+      const currentDockSong = biasApp.currentTrack;
+
+      container.innerHTML = filtered.map((s, idx) => {
+        const deltaHtml = s.rankDelta === null
+          ? '<span class="delta-badge is-new">NEU</span>'
+          : s.rankDelta === 0
+            ? '<span class="delta-badge is-same">–</span>'
+            : s.rankDelta > 0
+              ? `<span class="delta-badge is-up">▲${s.rankDelta}</span>`
+              : `<span class="delta-badge is-down">▼${Math.abs(s.rankDelta)}</span>`;
+
+        const prods = (s.credits.producers || []).join(', ');
+        const isCurrent = currentDockSong && currentDockSong.id === s.id;
+
+        return `
+          <div class="chart-row-item ${isCurrent ? 'is-active-track' : ''}" onclick="biasApp.loadTrackToDock('${s.id}')">
+            <div class="col-rank">
+              <span class="rank-num">${idx + 1}</span>
+              ${deltaHtml}
+            </div>
+
+            <!-- Thumbnail Cover with Play Hover -->
+            <div class="track-thumb-box" style="background:${s.coverGradient || 'linear-gradient(135deg, #1e3a8a, #38bdf8)'}">
+              <span class="thumb-icon">♪</span>
+              <div class="thumb-hover-play">▶</div>
+            </div>
+
+            <div class="col-title">
+              <div class="track-names">
+                <span class="t-main">${esc(s.title)} <span class="t-hangul">${esc(s.hangulTitle)}</span></span>
+                <span class="t-sub">
+                  <a href="javascript:void(0)" onclick="event.stopPropagation(); biasModals.openArtistModal('${s.artistId}')" class="artist-anchor">
+                    ${esc(s.artistName)}
+                  </a>
+                  <span>·</span>
+                  <span>${esc(s.album)}</span>
+                </span>
+              </div>
+            </div>
+
+            <div class="col-tags">
+              <div class="pills-stack" style="display:flex;gap:4px;flex-wrap:wrap">
+                ${(s.genres || []).slice(0, 2).map(g => `<span class="pill pill-muted">${esc(g)}</span>`).join('')}
+              </div>
+            </div>
+
+            <div class="col-producers">
+              <span class="prod-text" title="Produzent: ${esc(prods)}">Prod. ${esc(prods || '—')}</span>
+            </div>
+
+            <div class="col-plays">
+              <span class="mono plays-val">${s.plays.toLocaleString('de-DE')}</span>
+            </div>
+
+            <div class="col-actions">
+              <button class="btn btn-ghost btn-xs" onclick="event.stopPropagation(); biasModals.openSongModal('${s.id}')" title="Song Inspector">
+                Credits
+              </button>
+              ${s.links.spotify ? `
+                <a href="${s.links.spotify}" target="_blank" rel="noopener" class="quick-link-btn" title="Auf Spotify öffnen" onclick="event.stopPropagation()">
+                  ●
+                </a>` : ''}
+              ${s.links.apple ? `
+                <a href="${s.links.apple}" target="_blank" rel="noopener" class="quick-link-btn" title="Auf Apple Music öffnen" onclick="event.stopPropagation()">
+                  
+                </a>` : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    resetFilters() {
+      this.activeTag = 'Alle';
+      this.activeGen = 'Alle';
+      this.searchQuery = '';
+      const input = document.getElementById('chart-filter-input');
+      if (input) input.value = '';
+      const genSelect = document.getElementById('gen-filter');
+      if (genSelect) genSelect.value = 'Alle';
+      const tabs = document.querySelectorAll('.tag-tab');
+      tabs.forEach(t => t.classList.toggle('is-active', t.dataset.tag === 'Alle'));
+      this.updateRows();
+    }
+  }
+
+  return new ChartsView();
+});

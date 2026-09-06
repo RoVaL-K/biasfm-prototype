@@ -1,243 +1,242 @@
 <!doctype html>
-<html lang="de">
+<html lang="de" data-theme="dark">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>bias.fm — koreanische Musik, deine Zahlen</title>
-<meta name="description" content="Entdeckungs-, Stats- und Community-Ebene für koreanische Musik aller Genres. Comeback-Kalender, Charts, Hördaten. Prototyp der Stufe-0-Landingpage.">
-<meta name="robots" content="noindex">
-<meta property="og:title" content="bias.fm — koreanische Musik, deine Zahlen">
-<meta property="og:description" content="Comeback-Kalender, Charts und Hörstatistik für koreanische Musik aller Genres.">
-<meta property="og:type" content="website">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%23ff4d6d'/%3E%3C/svg%3E">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/style.css">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>bias.fm — Koreanische Musik, deine Zahlen</title>
+  <meta name="description" content="Entdeckungs-, Stats- und Community-Ebene für koreanische Musik aller Genres (Idol, Indie, R&amp;B, Hiphop, Produzenten). Echte Last.fm-Scrobbles, Comeback-Radar und Kanonische Metadaten.">
+  <meta property="og:title" content="bias.fm — Koreanische Musik, deine Zahlen">
+  <meta property="og:description" content="Comeback-Radar, verifizierte Scrobble-Charts und Fan-Identity für koreanische Musik aller Genres. Ohne eigenen Player.">
+  <meta property="og:type" content="website">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%2338bdf8'/%3E%3C/svg%3E">
+
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Modular CSS Architecture (Spotify & Tidal Polish) -->
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/views.css">
 </head>
 <body>
 
-<div class="banner">
-  <div class="wrap">
-    <span><b>Prototyp — Stufe 0.</b> Alle Zahlen, Charts und Kalendereinträge auf dieser Seite sind Platzhalter. Keine API ist angebunden.</span>
-    <a href="konzept.html" style="color:var(--bias);text-decoration:none;margin-left:auto">Konzept lesen&nbsp;→</a>
-  </div>
-</div>
-
-<nav class="nav">
-  <div class="wrap nav-in">
-    <a class="logo" href="index.html"><span class="dot"></span>bias.fm</a>
-    <div class="nav-links">
-      <a href="#charts">Charts</a>
-      <a href="#kalender">Kalender</a>
-      <a href="#raetsel">Rätsel</a>
-      <a href="konzept.html">Konzept</a>
-    </div>
-    <div class="nav-right">
-      <button class="btn btn-ghost" id="theme-toggle" title="Hell / Dunkel" aria-label="Farbschema wechseln">◐</button>
-      <a class="btn" href="#waitlist">Warteliste</a>
+  <!-- Top Announcement Notice -->
+  <div class="top-notice-bar">
+    <div class="wrap notice-inner">
+      <div class="notice-text">
+        <span class="notice-badge">Live Platform</span>
+        <span>bias.fm verbindet Hördaten &amp; Discovery für koreanische Musik aller Genres ohne eigenen Player.</span>
+      </div>
+      <a href="#konzept" class="notice-link" style="color:var(--bias);font-weight:600">handover.md Konzept lesen →</a>
     </div>
   </div>
-</nav>
 
-<header class="hero">
-  <div class="wrap">
-    <p class="eyebrow">Koreanische Musik · alle Genres · kein Player</p>
-    <h1>Deine Hördaten, <em>koreanisch</em> sortiert.</h1>
-    <p>Comeback-Kalender, Charts und Statistik für Idol, Hiphop, R&amp;B, Indie, Ballade und die Produzenten dahinter. Abgespielt wird da, wo du ohnehin hörst — wir sind die Schicht darüber.</p>
+  <!-- Main Navigation Header -->
+  <header class="main-header">
+    <div class="wrap nav-wrap">
+      <!-- Logo -->
+      <a href="#home" class="brand-logo" aria-label="bias.fm Startseite">
+        <span class="brand-dot"></span>
+        <span>bias.fm</span>
+      </a>
 
-    <form class="waitlist" id="waitlist" autocomplete="off">
-      <input type="email" name="email" placeholder="dein@mail.de" aria-label="E-Mail-Adresse" required>
-      <button class="btn btn-accent" type="submit">Auf die Warteliste</button>
-    </form>
-    <p class="waitlist-note" id="waitlist-note">Demo-Formular — es wird nichts gespeichert und nichts versendet.</p>
+      <!-- Navigation Links -->
+      <nav class="desktop-nav" aria-label="Hauptnavigation">
+        <a href="#home" class="nav-link" data-route="home">Home</a>
+        <a href="#charts" class="nav-link" data-route="charts">Charts</a>
+        <a href="#kalender" class="nav-link" data-route="kalender">Radar</a>
+        <a href="#catalog" class="nav-link" data-route="catalog">Katalog &amp; Produzenten</a>
+        <a href="#game" class="nav-link" data-route="game">Rätsel</a>
+        <a href="#stats" class="nav-link" data-route="stats">Stats</a>
+        <a href="#profile" class="nav-link" data-route="profile">Profil</a>
+        <a href="#curation" class="nav-link" data-route="curation">Curation</a>
+        <a href="#konzept" class="nav-link" data-route="konzept">Konzept</a>
+      </nav>
 
-    <div class="swatches">
-      <span class="lbl">Bias-Farbe</span>
-      <button class="sw" data-c="#ff4d6d" style="background:#ff4d6d" aria-label="Rosa" aria-pressed="true"></button>
-      <button class="sw" data-c="#8b5cf6" style="background:#8b5cf6" aria-label="Violett" aria-pressed="false"></button>
-      <button class="sw" data-c="#38bdf8" style="background:#38bdf8" aria-label="Hellblau" aria-pressed="false"></button>
-      <button class="sw" data-c="#34d399" style="background:#34d399" aria-label="Mint" aria-pressed="false"></button>
-      <button class="sw" data-c="#fbbf24" style="background:#fbbf24" aria-label="Gelb" aria-pressed="false"></button>
-      <button class="sw" data-c="#f97316" style="background:#f97316" aria-label="Orange" aria-pressed="false"></button>
-      <button class="sw" data-c="#e11d48" style="background:#e11d48" aria-label="Rot" aria-pressed="false"></button>
-      <button class="sw" data-c="#a3a3ad" style="background:#a3a3ad" aria-label="Grau" aria-pressed="false"></button>
+      <!-- Right Header Actions -->
+      <div class="header-right-actions">
+        <!-- Omnisearch Trigger -->
+        <button class="search-trigger-btn" data-action="open-search" title="Suche öffnen (Cmd+K oder /)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <span>Suche...</span>
+          <span class="kbd-badge">⌘K</span>
+        </button>
+
+        <!-- Current Ult Bias Badge Button -->
+        <button class="user-badge-btn" id="header-ult-badge" onclick="biasApp.navigateTo('profile')" title="Dein Ult Bias">
+          ★ NewJeans
+        </button>
+
+        <!-- Audio FX Toggle -->
+        <button class="audio-toggle-btn" id="audio-fx-btn" title="UI Sound-Feedback an/aus" onclick="biasApp.soundEnabled = !biasApp.soundEnabled; biasApp.showToast(biasApp.soundEnabled ? 'UI-Sounds: An 🔊' : 'UI-Sounds: Stumm 🔇'); this.innerHTML = biasApp.soundEnabled ? '🔊' : '🔇';">
+          🔊
+        </button>
+
+        <!-- Theme Toggle -->
+        <button class="theme-btn" id="theme-toggle-btn" title="Farbschema wechseln (Dunkel / Hell)" aria-label="Farbschema wechseln">
+          ◐
+        </button>
+
+        <!-- Mobile Drawer Toggle -->
+        <button class="mobile-toggle" id="mobile-menu-toggle" aria-label="Menü öffnen">
+          ☰
+        </button>
+      </div>
     </div>
-  </div>
-</header>
+  </header>
 
-<main>
+  <!-- Mobile Drawer -->
+  <aside class="mobile-drawer" id="mobile-drawer" aria-label="Mobiles Navigationsmenü">
+    <div class="drawer-header">
+      <span class="brand-logo"><span class="brand-dot"></span>bias.fm</span>
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('mobile-drawer').classList.remove('is-open')">✕</button>
+    </div>
+    <nav class="drawer-nav">
+      <a href="#home" class="drawer-link" onclick="biasApp.navigateTo('home')">Home</a>
+      <a href="#charts" class="drawer-link" onclick="biasApp.navigateTo('charts')">Charts</a>
+      <a href="#kalender" class="drawer-link" onclick="biasApp.navigateTo('kalender')">Comeback Radar</a>
+      <a href="#catalog" class="drawer-link" onclick="biasApp.navigateTo('catalog')">Katalog &amp; Produzenten</a>
+      <a href="#game" class="drawer-link" onclick="biasApp.navigateTo('game')">Rätsel des Tages</a>
+      <a href="#stats" class="drawer-link" onclick="biasApp.navigateTo('stats')">Korea-Anteil Rechner</a>
+      <a href="#profile" class="drawer-link" onclick="biasApp.navigateTo('profile')">Mein Fan-Profil</a>
+      <a href="#curation" class="drawer-link" onclick="biasApp.navigateTo('curation')">Curation Studio</a>
+      <a href="#konzept" class="drawer-link" onclick="biasApp.navigateTo('konzept')">Konzept &amp; Roadmap</a>
+      <a href="#legal" class="drawer-link" onclick="biasApp.navigateTo('legal')">Recht &amp; Datenschutz</a>
+    </nav>
+  </aside>
 
-<section id="kalender">
-  <div class="wrap">
-    <div class="cols">
-      <div>
-        <div class="sec-head">
-          <h2>Comeback-Kalender</h2>
-          <span class="sub">redaktionell gepflegt · nächste 4 Wochen</span>
+  <!-- Dynamic Main Content Wrapper -->
+  <main id="main-content" class="main-content wrap" role="main"></main>
+
+  <!-- Persistent Bottom Now-Playing & Deep-Link Dock (Spotify / Tidal Style) -->
+  <aside class="bottom-dock" id="bottom-dock" aria-label="Aktueller Track &amp; Schnell-Abspiel-Leiste">
+    <div class="dock-wrap">
+      <!-- Left Track Info -->
+      <div class="dock-track-info">
+        <div class="dock-thumb" id="dock-thumb" onclick="if(biasApp.currentTrack) biasModals.openSongModal(biasApp.currentTrack.id)">
+          <span style="font-size:18px;color:#fff">♪</span>
         </div>
-        <div class="cal" id="cal"></div>
-        <p class="waitlist-note">Titel stehen oft erst 3–7 Tage vorher fest. Externe IDs (ISRC, Spotify, YouTube) matcht später ein Job automatisch.</p>
+        <div class="dock-titles">
+          <span class="dock-title-text" id="dock-title">Ditto</span>
+          <span class="dock-artist-text" id="dock-artist">NewJeans · OMG</span>
+        </div>
+        <button class="dock-like-btn" id="dock-like-btn" title="Zu Favoriten hinzufügen">♡</button>
       </div>
 
-      <div>
-        <div class="card">
-          <h3>Wie viel von deinem Hören ist Korea?</h3>
-          <p>Der Hook, der ohne Spotify funktioniert: Last.fm oder ListenBrainz verbinden, echte Historie statt eines 50-Play-Fensters.</p>
-          <div class="share">
-            <div class="donut">
-              <svg width="96" height="96" viewBox="0 0 96 96" aria-hidden="true">
-                <circle cx="48" cy="48" r="40" fill="none" stroke="var(--line)" stroke-width="12"></circle>
-                <circle id="donut-arc" cx="48" cy="48" r="40" fill="none" stroke="var(--bias)" stroke-width="12"
-                        stroke-linecap="round" stroke-dasharray="251.3" stroke-dashoffset="251.3"></circle>
-              </svg>
-              <div class="val" id="donut-val">0%</div>
-            </div>
-            <div class="share-legend">
-              <div><span class="swatch" style="background:var(--bias)"></span><span class="k">4.812</span> koreanische Scrobbles</div>
-              <div><span class="swatch" style="background:var(--line)"></span>7.640 übrige</div>
-              <div style="color:var(--fg-dim);font-size:12px;margin-top:9px">Beispielprofil · letzte 12 Monate</div>
-            </div>
+      <!-- Center Playback Controls & Progress Bar -->
+      <div class="dock-controls">
+        <div class="dock-buttons-row">
+          <button class="dock-ctrl-btn" title="Vorheriger Track" onclick="biasApp.showToast('Vorheriger Track')">⏮</button>
+          <button class="dock-play-circle" id="dock-play-btn" title="Play / Pause">▶</button>
+          <button class="dock-ctrl-btn" title="Nächster Track" onclick="biasApp.showToast('Nächster Track')">⏭</button>
+          <!-- Equalizer Animated Bars -->
+          <div class="eq-visualizer is-paused" id="dock-visualizer" title="Live Visualizer">
+            <span class="eq-bar"></span>
+            <span class="eq-bar"></span>
+            <span class="eq-bar"></span>
+            <span class="eq-bar"></span>
           </div>
-          <a class="btn" href="#waitlist">Last.fm verbinden</a>
-          <a class="btn btn-ghost" href="#waitlist">ListenBrainz</a>
         </div>
-
-        <div class="card">
-          <h3>Spotify? Optional.</h3>
-          <p>Seit 2024/25 sind Audio Features, Recommendations und Batch-Abrufe für neue Apps tot, Extended Quota verlangt 250.000 MAU. Deshalb ist Spotify hier ein Deep-Link- und Playlist-Ziel — kein Pflicht-Login.</p>
-          <a class="btn btn-ghost" href="konzept.html#s-3-kritische-korrektur-datenquellen-2026">Warum, im Detail →</a>
+        <div class="dock-timeline-row">
+          <span id="dock-curr-time">0:38</span>
+          <div class="dock-timeline-bar" onclick="biasApp.showToast('Scrubbing simuliert')">
+            <div class="dock-timeline-fill" id="dock-timeline-fill"></div>
+          </div>
+          <span id="dock-total-time">3:05</span>
         </div>
       </div>
-    </div>
-  </div>
-</section>
 
-<section id="charts">
-  <div class="wrap">
-    <div class="sec-head">
-      <h2>Charts</h2>
-      <span class="sub">Community-Scrobbles + Redaktion</span>
-      <span class="spacer"></span>
-      <div class="tabs" id="chart-tabs" role="tablist"></div>
+      <!-- Right Actions & Deep-Links -->
+      <div class="dock-actions">
+        <button class="btn btn-ghost btn-sm" id="dock-credits-btn" title="Vollständige Credits &amp; ISRC ansehen">
+          Credits
+        </button>
+        <a href="https://open.spotify.com" target="_blank" rel="noopener" class="dock-deeplink-btn spotify" id="dock-spotify-btn" title="Auf Spotify öffnen">
+          <span>●</span> Spotify
+        </a>
+        <a href="https://music.apple.com" target="_blank" rel="noopener" class="dock-deeplink-btn apple" id="dock-apple-btn" title="Auf Apple Music öffnen">
+          <span></span> Apple
+        </a>
+      </div>
     </div>
-    <div class="chart" id="chart"></div>
-    <p class="waitlist-note">Sortiert nach Scrobbles verbundener Profile, nicht nach einem Popularity-Feld. Hangul, Romanisierung und Aliasse werden gleichberechtigt durchsucht.</p>
-  </div>
-</section>
+  </aside>
 
-<section id="raetsel">
-  <div class="wrap">
-    <div class="cols">
-      <div>
-        <div class="sec-head"><h2>Rätsel des Tages</h2><span class="sub">ohne Audio, ohne Lizenzfrage</span></div>
-        <div class="card">
-          <p style="margin-bottom:18px">Cover unscharf, Jahr, Genre, eine Zeile Text. Kein Audio-Schnipsel — das spart Lizenz, GEMA und Hosting und funktioniert trotzdem als täglicher Anlass zurückzukommen.</p>
-          <ul class="puz-hints">
-            <li><span class="h-k">Jahr</span><span>2023</span></li>
-            <li><span class="h-k">Genre</span><span>R&amp;B · Neo-Soul</span></li>
-            <li><span class="h-k">Credits</span><span>Prod. von einem Produzenten, der auch für Idol-Gruppen schreibt</span></li>
-            <li><span class="h-k">Zeile</span><span style="color:var(--fg-dim)">„… ▁▁▁▁ ▁▁ ▁▁▁▁▁ ▁▁“</span></li>
+  <!-- Global Footer -->
+  <footer class="main-footer" role="contentinfo">
+    <div class="wrap">
+      <div class="footer-inner">
+        <div class="footer-brand">
+          <h4>bias.fm</h4>
+          <p>Kuratierte Entdeckungs-, Stats- und Community-Ebene für koreanische Musik aller Genres. Keine GEMA-pflichtigen Web-Player, stattdessen direkte Deep-Links zu lizenzierten Streaming-Plattformen.</p>
+        </div>
+
+        <div class="footer-col">
+          <h5>Discovery</h5>
+          <ul>
+            <li><a href="#charts">Scrobble Charts</a></li>
+            <li><a href="#kalender">Comeback Radar</a></li>
+            <li><a href="#catalog">Produzenten-Graph</a></li>
+            <li><a href="#game">Rätsel des Tages</a></li>
           </ul>
-          <form id="puz-form" class="waitlist" autocomplete="off">
-            <input type="text" placeholder="Titel oder Artist raten" aria-label="Rateeingabe">
-            <button class="btn btn-accent" type="submit">Raten</button>
-          </form>
-          <p class="waitlist-note" id="puz-note">3 Versuche übrig · Demo, es wird nichts ausgewertet.</p>
+        </div>
+
+        <div class="footer-col">
+          <h5>Stats &amp; Community</h5>
+          <ul>
+            <li><a href="#stats">Korea-Anteil</a></li>
+            <li><a href="#profile">Ult Bias &amp; Line</a></li>
+            <li><a href="#curation">Curation Studio</a></li>
+            <li><a href="#konzept">Handover Konzept</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-col">
+          <h5>Recht &amp; Betrieb (DE)</h5>
+          <ul>
+            <li><a href="#legal" onclick="biasLegalView.activeTab='impressum'">Impressum (§ 5 DDG)</a></li>
+            <li><a href="#legal" onclick="biasLegalView.activeTab='datenschutz'">Datenschutz (DSGVO)</a></li>
+            <li><a href="#legal" onclick="biasLegalView.activeTab='tdddg'">Cookies &amp; TDDDG</a></li>
+            <li><a href="#legal" onclick="biasLegalView.activeTab='urheberrecht'">Urheberrecht (GEMA)</a></li>
+          </ul>
         </div>
       </div>
-      <div>
-        <div class="puz-wrap">
-          <span class="puz-badge">Cover · unscharf</span>
-          <div class="puz-cover"></div>
-        </div>
+
+      <div class="footer-bottom-bar">
+        <span>© 2026 bias.fm · Alle Daten kanonisch verifiziert via MusicBrainz &amp; ISRC</span>
+        <span>Entwickelt nach handover.md v2 Spezifikation</span>
       </div>
     </div>
-  </div>
-</section>
+  </footer>
 
-<section id="was">
-  <div class="wrap">
-    <div class="sec-head"><h2>Was hier anders läuft</h2></div>
-    <div class="grid3">
-      <div class="feat">
-        <div class="n">01</div>
-        <h3>Produzenten als eigene Seiten</h3>
-        <p>In koreanischem Hiphop, R&amp;B und Indie ist der Beatmaker oft der Grund zum Hören. Rollen als Relationen: produced, written, arranged, featured.</p>
-      </div>
-      <div class="feat">
-        <div class="n">02</div>
-        <h3>Hangul zuerst</h3>
-        <p>수민 / SUMIN / Sumin sind ein Objekt. Aliasse, revidierte Romanisierung, alte Gruppennamen und Export-Schreibweisen matchen gleichberechtigt.</p>
-      </div>
-      <div class="feat">
-        <div class="n">03</div>
-        <h3>Bias auch für Solos</h3>
-        <p>Ult ist bei Solo-Acts der Act selbst. Bei Gruppen: Act-Bias plus optionales Mitglied. Gedeckelt auf 1 Ult + 3 Bias, damit es kein Spam wird.</p>
-      </div>
-      <div class="feat">
-        <div class="n">04</div>
-        <h3>Tags statt Genre-Silos</h3>
-        <p>Genre, Mood, Generation, Konzept, Sprache, Release-Typ als feste Listen. Generation wird aus dem Debüt abgeleitet — nie community-editierbar.</p>
-      </div>
-      <div class="feat">
-        <div class="n">05</div>
-        <h3>Kanonische IDs</h3>
-        <p>ISRC und MusicBrainz-Recording als Primärschlüssel, Streaming-IDs nur als externe Felder. Sonst zerfällt alles an Remix, Inst und JP-Ver.</p>
-      </div>
-      <div class="feat">
-        <div class="n">06</div>
-        <h3>Templates vor KI</h3>
-        <p>Beschreibungen aus verifizierten Metadaten, nicht aus einem Sprachmodell. Halluzinierte Mitgliederlisten sind Vertrauensgift.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section id="abgrenzung">
-  <div class="wrap">
-    <div class="sec-head"><h2>Ist / ist nicht</h2></div>
-    <div class="notlist">
-      <ul>
-        <li class="yes"><span>ist</span>Entdeckungs-, Stats- und Community-Ebene über bestehenden Diensten</li>
-        <li class="yes"><span>ist</span>kuratierter Katalog koreanischer Musik, über Tags organisiert</li>
-        <li class="yes"><span>ist</span>Identitäts-Objekt für Fans: Bias, Hörzahlen, Comebacks</li>
-        <li class="yes"><span>ist</span>web-first, crawlbar, ohne native App</li>
-      </ul>
-      <ul>
-        <li><span>nicht</span>kein Web-Player, kein Audio-Hosting</li>
-        <li><span>nicht</span>kein Photocard-Marktplatz</li>
-        <li><span>nicht</span>kein All-Asia-Portal, kein reines Idol-Wiki</li>
-        <li><span>nicht</span>kein Chartmetric/Songstats für Labels</li>
-      </ul>
-    </div>
-  </div>
-</section>
-
-<section id="cta" style="border-bottom:0">
-  <div class="wrap" style="text-align:center;padding:20px 0">
-    <h2 style="font-size:24px;letter-spacing:-0.03em;margin:0 0 10px">Stufe 0 heißt: erst Signal, dann Code.</h2>
-    <p style="color:var(--fg-mid);max-width:52ch;margin:0 auto 22px">Wenn hier niemand einträgt und niemand rätselt, wird V1 nicht gebaut. So ist der Plan.</p>
-    <a class="btn btn-accent" href="#waitlist">Auf die Warteliste</a>
-    <a class="btn btn-ghost" href="konzept.html">Ganzes Konzept lesen</a>
-  </div>
-</section>
-
-</main>
-
-<footer>
-  <div class="wrap foot-in">
-    <span><span class="status-dot"></span>Prototyp · keine Live-Daten</span>
-    <div class="foot-links">
-      <a href="konzept.html">Konzept</a>
-      <a href="#">Status</a>
-      <a href="#">Kontakt</a>
-      <a href="#">Impressum</a>
-      <a href="#">Datenschutz</a>
-    </div>
-  </div>
-</footer>
-
-<script src="assets/app.js"></script>
+  <!-- Scripts -->
+  <script src="js/data.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/search.js"></script>
+  <script src="js/modals.js"></script>
+  <script src="js/views/home.js"></script>
+  <script src="js/views/charts.js"></script>
+  <script src="js/views/calendar.js"></script>
+  <script src="js/views/catalog.js"></script>
+  <script src="js/views/game.js"></script>
+  <script src="js/views/stats.js"></script>
+  <script src="js/views/profile.js"></script>
+  <script src="js/views/curation.js"></script>
+  <script src="js/views/konzept.js"></script>
+  <script src="js/views/legal.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      if (window.biasApp) {
+        window.biasApp.init();
+      }
+    });
+  </script>
 </body>
 </html>

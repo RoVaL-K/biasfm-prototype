@@ -1,0 +1,133 @@
+/* css/base.css — Modern Reset, Typography & Ambient Spotify/Tidal Aesthetic */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--fg);
+  background: var(--bg-gradient);
+  background-attachment: fixed;
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  background: transparent;
+  padding-bottom: var(--dock-height); /* Space for bottom dock */
+}
+
+::selection {
+  background-color: var(--bias);
+  color: #000000;
+}
+
+/* Typography */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--fg-bright);
+  font-weight: 700;
+  line-height: 1.22;
+  letter-spacing: -0.03em;
+}
+
+h1 { font-size: 2.6rem; letter-spacing: -0.04em; }
+h2 { font-size: 1.85rem; }
+h3 { font-size: 1.4rem; }
+h4 { font-size: 1.15rem; }
+
+p {
+  color: var(--fg-mid);
+  line-height: 1.6;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+  transition: color var(--tr-fast);
+}
+
+a:hover {
+  color: var(--bias);
+}
+
+code, .mono {
+  font-family: var(--font-mono);
+}
+
+/* Custom Sleek Scrollbar */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--line-light);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--fg-dim);
+}
+
+/* Utility Containers */
+.wrap {
+  width: 100%;
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.main-content {
+  flex: 1;
+  padding: 24px 0 40px;
+  animation: viewFadeIn 0.3s var(--ease-spring);
+}
+
+@keyframes viewFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Global Toast Notification */
+.global-toast {
+  position: fixed;
+  bottom: calc(var(--dock-height) + 18px);
+  right: 24px;
+  background: var(--bg-card);
+  color: var(--fg-bright);
+  border: 1px solid var(--bias);
+  padding: 12px 22px;
+  border-radius: var(--radius-full);
+  font-size: 13.5px;
+  font-weight: 600;
+  box-shadow: var(--shadow-md), 0 0 20px var(--bias-glow-soft);
+  z-index: 10000;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(14px) scale(0.96);
+  transition: all var(--tr-norm);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.global-toast.is-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}

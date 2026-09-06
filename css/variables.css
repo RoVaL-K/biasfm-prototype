@@ -1,0 +1,102 @@
+/* css/variables.css — Premium Spotify & Tidal Inspired Design System */
+
+:root {
+  /* Dynamic Accent Color (Default Tokki Sky Blue) */
+  --bias: #38bdf8;
+  --bias-rgb: 56, 189, 248;
+  --bias-glow: rgba(56, 189, 248, 0.28);
+  --bias-glow-soft: rgba(56, 189, 248, 0.08);
+
+  /* Platform Brand Colors (Deep-Link Integrations) */
+  --spotify-green: #1db954;
+  --apple-music: #fc3c44;
+  --youtube-red: #ff0000;
+  --melon-green: #00cd3c;
+  --tidal-cyan: #00ffff;
+  --bandcamp-blue: #629aa9;
+
+  /* Typography */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* Easing & Micro-Animations */
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  --tr-fast: 0.14s var(--ease-smooth);
+  --tr-norm: 0.24s var(--ease-spring);
+  --tr-slow: 0.45s var(--ease-spring);
+
+  /* Radii */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+
+  /* Layout */
+  --max-width: 1280px;
+  --header-height: 68px;
+  --dock-height: 76px;
+}
+
+/* Spotify/Tidal Pure Dark Mode (Default) */
+:root, [data-theme="dark"] {
+  --bg: #070709;
+  --bg-gradient: radial-gradient(circle at 50% -10%, rgba(var(--bias-rgb), 0.12) 0%, transparent 55%), #070709;
+  --bg-card: #111115;
+  --bg-card-hover: #17171d;
+  --bg-card-active: #1e1e26;
+  --bg-subtle: #181820;
+  --bg-dock: rgba(13, 13, 17, 0.92);
+
+  --line: #20202a;
+  --line-light: #2c2c3a;
+  --line-strong: #3e3e50;
+
+  --fg: #ffffff;
+  --fg-bright: #ffffff;
+  --fg-mid: #9ca3af;
+  --fg-dim: #6b7280;
+  --fg-faint: #4b5563;
+
+  --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 8px 30px rgba(0, 0, 0, 0.65);
+  --shadow-lg: 0 20px 50px rgba(0, 0, 0, 0.85);
+  --shadow-bias: 0 8px 28px rgba(var(--bias-rgb), 0.25);
+
+  --glass-bg: rgba(9, 9, 12, 0.82);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-highlight: rgba(255, 255, 255, 0.04);
+}
+
+/* Tidal Hi-Fi Light Mode */
+[data-theme="light"] {
+  --bg: #f8f9fc;
+  --bg-gradient: radial-gradient(circle at 50% -10%, rgba(var(--bias-rgb), 0.1) 0%, transparent 60%), #f8f9fc;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f3f5f9;
+  --bg-card-active: #e8ebf2;
+  --bg-subtle: #f0f2f7;
+  --bg-dock: rgba(255, 255, 255, 0.94);
+
+  --line: #dce0e8;
+  --line-light: #cbcfd8;
+  --line-strong: #9ca3af;
+
+  --fg: #0f1117;
+  --fg-bright: #000000;
+  --fg-mid: #374151;
+  --fg-dim: #6b7280;
+  --fg-faint: #9ca3af;
+
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.12);
+  --shadow-bias: 0 8px 24px rgba(var(--bias-rgb), 0.2);
+
+  --glass-bg: rgba(248, 249, 252, 0.88);
+  --glass-border: rgba(0, 0, 0, 0.06);
+  --glass-highlight: rgba(255, 255, 255, 0.6);
+}
