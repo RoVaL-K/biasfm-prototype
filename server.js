@@ -73,7 +73,7 @@ function createServer(options={}) {
         } finally { active--; }
       }
       if (pathname.startsWith('/api/')) return send(404, JSON.stringify({error:'Unbekannte Anfrage.'}));
-      const allowed = pathname === '/' || /^\/(index\.html|404\.html|konzept\.html)$/.test(pathname) || /^\/(css|js)\/[a-zA-Z0-9_./-]+$/.test(pathname);
+      const allowed = pathname === '/' || /^\/(index\.html|404\.html)$/.test(pathname) || /^\/(css|js)\/[a-zA-Z0-9_./-]+$/.test(pathname);
       if (!allowed || pathname.split('/').some(p => p.startsWith('.'))) return send(404,'Nicht gefunden.','text/plain');
       const file = path.resolve(ROOT, '.' + (pathname === '/' ? '/index.html' : pathname));
       if (!file.startsWith(ROOT + path.sep)) return send(404,'Nicht gefunden.','text/plain');

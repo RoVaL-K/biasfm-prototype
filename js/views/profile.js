@@ -34,7 +34,7 @@
     renderEdit(container) {
       const profile = biasStore.profile;
       this.draftColor=profile.accentColor;this.draftFandom=profile.fandomName;
-      const ultArtist = (BIAS_DATA.artists || []).find(a => a.id === profile.ultBiasArtist) || BIAS_DATA.artists[0];
+      const ultArtist = (BIAS_DATA.artists || []).find(a => a.id === profile.ultBiasArtist);
       const wreckerArtist = (BIAS_DATA.artists || []).find(a => a.id === profile.biasWrecker);
 
       container.innerHTML = `
@@ -59,7 +59,6 @@
                   <div class="fan-avatar-ring" style="border-color:var(--bias)">
                     <span class="avatar-initials">${esc(profile.username.slice(0, 2).toUpperCase())}</span>
                   </div>
-                  <span class="avatar-badge" style="background:var(--bias)">★</span>
                 </div>
 
                 <h3 class="fan-username">${esc(profile.username)}</h3>
@@ -70,7 +69,7 @@
                 <div class="fan-bias-summary">
                   <div class="bias-field-row">
                     <span class="field-k">Ult / Lieblingsact:</span>
-                    <span class="field-v"><b>${esc(ultArtist.name)}</b> ${profile.ultBiasMember ? `(${esc(profile.ultBiasMember)})` : ''}</span>
+                    <span class="field-v"><b>${esc(ultArtist?.name || 'Kein Lieblingsact gewählt')}</b> ${ultArtist && profile.ultBiasMember ? `(${esc(profile.ultBiasMember)})` : ''}</span>
                   </div>
                   <div class="bias-field-row">
                     <span class="field-k">Wildcard:</span>
@@ -88,8 +87,8 @@
                 </div>
 
                 <div class="card-footer-info">
-                  <span>Plattform: <b>bias.fm</b></span>
-                  <span class="mono">MEIN MUSIKPROFIL</span>
+                  <span>Persönliche Profilkarte</span>
+                  <span class="mono">LOKAL GESPEICHERT</span>
                 </div>
               </div>
             </div>
@@ -122,7 +121,7 @@
                     <label for="prof-ult-member" class="form-label">Mitglied (optional bei Gruppen)</label>
                     <select id="prof-ult-member" class="select-input">
                       <option value="">Ganze Gruppe (OT)</option>
-                      ${ultArtist.members ? ultArtist.members.map(m => `
+                      ${ultArtist?.members ? ultArtist.members.map(m => `
                         <option value="${esc(m.name)}" ${m.name === profile.ultBiasMember ? 'selected' : ''}>
                           ${esc(m.name)} (${esc(m.hangul)})
                         </option>
@@ -160,7 +159,7 @@
                 </div>
 
                 <h3 class="settings-section-title" style="margin-top:24px">4. Dein Profil-Akzent</h3>
-                <p class="section-note">Wähle eine der 8 kuratierten Fandom-Farben — passend zu deinem Musikgeschmack.</p>
+                <p class="section-note">Wähle einen kuratierten Fandom-/Profil-Akzent. Die Farbe verändert nicht das Produkt-Theme.</p>
                 <div class="fandom-swatches-grid">
                   ${BIAS_DATA.fandomColors.map(fc => `
                     <button type="button" class="fandom-swatch-card ${fc.color === biasStore.accentColor ? 'is-active' : ''}" 
@@ -174,6 +173,12 @@
                       </div>
                     </button>
                   `).join('')}
+                </div>
+
+                <div class="custom-accent-row">
+                  <label for="profile-accent-hex" class="form-label">Eigene Profilfarbe (nur Akzent)</label>
+                  <div class="inline-form"><input id="profile-accent-hex" class="text-input" value="${esc(this.draftColor || '#38bdf8')}" inputmode="text" maxlength="7" pattern="#[0-9a-fA-F]{6}" aria-describedby="profile-accent-status"><button type="button" class="btn btn-ghost" id="apply-profile-accent">Vorschau anwenden</button></div>
+                  <p id="profile-accent-status" class="section-note" role="status">Kontrast wird geprüft …</p>
                 </div>
 
                 <div class="form-save-bar" style="margin-top:28px">
@@ -190,8 +195,9 @@
       container.querySelector('.profile-card-col')?.remove();
       container.querySelector('.profile-layout-grid').classList.add('profile-edit-layout');
       container.querySelector('.view-header').insertAdjacentHTML('beforeend','<a href="#profile" class="btn btn-ghost">Zurück zum Profil</a>');
-      container.querySelector('.form-save-bar').insertAdjacentHTML('beforebegin',`<h3 class="settings-section-title">Produkt-Theme</h3><p class="section-note">Die Produktpalette bleibt unabhängig von deinem Profil-Akzent.</p><label for="profile-theme">Erscheinungsbild</label><select id="profile-theme" class="select-input">${[['dark','Mono Mint'],['night','Seoul Night Market'],['light','Warm Paper']].map(([id,label])=>`<option value="${id}" ${biasStore.theme===id?'selected':''}>${label}</option>`).join('')}</select>`);
+      container.querySelector('.form-save-bar').insertAdjacentHTML('beforebegin',`<h3 class="settings-section-title">Produkt-Theme</h3><p class="section-note">Die Produktpalette bleibt unabhängig von deinem Profil-Akzent.</p><label for="profile-theme">Erscheinungsbild</label><select id="profile-theme" class="select-input">${[['dark','Mono Mint'],['night','Seoul Night Market'],['holographic','Holographic Pop'],['light','Warm Paper'],['jewel','Deep Jewel']].map(([id,label])=>`<option value="${id}" ${biasStore.theme===id?'selected':''}>${label}</option>`).join('')}</select>`);
       this.attachEvents(container);
+      this.updateAccentStatus(container);
       if(window.biasConnections)biasConnections.mount(container,true);
       const memberGroup=container.querySelector('#member-select-group');
       if(memberGroup)memberGroup.hidden=!BIAS_DATA.artists.find(a=>a.id===profile.ultBiasArtist)?.members?.length;
@@ -232,12 +238,25 @@
           }
         });
       });
+
+      const accentInput = container.querySelector('#profile-accent-hex');
+      const accentApply = container.querySelector('#apply-profile-accent');
+      accentApply?.addEventListener('click', () => {
+        const value = accentInput.value.trim();
+        if (!biasStore.isContrastSafe(value)) {
+          this.updateAccentStatus(container, 'Diese Farbe braucht mehr Kontrast zur Produktfläche.');
+          return;
+        }
+        this.selectColor(value, 'Eigener Profil-Akzent');
+        this.updateAccentStatus(container);
+      });
+      accentInput?.addEventListener('input', () => this.updateAccentStatus(container));
     }
 
     selectColor(colorHex, fandomName) {
       this.draftColor=colorHex;this.draftFandom=fandomName;
       const cards = document.querySelectorAll('.fandom-swatch-card');
-      cards.forEach(c => c.classList.toggle('is-active', c.dataset.color === colorHex));
+      cards.forEach(card => card.classList.toggle('is-active', card.dataset.color.toLowerCase() === String(colorHex).toLowerCase()));
       const ring = document.querySelector('.fan-avatar-ring');
       if (ring) ring.style.borderColor = colorHex;
       const title = document.querySelector('.fan-fandom-title');
@@ -245,6 +264,18 @@
         title.style.color = colorHex;
         title.textContent = `● ${fandomName}`;
       }
+      const input=document.getElementById('profile-accent-hex');if(input)input.value=colorHex;
+      this.updateAccentStatus(document);
+    }
+
+    updateAccentStatus(container, customMessage) {
+      const input=container?.querySelector?.('#profile-accent-hex') || document.querySelector('#profile-accent-hex');
+      const status=container?.querySelector?.('#profile-accent-status') || document.querySelector('#profile-accent-status');
+      if(!input || !status)return;
+      const value=input.value.trim();
+      if(customMessage){status.textContent=customMessage;status.classList.add('inline-error');return;}
+      status.classList.remove('inline-error');
+      status.textContent=/^#[0-9a-f]{6}$/i.test(value) && biasStore.isContrastSafe(value) ? '✓ Kontrast geprüft – nur auf deiner Profilkarte.' : 'Bitte einen gültigen Hex-Wert mit ausreichendem Kontrast eingeben.';
     }
 
     saveProfile() {
@@ -256,24 +287,28 @@
       const selectedChips = document.querySelectorAll('.bias-select-chip.is-selected');
       const biasLine = Array.from(selectedChips).map(c => c.dataset.artistId).filter(id => id !== ultArtistSelect.value).slice(0,3);
 
-      const username = usernameInput ? usernameInput.value.trim() : 'Stan';
-      const ultBiasArtist = ultArtistSelect ? ultArtistSelect.value : 'newjeans';
+      const username = usernameInput ? usernameInput.value.trim() : 'musikfan';
+      const ultBiasArtist = ultArtistSelect ? ultArtistSelect.value : '';
       const ultBiasMember = ultMemberSelect ? ultMemberSelect.value : '';
       const biasWrecker = wreckerSelect ? wreckerSelect.value : '';
 
+      const typedColor=document.getElementById('profile-accent-hex')?.value.trim();
+      if(typedColor){if(!biasStore.isContrastSafe(typedColor)){biasApp.showToast('Bitte eine Profilfarbe mit ausreichendem Kontrast wählen.');document.getElementById('profile-accent-hex')?.focus();return;}this.draftColor=typedColor;this.draftFandom=this.draftFandom || 'Eigener Profil-Akzent';}
       if (!/^[a-z0-9_-]{3,20}$/.test(username)) {biasApp.showToast('Bitte 3–20 Kleinbuchstaben, Zahlen, - oder _ verwenden.');usernameInput.focus();return;}
-      biasStore.updateProfile({
-        username,
-        bio: document.getElementById('prof-bio').value.trim().slice(0,280),
-        accentColor:this.draftColor,
-        fandomName:this.draftFandom,
-        ultBiasArtist,
-        ultBiasMember,
-        biasLine,
-        biasWrecker: biasWrecker === ultBiasArtist ? "" : biasWrecker
-      });
-
-      biasStore.setTheme(document.getElementById('profile-theme').value);
+      if (!this.draftColor || !biasStore.isContrastSafe(this.draftColor)) {biasApp.showToast('Bitte eine Profilfarbe mit ausreichendem Kontrast wählen.');return;}
+      try {
+        biasStore.updateProfile({
+          username,
+          bio: document.getElementById('prof-bio').value.trim().slice(0,280),
+          accentColor:this.draftColor,
+          fandomName:this.draftFandom,
+          ultBiasArtist,
+          ultBiasMember,
+          biasLine,
+          biasWrecker: biasWrecker === ultBiasArtist ? "" : biasWrecker
+        });
+        biasStore.setTheme(document.getElementById('profile-theme').value);
+      } catch(error) { biasApp.showToast(error.message); return; }
       biasApp.showToast('Profil erfolgreich gespeichert!');
       
       const appContainer = document.getElementById('main-content');

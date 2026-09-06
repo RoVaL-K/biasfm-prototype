@@ -1,5 +1,5 @@
 // js/modals.js — Premium Inspector Modals (Song, Artist, Producer, Share-Card)
-// Basiert auf handover.md: ISRC, MBID, Credits-Graph, Deep-Links (Spotify/Apple/Melon), YouTube-Embed.
+// Basiert auf handover.md: ISRC, MBID, Credits-Graph und sichere Anbieter-Deep-Links.
 
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) {
@@ -154,23 +154,6 @@
               </a>` : ''}
           </div>
         </div>
-
-        ${song.youtubeId ? `
-          <div class="modal-section">
-            <details class="yt-preview-box">
-              <summary class="btn btn-ghost btn-sm" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer">
-                <span>▶ Offizielles Musikvideo / Audio Teaser laden</span>
-              </summary>
-              <div class="yt-embed-wrap" style="margin-top:12px;position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:8px;border:1px solid var(--line)">
-                <iframe src="https://www.youtube-nocookie.com/embed/${song.youtubeId}?autoplay=0&rel=0" 
-                        title="${esc(song.title)} Video"
-                        style="position:absolute;top:0;left:0;width:100%;height:100%;border:0" 
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                        allowfullscreen></iframe>
-              </div>
-            </details>
-          </div>
-        ` : ''}
 
         <div class="modal-section">
           <h4 class="section-label">Kanonische Metadaten & Credits (MusicBrainz / ISRC)</h4>
@@ -363,7 +346,7 @@
       this.shareData = statsData;
       const username = statsData.username || profile.username || 'Musikfan';
       const ultArtist = (BIAS_DATA.artists || []).find(a => a.id === profile.ultBiasArtist);
-      const ultName = ultArtist ? `${ultArtist.name} (${profile.ultBiasMember || 'All'})` : 'NewJeans (Hanni)';
+      const ultName = ultArtist ? `${ultArtist.name} (${profile.ultBiasMember || 'All'})` : 'Kein Lieblingsact gewählt';
 
       const content = `
         <div class="modal-header">

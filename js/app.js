@@ -1,4 +1,4 @@
-// js/app.js — Core Orchestrator, Router, Persistent Now-Playing Dock & UI Controller
+// js/app.js — Core Orchestrator, Router & UI Controller
 
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) {
@@ -17,11 +17,7 @@
     constructor() {
       this.currentRoute = 'home';
       this.views = {};
-      this.currentTrack = null;
-      this.isPlaying = false;
       this.likedSongs = new Set();
-      this.playbackTimer = null;
-      this.playbackSeconds = 38;
       this.soundEnabled = false;
 
       // Load liked songs
@@ -58,7 +54,6 @@
       this.initRouting();
       this.initThemeToggle();
       this.initMobileNav();
-      this.initDockPlayer();
 
       if (window.biasSearch) {
         window.biasSearch.initOmnisearchUI();
@@ -150,8 +145,9 @@
       if (toggleBtn) {
         toggleBtn.addEventListener('click', () => {
           const next = biasStore.toggleTheme();
-          toggleBtn.innerHTML = next === 'dark' ? '◐' : '☼';
-          this.showToast(`Farbschema: ${next === 'dark' ? 'Dunkel' : 'Hell'}`);
+          const labels={dark:'Mono Mint',night:'Seoul Night Market',holographic:'Holographic Pop',light:'Warm Paper',jewel:'Deep Jewel'};
+          toggleBtn.innerHTML = '◐';
+          this.showToast(`Farbschema: ${labels[next] || next}`);
         });
       }
     }
@@ -177,100 +173,17 @@
       if(wasOpen)button?.focus();
     }
 
-    // ================= DOCK PLAYER CONTROLLER =================
-    initDockPlayer() {
-      const dock = document.getElementById('bottom-dock');
-      if (!dock) return;
-
-      const playBtn = document.getElementById('dock-play-btn');
-      if (playBtn) {
-        playBtn.addEventListener('click', () => {
-          this.togglePlayback();
-        });
-      }
-
-      document.getElementById('dock-prev-btn')?.addEventListener('click', () => this.moveTrack(-1));
-      document.getElementById('dock-next-btn')?.addEventListener('click', () => this.moveTrack(1));
-      const likeBtn = document.getElementById('dock-like-btn');
-      if (likeBtn) {
-        likeBtn.addEventListener('click', () => {
-          if (!this.currentTrack) return;
-          this.toggleLike(this.currentTrack.id);
-        });
-      }
-    }
-
-    loadTrackToDock(songId, autoPlay = true) {
+    // Songs open their detail sheet and external provider links. bias.fm never
+    // pretends to play audio inside the product.
+    openSong(songId) {
       const song = (BIAS_DATA.songs || []).find(s => s.id === songId);
       if (!song) return;
-
-      this.currentTrack = song;
-      if (!document.getElementById('bottom-dock')) {if(autoPlay)biasModals.openSongModal(songId);return;}
-
-      const dock = document.getElementById('bottom-dock');
-      const thumb = document.getElementById('dock-thumb');
-      const title = document.getElementById('dock-title');
-      const artist = document.getElementById('dock-artist');
-      const likeBtn = document.getElementById('dock-like-btn');
-      const spotifyBtn = document.getElementById('dock-spotify-btn');
-      const appleBtn = document.getElementById('dock-apple-btn');
-      const creditsBtn = document.getElementById('dock-credits-btn');
-
-      if (thumb) {
-        thumb.style.background = song.coverGradient || 'linear-gradient(135deg, #1e3a8a, #38bdf8)';
-      }
-      if (title) {
-        title.innerHTML = `${esc(song.title)} <span style="font-weight:400;color:var(--fg-dim)">(${esc(song.hangulTitle)})</span>`;
-      }
-      if (artist) {
-        artist.textContent = `${song.artistName} · ${song.album}`;
-      }
-      if (likeBtn) {
-        const isLiked = this.likedSongs.has(song.id);
-        likeBtn.innerHTML = isLiked ? '♥' : '♡';
-        likeBtn.classList.toggle('is-liked', isLiked);
-      }
-      if (spotifyBtn && song.links.spotify) {
-        spotifyBtn.href = song.links.spotify;
-        spotifyBtn.style.display = 'inline-flex';
-      }
-      if (appleBtn) {
-        if (song.links.apple) {
-          appleBtn.href = song.links.apple;
-          appleBtn.style.display = 'inline-flex';
-        } else {
-          appleBtn.style.display = 'none';
-        }
-      }
-      if (creditsBtn) {
-        creditsBtn.onclick = () => {
-          biasModals.openSongModal(song.id);
-        };
-      }
-
-      if (dock) {
-        dock.style.transform = 'translateY(0)';
-      }
-
-      if (autoPlay) {
-        this.showToast(`${song.title} ausgewählt – öffne deinen Streamingdienst.`);
-      }
-
-      // Highlight in charts view if currently active
-      const chartRows = document.querySelectorAll('.chart-row-item');
-      chartRows.forEach(row => {
-        row.classList.toggle('is-active-track', row.dataset.songId === song.id);
-      });
+      biasModals.openSongModal(songId);
     }
 
-    togglePlayback() {
-      if (this.currentTrack?.links.spotify) window.open(this.currentTrack.links.spotify, '_blank', 'noopener,noreferrer');
-    }
-
-    moveTrack(direction) {
-      const songs = BIAS_DATA.songs;
-      const index = songs.findIndex(s => s.id === this.currentTrack?.id);
-      this.loadTrackToDock(songs[(index + direction + songs.length) % songs.length].id, false);
+    // Backward-compatible name for saved deep links from the prototype.
+    loadTrackToDock(songId) {
+      this.openSong(songId);
     }
 
     toggleLike(songId) {
@@ -303,9 +216,13 @@
     }
 
     changeAccentColor(colorHex, fandomName) {
-      biasStore.setAccentColor(colorHex, fandomName);
+      if (!biasStore.setAccentColor(colorHex, fandomName)) {
+        this.showToast('Bitte eine Profilfarbe mit ausreichendem Kontrast wählen.');
+        return false;
+      }
       this.showToast(`Akzentfarbe auf ${fandomName} gesetzt!`);
       this.playUiTone(523.25, 'sine', 0.1);
+      return true;
     }
 
     updateHeaderProfileBadge(profile) {

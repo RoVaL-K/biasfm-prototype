@@ -21,6 +21,7 @@
 
   const DEFAULT_PROFILE = {
     username: 'musikfan',
+    bio: '',
     ultBiasArtist: '',
     ultBiasMember: '',
     biasLine: [],
@@ -30,6 +31,37 @@
   };
 
   const listeners = new Map();
+
+  const PRODUCT_PALETTES = {
+    // Product themes control the interface. They are deliberately independent
+    // from the personal profile accent below.
+    dark: {bias: '#37d9a5', rgb: '55, 217, 165', label: 'Mono Mint'},
+    night: {bias: '#ff7b72', rgb: '255, 123, 114', label: 'Seoul Night Market'},
+    holographic: {bias: '#a78bfa', rgb: '167, 139, 250', label: 'Holographic Pop'},
+    light: {bias: '#167d78', rgb: '22, 125, 120', label: 'Warm Paper'},
+    jewel: {bias: '#d86b8a', rgb: '216, 107, 138', label: 'Deep Jewel'}
+  };
+
+  const THEME_ORDER = Object.keys(PRODUCT_PALETTES);
+
+  function hexToRgb(hex) {
+    if (!/^#[0-9a-f]{6}$/i.test(hex)) return null;
+    return [1, 3, 5].map(index => parseInt(hex.slice(index, index + 2), 16) / 255);
+  }
+
+  function luminance(hex) {
+    const rgb = hexToRgb(hex);
+    if (!rgb) return 0;
+    return rgb.reduce((sum, channel, index) => {
+      const linear = channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+      return sum + linear * [0.2126, 0.7152, 0.0722][index];
+    }, 0);
+  }
+
+  function contrastRatio(first, second) {
+    const one = luminance(first), two = luminance(second);
+    return (Math.max(one, two) + 0.05) / (Math.min(one, two) + 0.05);
+  }
 
   function getItem(key, fallback) {
     try {
@@ -88,37 +120,57 @@
     applyThemeAndColor() {
       if (typeof document === 'undefined') return;
       const root = document.documentElement;
-      const palettes={dark:['#37d9a5','55, 217, 165'],night:['#2ed6a1','46, 214, 161'],light:['#167d78','22, 125, 120']};
-      const palette=palettes[this.theme] || palettes.dark;
-      root.setAttribute('data-theme', palettes[this.theme] ? this.theme : 'dark');
+      const palette = PRODUCT_PALETTES[this.theme] || PRODUCT_PALETTES.dark;
+      root.setAttribute('data-theme', PRODUCT_PALETTES[this.theme] ? this.theme : 'dark');
       root.style.setProperty('--profile-accent', /^#[0-9a-f]{6}$/i.test(this.accentColor)?this.accentColor:'#38bdf8');
-      root.style.setProperty('--bias',palette[0]);
-      root.style.setProperty('--bias-rgb',palette[1]);
-      root.style.setProperty('--bias-glow',`rgba(${palette[1]}, .2)`);
-      root.style.setProperty('--bias-glow-soft',`rgba(${palette[1]}, .08)`);
+      root.style.setProperty('--bias', palette.bias);
+      root.style.setProperty('--bias-rgb', palette.rgb);
+      root.style.setProperty('--bias-glow', `rgba(${palette.rgb}, .2)`);
+      root.style.setProperty('--bias-glow-soft', `rgba(${palette.rgb}, .08)`);
     }
 
     setTheme(theme) {
-      if(!['dark','night','light'].includes(theme))return;
+      if (!THEME_ORDER.includes(theme)) return false;
       setItem(STORAGE_KEYS.THEME, theme);
       this.theme = theme;
       this.applyThemeAndColor();
       this.emit('themeChange', theme);
+      return true;
     }
 
     toggleTheme() {
-      const nextTheme = this.theme === 'dark' ? 'light' : 'dark';
+      const index = Math.max(0, THEME_ORDER.indexOf(this.theme));
+      const nextTheme = THEME_ORDER[(index + 1) % THEME_ORDER.length];
       this.setTheme(nextTheme);
       return nextTheme;
     }
 
+    isContrastSafe(colorHex, theme = this.theme) {
+      if (!/^#[0-9a-f]{6}$/i.test(colorHex)) return false;
+      const card = ['light'].includes(theme) ? '#fffcf7' : '#15181c';
+      return contrastRatio(colorHex, card) >= 3;
+    }
+
     setAccentColor(colorHex, fandomName) {
-      if(!/^#[0-9a-f]{6}$/i.test(colorHex))return;
+      if (!this.isContrastSafe(colorHex)) return false;
       this.updateProfile({accentColor:colorHex,...(fandomName?{fandomName}:{})});
+      return true;
     }
 
     updateProfile(updates) {
+      if (updates.username && updates.username !== this.profile.username) {
+        const lastChange=Number(this.profile.usernameChangedAt || 0);
+        const cooldown=180*86400000;
+        if (lastChange && Date.now()-lastChange < cooldown) {
+          const days=Math.ceil((cooldown-(Date.now()-lastChange))/86400000);
+          throw new Error(`Dein Nutzername kann erst in ${days} Tagen wieder geändert werden.`);
+        }
+        updates={...updates,usernameChangedAt:Date.now()};
+      }
       const nextProfile={...this.profile,...updates};
+      if (nextProfile.accentColor && !this.isContrastSafe(nextProfile.accentColor)) {
+        throw new Error('Diese Profilfarbe hat zu wenig Kontrast. Bitte eine hellere oder dunklere Farbe wählen.');
+      }
       setItem(STORAGE_KEYS.PROFILE,nextProfile);
       this.profile=nextProfile;
       if(updates.accentColor){this.accentColor=updates.accentColor;this.applyThemeAndColor();this.emit('colorChange',{colorHex:this.accentColor,fandomName:this.profile.fandomName});}

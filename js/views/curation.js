@@ -94,7 +94,7 @@
       const customList = biasStore.customComebacks || [];
 
       area.innerHTML = `
-        <div class="curation-split-grid">
+          <div class="curation-split-grid">
           <!-- Form -->
           <div class="curation-box">
             <h3 class="box-title">+ Neues Comeback im Radar erfassen</h3>
@@ -185,6 +185,12 @@
             </div>
           </div>
         </div>
+        <section class="proposal-gate" aria-labelledby="public-proposal-title">
+          <h3 id="public-proposal-title">Öffentlichen Release-Vorschlag einreichen</h3>
+          <p class="box-sub">Für eine öffentliche Einreichung braucht bias.fm ein bestätigtes Konto und eine offizielle Quellen-URL. Bis dahin bleibt dieser Bereich transparent geschlossen; persönliche Termine funktionieren sofort.</p>
+          <div class="proposal-flow" aria-label="Prüfstatus"><span>Eingereicht</span><span>Wird geprüft</span><span>Veröffentlicht / Rückfrage / abgelehnt</span></div>
+          <button type="button" class="btn btn-ghost" onclick="biasCalendarView.proposeRelease()">Voraussetzungen ansehen</button>
+        </section>
       `;
     }
 
@@ -218,15 +224,16 @@
         sourceUrl,
         description,
         status: 'Persönlicher Termin',
-        pipelineStep: 1,
         isTracked: true
       };
 
-      if(this.editingId) {
-        const updated = biasStore.customComebacks.map(cb => cb.id === this.editingId ? newCb : cb);
-        localStorage.setItem('biasfm_custom_comebacks', JSON.stringify(updated));
-        biasStore.customComebacks = updated;
-      } else {biasStore.addCustomComeback(newCb);biasStore.toggleTrackComeback(newCb.id);}
+      try {
+        if(this.editingId) {
+          const updated = biasStore.customComebacks.map(cb => cb.id === this.editingId ? newCb : cb);
+          localStorage.setItem('biasfm_custom_comebacks', JSON.stringify(updated));
+          biasStore.customComebacks = updated;
+        } else {biasStore.addCustomComeback(newCb);biasStore.toggleTrackComeback(newCb.id);}
+      } catch(error) { biasApp.showToast(error.message || 'Der Termin konnte nicht gespeichert werden.'); return; }
       this.editingId = null;
       biasApp.showToast(`Comeback für ${act} erfolgreich angelegt!`);
       this.renderActiveTabContent();
@@ -246,10 +253,12 @@
       const cb = biasStore.customComebacks.find(c => c.id === id);if(!cb) return;
       const modal = biasModals.createModalContainer(`<div class="modal-header"><h2>Termin löschen?</h2><p>${esc(cb.act)} — ${esc(cb.title)} wird aus deiner Sammlung und Merkliste entfernt.</p></div><div class="modal-footer"><button class="btn btn-ghost" data-action="close-modal">Behalten</button><button class="btn btn-accent" id="confirm-delete">Termin löschen</button></div>`);
       modal.querySelector('#confirm-delete').onclick = () => {
-        const updated = biasStore.customComebacks.filter(c => c.id !== id);
-        localStorage.setItem('biasfm_custom_comebacks', JSON.stringify(updated));
-        biasStore.customComebacks = updated;
-        if(biasStore.isTracked(id)) biasStore.toggleTrackComeback(id);
+        try {
+          const updated = biasStore.customComebacks.filter(c => c.id !== id);
+          localStorage.setItem('biasfm_custom_comebacks', JSON.stringify(updated));
+          biasStore.customComebacks = updated;
+          if(biasStore.isTracked(id)) biasStore.toggleTrackComeback(id);
+        } catch(error) { biasModals.closeCurrentModal(); biasApp.showToast(error.message || 'Der Termin konnte nicht gelöscht werden.'); return; }
         this.editingId = null;biasModals.closeCurrentModal();this.renderActiveTabContent();biasApp.showToast('Termin gelöscht.');
       };
     }

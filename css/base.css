@@ -24,7 +24,7 @@ body {
   flex-direction: column;
   overflow-x: hidden;
   background: transparent;
-  padding-bottom: var(--dock-height); /* Space for bottom dock */
+  padding-bottom: 0;
 }
 
 ::selection {
@@ -105,7 +105,7 @@ code, .mono {
 /* Global Toast Notification */
 .global-toast {
   position: fixed;
-  bottom: calc(var(--dock-height) + 18px);
+  bottom: 24px;
   right: 24px;
   background: var(--bg-card);
   color: var(--fg-bright);

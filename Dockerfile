@@ -7,7 +7,7 @@ COPY --chown=node:node server.js ./
 COPY --chown=node:node lib ./lib
 COPY --chown=node:node js ./js
 COPY --chown=node:node css ./css
-COPY --chown=node:node index.html 404.html konzept.html ./
+COPY --chown=node:node index.html 404.html ./
 USER node
 VOLUME ["/app/.data"]
 EXPOSE 3000

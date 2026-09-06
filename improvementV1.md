@@ -111,7 +111,7 @@ Die laufende Arbeit setzt Phase 1 und die dafür notwendigen Teile von Phase 2 u
 - **Umgesetzt:** echte Songaktionen, Favoritensammlung, persistente Suchaliase, persönliche Kalenderpflege mit Bearbeiten/Löschen und Export, täglicher Rätselwechsel nach koreanischer Zeit, genauer Antwortabgleich, tatsächlicher Hördatenimport, Fehlerzustände und Statistikexport als PNG/Text.
 - **Geprüft:** automatisierte Prüfungen der Kernabläufe und des HTTP-Servers; zusätzlicher Liveimport von ListenBrainz erfolgreich.
 - **Noch Voraussetzung:** Last.fm-Schlüssel, serverfähiges Hosting, verifizierte Datenquelle für öffentliche Comebacks und Community-Charts, vollständige Betreiberangaben.
-- **Weiterhin später:** Spotify-Kontoverknüpfung, Playlist-Anzeige, gemeinsame Redaktion und umfassendes farbigeres Redesign.
+- **Weiterhin Voraussetzung:** Spotify-OAuth und Last.fm brauchen Betreiberzugänge; zentrale Nutzerkonten, Community-Rankings und gemeinsame User-Submission bleiben an ein Backend mit Authentifizierung und Moderation gebunden.
 
 Die Umsetzung ist damit eine funktionierende Grundlage für persönliche Nutzung. Die noch fehlenden externen Zugänge und die gemeinsame Datenversorgung werden nicht als bereits fertig dargestellt.
 
@@ -132,7 +132,7 @@ Der anschließende Auftrag „alles umsetzen“ zieht die besprochenen Spotify-F
 | Betreiberangaben | Aus Konfiguration anzeigbar; tatsächliche Angaben müssen noch geliefert werden |
 | Hosting | Node-Server, Dockerfile, Healthcheck, Build und bereinigte Pages-Veröffentlichung vorbereitet; kein neuer öffentlicher Server bereitgestellt |
 
-**Prüfung:** 15 automatisierte Tests erfolgreich; reale ListenBrainz- und MusicBrainz-Abfragen; zusätzliche Browserprüfung auf Desktop und Mobilgerät. Die geprüften Spotify- und Last.fm-Abläufe ersetzen keine abschließende Verifikation mit den tatsächlichen Anbieterzugängen.
+**Prüfung:** 26 automatisierte Tests erfolgreich; reale ListenBrainz- und MusicBrainz-Abfragen; zusätzliche Browserprüfung auf Desktop und Mobilgerät. Die geprüften Spotify- und Last.fm-Abläufe ersetzen keine abschließende Verifikation mit den tatsächlichen Anbieterzugängen.
 
 **Verbleibende Freischaltungen:** Spotify-App registrieren/Client-ID hinterlegen, Last.fm-Schlüssel hinterlegen, HTTPS-Hosting mit dauerhaftem Speicher wählen und Betreiberangaben ergänzen. Die Anwendung zeigt fehlende Zugänge als solche an.
 
@@ -148,9 +148,9 @@ Die vollständige, unveränderte Entscheidungsvorlage liegt unter `docs/improvem
 - **Entdecken:** Artists/Credits, Releases, Labels, Genres sowie bestehende Szene-Einstiege; Hangul, Romanisierung und eigene Suchaliase bleiben nutzbar.
 - **Radar:** kompakte Agenda und Monatsraster, Monatswechsel über Jahresgrenzen, Auswahl einzelner Tage, Merken und Export. Details enthalten tatsächliche vorhandene Ereignisse und das Veröffentlichungsdatum. Keine erfundene Vier-Schritt-Pipeline. Originalquelle und Anbieterlinks liegen in den Details; im Monatsmodus exportiert der Kalender die Auswahl des angezeigten Monats.
 - **Profil:** eigenständige Fan-Karte mit gestaltetem Hintergrund, Bio, optionalem Lieblingsact, Favoriten und Wildcard. Einstellungen liegen separat. Neue Profile starten ohne vorgegebene Lieblingskünstler. Verbindungen werden im Profil angezeigt und in den Einstellungen bearbeitet. Benutzernamen werden lokal auf 3–20 Kleinbuchstaben/Zahlen/Bindestrich/Unterstrich geprüft; keine globale Reservierung wird behauptet.
-- **Erscheinungsbild:** Mono Mint, Seoul Night Market und Warm Paper. Der Profil-Akzent verändert weder Produktpalette noch Hauptbuttons. Eine Farbauswahl im Editor wird erst mit Speichern übernommen.
+- **Erscheinungsbild:** Mono Mint, Seoul Night Market, Holographic Pop, Warm Paper und Deep Jewel. Der Profil-Akzent verändert weder Produktpalette noch Hauptbuttons. Eine eigene Hex-Farbe gilt nur für die persönliche Profilkarte und wird erst mit Speichern übernommen; der Kontrast wird vorher geprüft.
 - **Rätsel:** drei unabhängige tägliche Modi (Release/Song, Artist, Credits), sechs Versuche, schrittweise Hinweise, Autocomplete, Aliasabgleich, Spielhilfe und spoilerfreies Ergebnis. Persistenz je Modus, konsistenter Tageswechsel um 00:00 KST. Keine Lyrics oder Audio-Clips.
-- **Stats:** zuerst öffentliche Hörhistorie abfragen, erst danach echte Diagramme. „Dein Korea-Mix“, explizit nicht zugeordnete Plays, Top 10/20/50 und tatsächliche Last.fm-Zeiträume (7 Tage, 1/3 Monate, 1 Jahr, gesamter Verlauf). ListenBrainz bleibt ausdrücklich eine Stichprobe bis 1.000 zuletzt übermittelter Plays. Eine öffentliche Namensabfrage wird nicht als bestätigte Kontoverknüpfung bezeichnet.
+- **Stats:** zuerst öffentliche Hörhistorie abfragen, erst danach echte Diagramme. „Dein Korea-Mix“, explizit nicht zugeordnete Plays, Top 10/20/50 und tatsächliche Last.fm-Zeiträume (7 Tage, 1/3 Monate, 1 Jahr, gesamter Verlauf). ListenBrainz bleibt ausdrücklich eine Stichprobe bis 1.000 zuletzt übermittelter Plays. Zusätzlich kann der Spotify-Privacy-Export als JSON oder ZIP lokal ausgewertet werden. Eine öffentliche Namensabfrage wird nicht als bestätigte Kontoverknüpfung bezeichnet.
 - **Bedienung:** Favoriten direkt im Songdialog, auf Mobile Details als Bottom Sheet, sichtbare Fokuszustände, reduzierbare Animationen, mehr Platz ohne unteren Player. Favoriten und gemerkte Termine melden fehlgeschlagenes Speichern nicht als Erfolg.
 
 ### Voraussetzungen und bewusst offene Teile
@@ -161,8 +161,8 @@ Die vollständige, unveränderte Entscheidungsvorlage liegt unter `docs/improvem
 - **Release-Vorschläge:** der Radar erklärt die Kontovoraussetzung und ermöglicht als nutzbaren Ersatz persönliche Termine mit Quellenlink. Diese werden ausdrücklich nicht als öffentlich eingereicht oder in Prüfung dargestellt. Öffentliche Submission-Queue, eigene Einreichungsstatus und Kontorollen bleiben an das Kontosystem gebunden.
 - **Originalcover/Artistfotos:** keine ungeprüften Fanbilder übernommen. Eigene gestaltete Ersatzmotive werden als solche bezeichnet. Lizenzierte Originalbilder können später ergänzt werden.
 - **Öffentliches Backend:** Spotify-Anmeldung, Hördatenimport und Redaktion brauchen weiter Serverhosting und Anbieterzugänge. GitHub Pages allein betreibt diese Funktionen nicht.
-- **P2:** Audio-Clips, Spotify-Dateiimport, Fan Spaces, Reviews, freier Hex-Editor, Sammlung/Crowdfunding und Monetarisierung bleiben wie im Dokument vorgesehen spätere Arbeit.
+- **P2:** Audio-Clips, Fan Spaces, Reviews/Guides, physische Sammlung/Crowdfunding und Monetarisierung bleiben wie im Dokument vorgesehen spätere Arbeit. Der lokale Spotify-Privacy-Import und die kontrastgeprüfte Profil-Hex-Farbe sind bereits umgesetzt.
 
 ### Prüfung
 
-21 automatisierte Tests decken bestehende Funktionen und die neuen Profil-, Theme-, Daily-, Monatskalender-, Quellen- und Zeitraumabläufe ab. Ergänzend wurden Startseite, Profil/Editor, helles Theme und mobile Kalender-/Rätselansichten im Browser geprüft. Quellenlinks zu Circle Chart und Melon sowie die unterstützten Last.fm-Zeiträume wurden an den Originalseiten abgeglichen.
+26 automatisierte Tests decken bestehende Funktionen und die neuen Profil-, Theme-, Daily-, Monatskalender-, Quellen-, Import- und Zeitraumabläufe ab. Ergänzend wurden Startseite, Charts mit Artist-Typ-Filter, Radar-Agenda, Profil/Editor, alle fünf Themes, Stats-Connect/Spotify-Import, Curation-Gate und alle drei Daily-Modi im Browser geprüft. Quellenlinks zu Circle Chart und Melon sowie die unterstützten Last.fm-Zeiträume wurden an den Originalseiten abgeglichen.

@@ -214,7 +214,7 @@ test('Profile editing is separate, optional identity and independent theme survi
  const b=app(saved);try{assert.equal(b.w.biasStore.theme,'light');assert.equal(b.w.biasStore.profile.username,'music-fan');assert.equal(b.w.document.documentElement.style.getPropertyValue('--bias'),'#167d78');}finally{b.close();}
 });
 test('Song details provide favorites and streaming links without a playback dock',()=>{
- const {w,close}=app();try{w.biasModals.openSongModal('track-ditto');w.document.querySelector('#song-save').click();assert.ok(w.biasApp.likedSongs.has('track-ditto'));assert.ok(w.document.querySelector('.deeplink-btn.spotify').href.startsWith('https://open.spotify.com/'));w.biasModals.closeCurrentModal();w.biasApp.navigateTo('saved');assert.ok(w.document.querySelector('[data-favorite-open="track-ditto"]'));w.document.querySelector('[data-favorite-remove="track-ditto"]').click();assert.equal(w.biasApp.likedSongs.size,0);}finally{close();}
+ const {w,close}=app();try{w.biasModals.openSongModal('track-ditto');w.document.querySelector('#song-save').click();assert.ok(w.biasApp.likedSongs.has('track-ditto'));assert.ok(w.document.querySelector('.deeplink-btn.spotify').href.startsWith('https://open.spotify.com/'));assert.equal(w.document.querySelector('iframe'),null);w.biasModals.closeCurrentModal();w.biasApp.navigateTo('saved');assert.ok(w.document.querySelector('[data-favorite-open="track-ditto"]'));w.document.querySelector('[data-favorite-remove="track-ditto"]').click();assert.equal(w.biasApp.likedSongs.size,0);}finally{close();}
 });
 test('Daily modes have independent six-guess limits, aliases, persistence and spoilers only on completion',()=>{
  const {w,close}=app();try{
@@ -248,4 +248,63 @@ test('Listening period is validated and sent to Last.fm instead of relabelling a
  const result=await getListening('lastfm','tester',async url=>{requested=new URL(url);return {ok:true,json:async()=>({topartists:{artist:[{name:'NewJeans',playcount:'3'}]}})};},'test-key','7day');
  assert.equal(requested.searchParams.get('period'),'7day');assert.equal(result.periodLabel,'Letzte 7 Tage');
  await assert.rejects(getListening('lastfm','tester',undefined,'test-key','invalid'),/Zeitraum/);
+});
+
+test('All five product themes and the profile accent stay independent and contrast-safe',()=>{
+ const {w,close}=app();try{
+  w.biasApp.navigateTo('settings');
+  assert.equal(w.document.querySelectorAll('#profile-theme option').length,5);
+  const productColor=w.document.documentElement.style.getPropertyValue('--bias');
+  w.document.getElementById('profile-theme').value='holographic';
+  w.biasProfileView.selectColor('#fbbf24','Coral Sunshine');
+  assert.equal(w.document.documentElement.style.getPropertyValue('--bias'),productColor);
+  w.document.getElementById('profile-accent-hex').value='#fbbf24';
+  w.biasProfileView.saveProfile();
+  assert.equal(w.biasStore.theme,'holographic');assert.equal(w.biasStore.profile.accentColor,'#fbbf24');
+  assert.equal(w.document.documentElement.getAttribute('data-theme'),'holographic');
+  w.biasApp.navigateTo('settings');w.document.getElementById('profile-accent-hex').value='#000001';w.biasProfileView.saveProfile();
+  assert.equal(w.biasStore.profile.accentColor,'#fbbf24');
+ }finally{close();}
+});
+
+test('Spotify JSON history import parses real export fields and maps unknown artists honestly',()=>{
+ const {w,close}=app();try{
+  const parsed=w.biasSpotifyImport.parseJSON(JSON.stringify([{master_metadata_album_artist_name:'NewJeans',master_metadata_track_name:'Ditto',ms_played:120000,ts:'2024-01-01T00:00:00Z'},{master_metadata_album_artist_name:'Unknown',master_metadata_track_name:'Song',ms_played:0}]));
+  assert.equal(parsed.rows.length,1);assert.equal(parsed.skipped,1);
+  const result=w.biasCore.summarizeListening(parsed.rows,{provider:'spotify-import'});
+  assert.equal(result.totalScrobbles,1);assert.equal(result.koreaScrobbles,1);assert.equal(result.unmatchedScrobbles,0);
+ }finally{close();}
+});
+test('Spotify ZIP history import reads matching files and deduplicates entries across files',async()=>{
+ const {w,close}=app();try{
+  const entries=[
+   ['StreamingHistory0.json',JSON.stringify([{master_metadata_album_artist_name:'NewJeans',ms_played:120000,ts:'2024-01-01T00:00:00Z'}])],
+   ['StreamingHistory1.json',JSON.stringify([{master_metadata_album_artist_name:'NewJeans',ms_played:120000,ts:'2024-01-01T00:00:00Z'},{master_metadata_album_artist_name:'BIBI',ms_played:120000,ts:'2024-01-02T00:00:00Z'}])],
+   ['notes.txt','ignored']
+  ];
+  const chunks=[],central=[];let offset=0;
+  for(const [name,text] of entries){const nameBytes=Buffer.from(name),data=Buffer.from(text),local=Buffer.alloc(30+nameBytes.length);local.writeUInt32LE(0x04034b50,0);local.writeUInt16LE(20,4);local.writeUInt16LE(0,6);local.writeUInt16LE(0,8);local.writeUInt32LE(data.length,18);local.writeUInt32LE(data.length,22);local.writeUInt16LE(nameBytes.length,26);nameBytes.copy(local,30);chunks.push(local,data);const head=Buffer.alloc(46+nameBytes.length);head.writeUInt32LE(0x02014b50,0);head.writeUInt16LE(20,4);head.writeUInt16LE(20,6);head.writeUInt16LE(0,8);head.writeUInt16LE(0,10);head.writeUInt32LE(data.length,20);head.writeUInt32LE(data.length,24);head.writeUInt16LE(nameBytes.length,28);head.writeUInt32LE(offset,42);nameBytes.copy(head,46);central.push(head);offset+=local.length+data.length;}
+  const centralData=Buffer.concat(central),end=Buffer.alloc(22);end.writeUInt32LE(0x06054b50,0);end.writeUInt16LE(entries.length,8);end.writeUInt16LE(entries.length,10);end.writeUInt32LE(centralData.length,12);end.writeUInt32LE(offset,16);const zip=Buffer.concat([...chunks,centralData,end]);const buffer=zip.buffer.slice(zip.byteOffset,zip.byteOffset+zip.byteLength);const parsed=await w.biasSpotifyImport.parseZIP(buffer);assert.equal(parsed.files,2);assert.equal(parsed.rows.length,2);assert.equal(parsed.skipped,1);assert.equal(Array.from(parsed.rows,map=>map.name).join(','),'NewJeans,BIBI');
+ }finally{close();}
+});
+
+test('Agenda is a bounded 14-day view while the calendar retains month navigation',()=>{
+ const {w,close}=app();try{
+  const today=w.biasCore.koreaDate();
+  w.biasStore.addCustomComeback({id:'agenda-near',act:'Near',title:'Soon',date:w.biasCalendarView.addDays(today,3),type:'Single',genres:['Indie']});
+  w.biasStore.addCustomComeback({id:'agenda-far',act:'Far',title:'Later',date:w.biasCalendarView.addDays(today,20),type:'Single',genres:['Indie']});
+  w.biasApp.navigateTo('kalender');
+  assert.equal(w.document.querySelector('.agenda-controls h2').textContent.includes('–'),true);
+  assert.equal(w.document.body.textContent.includes('Near'),true);assert.equal(w.document.body.textContent.includes('Later'),false);
+  w.biasCalendarView.moveAgenda(1);assert.equal(w.document.body.textContent.includes('Later'),true);
+ }finally{close();}
+});
+
+test('Public product removes concept page, preserves source labels and accessible cover text',async()=>{
+ const {w,close}=app();try{
+  assert.equal(w.document.querySelector('.desktop-nav').textContent.includes('Konzept'),false);
+  w.biasApp.navigateTo('catalog');w.document.querySelector('[data-tab="releases"]').click();assert.match(w.document.querySelector('.artwork').getAttribute('aria-label'),/^Cover:/);
+  w.biasApp.navigateTo('curation');assert.ok(w.document.querySelector('.proposal-gate'));
+ }finally{close();}
+ const server=createServer();await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));try{assert.equal((await fetch(`http://127.0.0.1:${server.address().port}/konzept.html`)).status,404);}finally{await new Promise(resolve=>server.close(resolve));}
 });

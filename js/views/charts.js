@@ -17,6 +17,7 @@
     constructor() {
       this.activeTag = 'Alle';
       this.activeGen = 'Alle';
+      this.activeType = 'Alle';
       this.searchQuery = '';
       this.source='community';
       this.pageSize=25;
@@ -71,6 +72,12 @@
 
                 </select>
               </div>
+              <div class="type-select-wrap">
+                <label class="sr-only" for="artist-type-filter">Artist-Typ</label>
+                <select id="artist-type-filter" class="select-input chart-gen-select" title="Nach Artist-Typ filtern">
+                  ${[['Alle','Alle Artists'],['group','Gruppen'],['solo','Solo-Acts'],['band','Bands'],['producer','Producer']].map(([id,label])=>`<option value="${id}" ${this.activeType===id?'selected':''}>${label}</option>`).join('')}
+                </select>
+              </div>
             </div>
           </div>
 
@@ -106,7 +113,7 @@
     }
     renderLive(container) {
       container.innerHTML=`<div class="view-charts"><div class="view-header"><div><span class="pill pill-accent">Last.fm · Tag-Charts</span><h1 class="view-title">Last.fm Signals</h1><p class="view-subtitle">Die von Last.fm gelieferten Top-Titel pro Genre-Tag. Kein persönliches Ranking und keine Wochenchart.</p></div></div>${this.sourceTabs()}<div class="charts-toolbar-bar"><label>Genre <select id="live-chart-tag" class="select-input">${['k-pop','k-indie','k-hiphop','k-rnb'].map(tag=>`<option ${tag===this.liveTag?'selected':''}>${tag}</option>`).join('')}</select></label><button id="refresh-live-chart" class="btn btn-ghost" ${this.liveLoading?'disabled':''}>Aktualisieren</button></div>${this.liveLoading?'<div class="stats-empty" role="status"><h2>Charts werden geladen …</h2></div>':this.liveError?`<div class="stats-empty"><h2>Charts gerade nicht verfügbar</h2><p role="alert">${esc(this.liveError)}</p><button class="btn btn-accent" onclick="biasChartsView.loadLive()">Erneut versuchen</button><button class="btn btn-ghost" onclick="biasChartsView.switchSource('catalog')">Katalog entdecken</button></div>`:this.liveResult?`<p class="section-note">Abgerufen ${new Date(this.liveResult.fetchedAt).toLocaleString('de-DE')} · <a href="${esc(this.liveResult.sourceUrl)}" target="_blank" rel="noopener">Quelle: Last.fm ↗</a></p><div class="live-chart-list">${this.liveResult.items.slice(0,this.pageSize).map(song=>`<a class="live-chart-row" href="${esc(song.url)}" target="_blank" rel="noopener"><b class="mono">${song.rank}</b><span><strong>${esc(song.title)}</strong><small>${esc(song.artist)}</small></span><span>Auf Spotify suchen ↗</span></a>`).join('') || '<p>Keine Titel für diesen Tag vorhanden.</p>'}</div>${this.liveResult.items.length>this.pageSize?'<button class="btn btn-ghost" id="load-chart-more">25 weitere laden</button>':''}`:''}</div>`;
-      container.querySelector('#load-chart-more')?.addEventListener('click',()=>{this.pageSize+=25;this.renderLive(container);});
+      container.querySelector('#load-chart-more')?.addEventListener('click',()=>{this.pageSize=Math.min(100,this.pageSize+25);this.renderLive(container);});
       container.querySelector('#live-chart-tag').onchange=e=>{this.liveTag=e.target.value;this.pageSize=25;this.loadLive();};
       container.querySelector('#refresh-live-chart').onclick=()=>this.loadLive();
     }
@@ -140,6 +147,9 @@
         });
       }
 
+      const typeSelect=container.querySelector('#artist-type-filter');
+      typeSelect?.addEventListener('change',e=>{this.activeType=e.target.value;this.updateRows();});
+
       const searchInput = container.querySelector('#chart-filter-input');
       if (searchInput) {
         searchInput.addEventListener('input', (e) => {
@@ -172,6 +182,14 @@
         filtered = filtered.filter(s => (s.generation || '').toLowerCase().includes(this.activeGen.toLowerCase()));
       }
 
+      if (this.activeType !== 'Alle') {
+        filtered = filtered.filter(s => {
+          const artist=(BIAS_DATA.artists || []).find(a=>a.id===s.artistId);
+          if (this.activeType === 'producer') return (s.credits?.producers || []).length > 0;
+          return artist?.type === this.activeType;
+        });
+      }
+
       // Filter by Search Query
       if (this.searchQuery) {
         filtered = filtered.filter(s => 
@@ -195,8 +213,6 @@
         return;
       }
 
-      const currentDockSong = biasApp.currentTrack;
-
       container.innerHTML = filtered.map((s, idx) => {
         const deltaHtml = s.rankDelta === null
           ? '<span class="delta-badge is-new">NEU</span>'
@@ -207,12 +223,10 @@
               : `<span class="delta-badge is-down">▼${Math.abs(s.rankDelta)}</span>`;
 
         const prods = (s.credits.producers || []).join(', ');
-        const isCurrent = currentDockSong && currentDockSong.id === s.id;
-
         return `
-          <div role="button" tabindex="0" class="chart-row-item ${isCurrent ? 'is-active-track' : ''}" onclick="biasApp.loadTrackToDock('${s.id}')">
+          <article data-song-id="${esc(s.id)}" class="chart-row-item">
             <div class="col-rank">
-              <span class="rank-num">♪</span>
+              <span class="rank-num">${idx + 1}</span>
 
             </div>
 
@@ -258,7 +272,7 @@
                   
                 </a>` : ''}
             </div>
-          </div>
+          </article>
         `;
       }).join('');
     }
@@ -266,11 +280,14 @@
     resetFilters() {
       this.activeTag = 'Alle';
       this.activeGen = 'Alle';
+      this.activeType = 'Alle';
       this.searchQuery = '';
       const input = document.getElementById('chart-filter-input');
       if (input) input.value = '';
       const genSelect = document.getElementById('gen-filter');
       if (genSelect) genSelect.value = 'Alle';
+      const typeSelect=document.getElementById('artist-type-filter');
+      if(typeSelect)typeSelect.value='Alle';
       const tabs = document.querySelectorAll('.tag-tab');
       tabs.forEach(t => t.classList.toggle('is-active', t.dataset.tag === 'Alle'));
       this.updateRows();

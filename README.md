@@ -25,11 +25,12 @@ Ohne Last.fm-Schlüssel funktioniert der öffentliche ListenBrainz-Import; Last.
 
 - Songauswahl, vorheriger/nächster Song und Links zur Titelsuche bei Musikdiensten. Es gibt keine simulierte Musikwiedergabe.
 - Favoriten mit Sammlung im Profil und Entfernen gespeicherter Songs.
-- Profil, Akzentfarbe, Termine, Merkliste, Suchaliase und Tagesrätsel werden lokal im jeweiligen Browser gespeichert.
+- Profil, fünf Produkt-Themes, separater Profil-Akzent, Termine, Merkliste, Suchaliase und Tagesrätsel werden lokal im jeweiligen Browser gespeichert.
 - Persönliche Termine anlegen, bearbeiten und mit Bestätigung löschen; Filter nach Genre, Merkliste und vergangenen Terminen; Export der sichtbaren Auswahl als korrekt maskierte und gefaltete iCalendar-Datei.
 - Suchaliase bleiben nach einem Neuladen wirksam.
 - Tagesrätsel wechselt um Mitternacht in Korea. Antworten müssen einen vollständigen hinterlegten Titel treffen. Zusätzliche Hinweise nach dem ersten und dritten Versuch ersetzen das vorherige unechte Cover-Rätsel.
 - Echter Import öffentlicher Hördaten mit Lade-, Abbruch-, Leer- und Fehlerzuständen. Ergebnisse bleiben nur für die Sitzung verfügbar; der Server hält Antworten höchstens fünf Minuten im Arbeitsspeicher vor.
+- Spotify Extended History kann als JSON oder ZIP lokal eingelesen werden. Duplikate, fehlende Abspielwerte und nicht zugeordnete Artists werden transparent behandelt; die Dateien verlassen den Browser nicht.
 - Statistik als PNG herunterladen oder als Text kopieren.
 - Verbesserte Tastaturaktionen, Dialogfokus, reduzierte Bewegung und sichere Anzeige von Nutzereingaben.
 
@@ -52,7 +53,7 @@ Offizielle Schnittstellenbeschreibung: [Last.fm user.getTopArtists](https://www.
 
 ## Hosting
 
-Der vorhandene GitHub-Pages-Workflow veröffentlicht nur statische Dateien. Er kann den Node-Endpunkt `/api/listening` nicht ausführen. Für die vollständige Anwendung ist Node-fähiges Hosting oder eine getrennte, passend konfigurierte API erforderlich. Ein fehlender API-Endpunkt wird in der Oberfläche erklärt. In dieser Bearbeitung wurde keine neue öffentliche Version veröffentlicht.
+Der vorhandene GitHub-Pages-Workflow veröffentlicht nur statische Dateien. Er kann den Node-Endpunkt `/api/listening` nicht ausführen. Für die serverseitigen Anbieterabfragen, Spotify-OAuth und öffentliche Redaktion ist Node-fähiges Hosting oder eine getrennte, passend konfigurierte API erforderlich. Ein fehlender API-Endpunkt wird in der Oberfläche erklärt; persönliche Funktionen und der lokale Spotify-Dateiimport bleiben auf GitHub Pages nutzbar.
 
 Der Server liefert ausschließlich öffentliche HTML-, CSS- und JavaScript-Dateien und den definierten API-Endpunkt aus. Projektdateien, `.env`, Git-Metadaten und Serverquelltext sind darüber nicht erreichbar.
 
@@ -106,7 +107,7 @@ Für Docker einen dauerhaften Datenträger nach `/app/.data` einbinden, `APP_ORI
 
 ### Nachweise und Grenzen
 
-15 automatisierte Tests prüfen die Hauptabläufe, Spotify-PKCE und Session-Isolation, Playlist-Daten, Redaktionsrechte, Speicherung über Serverneustarts, Versionskonflikte und eindeutige Release-Zuordnung. Der MusicBrainz-Liveabruf lieferte im Test acht passende Einträge. Desktop- und Mobilansichten wurden zusätzlich im Browser geprüft. Die Namenszuordnung in Hörstatistiken nutzt MusicBrainz-IDs, wenn der Dienst sie mitliefert; andernfalls bleibt sie eine offengelegte Schätzung anhand der Namen.
+26 automatisierte Tests prüfen die Hauptabläufe, Spotify-PKCE und Session-Isolation, Playlist-Daten, Redaktionsrechte, Speicherung über Serverneustarts, Versionskonflikte, Themes, lokalen Spotify-Import und eindeutige Release-Zuordnung. Der MusicBrainz-Liveabruf lieferte im Test acht passende Einträge. Home, Charts, Radar, Katalog, Daily-Modi, Stats-Connect/Import, Profil, Themes und Curation wurden zusätzlich im Browser geprüft. Die Namenszuordnung in Hörstatistiken nutzt MusicBrainz-IDs, wenn der Dienst sie mitliefert; andernfalls bleibt sie eine offengelegte Schätzung anhand der Namen.
 
 Verwendete Primärdokumentation: [Spotify PKCE](https://developer.spotify.com/documentation/web-api/tutorials/code-pkce-flow), [Benutzer-Playlists](https://developer.spotify.com/documentation/web-api/reference/get-a-list-of-current-users-playlists), [Spotify-Änderungen 2026](https://developer.spotify.com/documentation/web-api/tutorials/february-2026-migration-guide), [Rücksprungadressen](https://developer.spotify.com/documentation/web-api/concepts/redirect_uri), [MusicBrainz-Suchfelder](https://musicbrainz.org/doc/Indexed_Search_Syntax), [Last.fm-Tag-Charts](https://www.last.fm/api/show/tag.getTopTracks).
 
@@ -114,6 +115,6 @@ Verwendete Primärdokumentation: [Spotify PKCE](https://developer.spotify.com/do
 
 Das Feedback unter `docs/improvementV1-feedback.md` ist als priorisierte Produktvorlage übernommen. Der genaue Implementierungsstand und die noch erforderlichen Daten-/Kontovoraussetzungen stehen am Ende von `improvementV1.md`.
 
-Öffentliche Navigation: Entdecken, Charts, Radar, Rätsel. Persönliche Bereiche: `#profile`, `#settings`, `#saved`, `#stats`. Redaktion: `#admin` (bestehender serverseitiger Schlüssel erforderlich). Die Player-Leiste ist entfernt; Songdetails enthalten Merken und direkte Anbieterlinks. Drei unabhängige Daily-Modi wechseln gemeinsam um 00:00 KST. Die drei Produkt-Themes bleiben unabhängig vom Profil-Akzent.
+Öffentliche Navigation: Entdecken, Charts, Radar, Rätsel. Persönliche Bereiche: `#profile`, `#settings`, `#saved`, `#stats`. Redaktion: `#admin` (bestehender serverseitiger Schlüssel erforderlich). Die Player-Leiste ist entfernt; Songdetails enthalten Merken und direkte Anbieterlinks. Drei unabhängige Daily-Modi wechseln gemeinsam um 00:00 KST. Fünf Produkt-Themes bleiben unabhängig vom Profil-Akzent.
 
 Charts unterscheiden Community (noch keine gemeinsamen Hördaten), Korea-Originalquellen und Last.fm-Tag-Signale. Externe Rankings werden nicht kopiert oder aus Katalogdaten erfunden. Original-Referenzen: [Circle Chart](https://circlechart.kr/), [Melon](https://www.melon.com/chart/index.htm). Die Last.fm-Zeitraumauswahl verwendet die [dokumentierten Perioden](https://www.last.fm/api/show/user.getTopArtists), mit gesonderten Cache-Einträgen pro Zeitraum.
