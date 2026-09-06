@@ -1,83 +1,111 @@
-# bias.fm — Koreanische Musik, deine Zahlen
+# bias.fm
 
-Kuratierte Entdeckungs-, Stats- und Community-Ebene für **koreanische Musik aller Genres** (Idol, Indie, R&B, Hiphop, Rock, Ballade, OST) und die Produzenten dahinter — **ohne eigenen Web-Player** (Vermeidung von GEMA / VR-OD 10).
+Musik entdecken, Songs merken, persönliche Release-Termine verwalten und öffentliche Hörhistorien auswerten. Das bestehende Projekt verwendet HTML, CSS und JavaScript sowie einen Node-Server ohne Laufzeitabhängigkeiten.
 
-Entwickelt auf Basis der Spezifikation in `handover.md` v2.
+## Start
 
----
+Node.js 22 oder neuer:
 
-## 🌟 Funktionsumfang der Plattform
-
-### 1. Comeback Radar & Pipeline (`#kalender`)
-- Redaktionell gepflegter Zeitstrahl aller anstehenden koreanischen Releases.
-- Visuelle Comeback-Pipeline: Ankündigung → Konzept-Fotos → MV-Teaser → Release.
-- Filterbar nach Genres (Idol, Indie, R&B/Hiphop) und persönlichen Biases.
-- **iCal-Export:** Direkter Download von `.ics`-Kalenderdateien für einzelne Comebacks oder den gesamten Monatskalender.
-- Lokale Merkliste für Favoriten.
-
-### 2. Scrobble-Charts (`#charts`)
-- Echte Last.fm- und ListenBrainz-Scrobbles statt manipulierbarer Popularity-Scores.
-- Multi-Tag-Filter: Alle, Idol, Indie & Rock, Hiphop / R&B, Ballade & OST.
-- Automatische Generationen-Filterung (4th Gen, 3rd Gen, 2nd Gen, Indie Legend).
-- Rang-Deltas (▲2, ▼1, –, NEU).
-- Quick-Deep-Links zu Spotify, Apple Music, MelOn und YouTube Music.
-
-### 3. Song Inspector & Kanonische Metadaten (Modals)
-- ISRC-Code und MusicBrainz Recording-ID als Primärschlüssel.
-- Detaillierte Credits: Performer, Feat, Produzenten, Komponisten, Arrangeure, Textdichter.
-- Direkte Deep-Links zu allen lizenzierten Streaming-Diensten.
-- Optionaler YouTube-Musikvideo-/Teaser-Player (datenschutzfreundlich via nocookie).
-
-### 4. Katalog & Produzenten-Graph (`#catalog`)
-- **Produzenten als First-Class-Entities:** Eigene Profilseiten für Hitmaker wie Slom, 250, GRAY, FRNK, Cha Cha Malone und GroovyRoom mit verifizierten Credits und Kollaborations-Graphen.
-- Fokus-A Kuration (~20 Kern-Acts) mit ausgewogenem Genre-Mix zwischen Idol, Indie und R&B.
-
-### 5. Hangul-First Omnisearch (`Cmd+K` oder `/`)
-- Sucht simultan über Choseong-Konsonanten (초성: z. B. `ㄴㅈㅅ` → NewJeans), Hangul-Volltext, revidierte Romanisierung und englische Fandom-Aliasse.
-- Tastaturnavigation mit Pfeiltasten und Enter.
-
-### 6. Korea-Anteil Rechner (`#stats`)
-- Der virale Hook: Last.fm-Scrobbles verbinden und den prozentualen Anteil koreanischer Musik am Gesamtkonsum berechnen.
-- Interaktiver animierter SVG-Donut.
-- Simulation mit 4 realistischen Personas (K-Indie Explorer, Multi-Stan, R&B Fiend, Global Casual).
-- **Social Share-Card Generator:** Generiert teilbare Grafiken und formatierte Text-Ergebnisse für Instagram, Discord und X.
-
-### 7. Rätsel des Tages (`#game`)
-- Tägliches Song-Ratespiel ohne GEMA- oder Lizenzkosten.
-- 5 Versuche mit progressivem Albumcover-Unblur (Schärfung pro Versuch um 5px).
-- Hinweise zu Release-Jahr, Genre, Beatmaker und maskierter Textzeile (Hangul + Übersetzung).
-- Autocomplete-Titeleingabe und teilbare Emoji-Ergebnis-Matrix.
-
-### 8. Fandom Identity & Profil (`#profile`)
-- Ult Bias wählbar als Solo-Act oder Gruppe mit individuellem Mitglied.
-- Bias-Line (maximal 3 weitere Acts) und Bias Wrecker.
-- **8 offizielle Fandom-Farben** (Blink Pink, Borahae Purple, Tokki Sky Blue, Neo Mint, Coral Gold, Tangerine, Pearl Red, Minimalist Steel), die das gesamte App-Theme dynamisch einfärben.
-
-### 9. Curation Studio (`#curation`)
-- Redaktions-Infrastruktur zur Pflege des Katalogs.
-- Neues Comeback direkt erfassen (erscheint sofort im Radar).
-- Hangul- und Umschriften-Aliasse einreichen.
-- Scrobble-Duplikate-Queue zur Bereinigung von Instrumental-, Speed-Up- und Remix-Versionen.
-
-### 10. Rechtliche Compliance (DE) (`#legal`)
-- Impressum nach § 5 DDG.
-- Datenschutzerklärung nach Art. 13 DSGVO.
-- Lokale Speicher-Information nach § 25 TDDDG.
-- Transparenzhinweis nach EU Digital Services Act (DSA).
-- Urheberrechts- und GEMA-Erklärung.
-
----
-
-## 🚀 Lokaler Start
-
-Der Server benötigt keine externen npm-Abhängigkeiten und läuft mit nativem Node.js:
-
-```bash
-# Server starten
+```sh
+npm install
 npm start
-# oder
-node server.js
 ```
 
-Öffne anschließend:
-**http://localhost:3000**
+Website: http://localhost:3000. Ein anderer Port kann über `PORT` gesetzt werden.
+
+Für Last.fm `.env.example` nach `.env` kopieren und den eigenen Schlüssel eintragen. Start mit:
+
+```sh
+node --env-file=.env server.js
+```
+
+Ohne Last.fm-Schlüssel funktioniert der öffentliche ListenBrainz-Import; Last.fm zeigt eine verständliche Meldung statt erfundener Ergebnisse.
+
+## Umgesetzte Abläufe
+
+- Songauswahl, vorheriger/nächster Song und Links zur Titelsuche bei Musikdiensten. Es gibt keine simulierte Musikwiedergabe.
+- Favoriten mit Sammlung im Profil und Entfernen gespeicherter Songs.
+- Profil, Akzentfarbe, Termine, Merkliste, Suchaliase und Tagesrätsel werden lokal im jeweiligen Browser gespeichert.
+- Persönliche Termine anlegen, bearbeiten und mit Bestätigung löschen; Filter nach Genre, Merkliste und vergangenen Terminen; Export der sichtbaren Auswahl als korrekt maskierte und gefaltete iCalendar-Datei.
+- Suchaliase bleiben nach einem Neuladen wirksam.
+- Tagesrätsel wechselt um Mitternacht in Korea. Antworten müssen einen vollständigen hinterlegten Titel treffen. Zusätzliche Hinweise nach dem ersten und dritten Versuch ersetzen das vorherige unechte Cover-Rätsel.
+- Echter Import öffentlicher Hördaten mit Lade-, Abbruch-, Leer- und Fehlerzuständen. Ergebnisse bleiben nur für die Sitzung verfügbar; der Server hält Antworten höchstens fünf Minuten im Arbeitsspeicher vor.
+- Statistik als PNG herunterladen oder als Text kopieren.
+- Verbesserte Tastaturaktionen, Dialogfokus, reduzierte Bewegung und sichere Anzeige von Nutzereingaben.
+
+## Bedeutung der Hörstatistik
+
+ListenBrainz liefert bis zu 1.000 zuletzt übermittelte Plays. Last.fm liefert Künstlerstatistiken für zwölf Monate mit vollständiger Seitennavigation bis maximal 10.000 Künstlern; größere Profile werden ausdrücklich abgelehnt und nicht als vollständig ausgegeben.
+
+Der Abgleich verwendet Namen und im Katalog hinterlegte Aliase. Nicht zugeordnete Plays können weitere koreanische Musik enthalten. Der angezeigte Wert ist daher eine katalogbasierte Schätzung innerhalb der geladenen Daten, kein vollständig ermittelter Korea-Gesamtanteil. Nutzerdefinierte Suchaliase sind nur Teil der persönlichen Suche, nicht des serverseitigen Statistik-Abgleichs.
+
+Offizielle Schnittstellenbeschreibung: [Last.fm user.getTopArtists](https://www.last.fm/api/show/user.getTopArtists) und [ListenBrainz listens](https://listenbrainz.readthedocs.io/en/latest/users/api/core.html).
+
+## Daten und offene Voraussetzungen
+
+- Der übernommene Song-/Künstlerkatalog ist Referenzinhalt. Seine Credits und Aufnahme-IDs sind nicht unabhängig verifiziert. Erfunden wirkende Track-IDs werden nicht als verifizierte Abspielziele verwendet; Streaminglinks öffnen eine passende Titelsuche.
+- Die übernommenen Beispiel-Scrobblezahlen werden nicht als Live-Charts gezeigt. Eine tatsächliche Community-Chart benötigt erst eine belastbare Datenquelle und Aggregation.
+- Unbestätigte Beispiel-Comebacks sind nicht als echte Veröffentlichungsankündigungen sichtbar. Der Radar verwendet persönliche Termine, MusicBrainz und öffentliche Redaktionseinträge.
+- Persönliche Einträge bleiben lokal. Die getrennte öffentliche Redaktion verfügt über dauerhaften Speicher und einen geschützten Zugang; individuelle Nutzerkonten und geräteübergreifende Profilsynchronisation sind nicht enthalten.
+- Last.fm benötigt einen Betreiber-API-Schlüssel. Spotify-Profil- und Playlist-Links funktionieren ohne API; die zusätzliche Kontoverknüpfung benötigt eine eigene Spotify-App.
+- Betreiber- und Kontaktangaben sind vor einer Veröffentlichung zu vervollständigen.
+
+## Hosting
+
+Der vorhandene GitHub-Pages-Workflow veröffentlicht nur statische Dateien. Er kann den Node-Endpunkt `/api/listening` nicht ausführen. Für die vollständige Anwendung ist Node-fähiges Hosting oder eine getrennte, passend konfigurierte API erforderlich. Ein fehlender API-Endpunkt wird in der Oberfläche erklärt. In dieser Bearbeitung wurde keine neue öffentliche Version veröffentlicht.
+
+Der Server liefert ausschließlich öffentliche HTML-, CSS- und JavaScript-Dateien und den definierten API-Endpunkt aus. Projektdateien, `.env`, Git-Metadaten und Serverquelltext sind darüber nicht erreichbar.
+
+## Prüfen
+
+```sh
+npm test
+```
+
+Die Tests verwenden den echten HTTP-Handler und die tatsächlichen Oberflächenmodule in einer DOM-Testumgebung. Sie prüfen Datum/Uhrzeit, Ergebnisberechnung, Provider-Fehler, Seitenwechsel, Favoriten, persistente Aliase, Rätsel, Kalenderpflege und -export, Dialogwechsel sowie Speicherfehler. Die Schnittstellentests sind deterministisch; ein ListenBrainz-Liveimport wurde zusätzlich durchgeführt. Eine zusätzliche Desktop- und Mobilprüfung der neuen Ansichten wurde durchgeführt.
+
+## Planung
+
+[improvementV1.md](improvementV1.md) enthält die zusammengefassten Gedanken aus dem Gespräch, Prioritäten, Abnahmekriterien, offene Designideen und die nächsten Ausbaustufen.
+
+## Ausbau V1: Spotify, Live-Radar und öffentliche Redaktion
+
+Die Funktionen aus `improvementV1.md` wurden weiter umgesetzt:
+
+- **Spotify-Profil und Playlist-Links:** geprüfte `open.spotify.com`-URLs, persistente Sammlung, Duplikatprüfung und Entfernen.
+- **Spotify-Anmeldung:** Authorization Code mit PKCE, einmaliger State, HttpOnly-/SameSite-Cookie, serverseitige Tokens, Token-Erneuerung, aktuelle Benutzer-Playlists mit Seitennavigation, Fehlermeldungen bei fehlender Freigabe sowie Verbindung trennen. Keine Anforderung von E-Mail, Wiedergabe- oder Schreibrechten. Sitzungen liegen im Arbeitsspeicher und enden spätestens nach sieben Tagen oder bei einem Serverneustart.
+- **Live-Radar:** MusicBrainz-Veröffentlichungen im Zeitraum von 90 Tagen vor bis 90 Tagen nach dem Abruf. Alle 14 Katalog-Künstler sind mit geprüften MusicBrainz-IDs zugeordnet; namensgleiche ausländische Künstler werden nicht übernommen. Jeder Release verweist auf die Quelle. Unvollständige Datumsangaben werden ausgelassen. MusicBrainz-Inhalte sind gemeinschaftlich gepflegte Metadaten, keine Zusage einer vollständigen Comeback-Liste.
+- **Last.fm-Tag-Charts:** Top-Titel für k-pop, k-indie, k-hiphop und k-rnb, mit Quelle und Abrufdatum. Es handelt sich nicht um eine Wochenchart oder eine eigene bias.fm-Community-Aggregation. Benötigt Last.fm-Schlüssel.
+- **Öffentliche Redaktion:** Entwurf/Veröffentlichung, Quellenpflicht, Release-Phasen, Bearbeiten und Löschen. Speicherung als atomar aktualisierte JSON-Datei unter `DATA_DIR`; Versionen verhindern das Überschreiben fremder zwischenzeitlicher Änderungen. Ein gemeinsamer Redaktionsschlüssel schützt Schreibzugriffe; dies ist keine individuelle Mitarbeiterkontenverwaltung.
+- **Gestaltung:** farbigere Fandom-Flächen, konsistente Formulare, Playlist-Karten, korrigierte mobile Abstände und kompakte mobile Songleiste. Das geschlossene Mobilmenü ist nicht mehr per Tastatur erreichbar.
+
+### Einrichten
+
+```sh
+npm run setup
+npm start
+```
+
+`setup` legt nur dann eine private `.env` an, wenn noch keine existiert, und erzeugt dabei einen zufälligen Redaktionsschlüssel. Vorhandene Konfiguration wird nicht überschrieben. Der Schlüssel wird nie ausgegeben. Er steht unter `EDITORIAL_TOKEN` in der lokalen `.env` und öffnet in „Sammlung → Öffentliche Redaktion“ die Redaktion. Die Datei ist von Git und Docker-Build-Kontext ausgeschlossen.
+
+Weitere Werte in `.env`:
+
+- `LASTFM_API_KEY`: Betreiber-Schlüssel für Hörstatistik und Charts.
+- `SPOTIFY_CLIENT_ID`: Client-ID der eigenen Spotify-App. Im Spotify-Dashboard muss `<APP_ORIGIN>/api/spotify/callback` als Rücksprungadresse registriert sein. Lokal `http://127.0.0.1:3000/api/spotify/callback`, nicht `localhost`.
+- `APP_ORIGIN`: tatsächlicher Ursprung der Website. Produktion: HTTPS; lokal: Loopback-IP. Bei einer anderen lokalen Portnummer beide Angaben entsprechend setzen.
+- `DATA_DIR`: dauerhafter Datenträger für Redaktionseinträge.
+- `OPERATOR_NAME`, `OPERATOR_ADDRESS`, `OPERATOR_EMAIL`: öffentliche Betreiberangaben für die Informationsseite. Ohne diese Angaben gibt es kein fertiges Impressum.
+
+Die Anwendung lädt eine vorhandene `.env` beim Start selbst. Extern gesetzte Umgebungsvariablen haben Vorrang. Keine Anbieterzugänge wurden erfunden; Spotify-OAuth und Last.fm sind implementiert und mit kontrollierten Antworten getestet, aber ohne die erforderlichen Betreiber-Schlüssel noch nicht live freigeschaltet.
+
+### Server-Hosting
+
+Ein `Dockerfile` für Node 22 mit einem unprivilegierten Benutzer, Healthcheck und persistentem Volume liegt bei. `npm run build` prüft JavaScript und erstellt ausschließlich öffentliche statische Dateien unter `dist/`. Der GitHub-Pages-Workflow veröffentlicht nur dieses Verzeichnis und führt zuvor Tests aus. GitHub Pages allein führt weiterhin keine API aus; für alle Funktionen muss die gesamte Node-Anwendung bereitgestellt werden.
+
+Für Docker einen dauerhaften Datenträger nach `/app/.data` einbinden, `APP_ORIGIN` auf die HTTPS-Adresse setzen und Konfigurationswerte als Umgebungsvariablen übergeben. Der Container benötigt einen vorgeschalteten HTTPS-Endpunkt. Ein Container-Build wurde in diesem Durchgang nicht ausgeführt; der lokale Node-Server und der statische Build wurden geprüft.
+
+### Nachweise und Grenzen
+
+15 automatisierte Tests prüfen die Hauptabläufe, Spotify-PKCE und Session-Isolation, Playlist-Daten, Redaktionsrechte, Speicherung über Serverneustarts, Versionskonflikte und eindeutige Release-Zuordnung. Der MusicBrainz-Liveabruf lieferte im Test acht passende Einträge. Desktop- und Mobilansichten wurden zusätzlich im Browser geprüft. Die Namenszuordnung in Hörstatistiken nutzt MusicBrainz-IDs, wenn der Dienst sie mitliefert; andernfalls bleibt sie eine offengelegte Schätzung anhand der Namen.
+
+Verwendete Primärdokumentation: [Spotify PKCE](https://developer.spotify.com/documentation/web-api/tutorials/code-pkce-flow), [Benutzer-Playlists](https://developer.spotify.com/documentation/web-api/reference/get-a-list-of-current-users-playlists), [Spotify-Änderungen 2026](https://developer.spotify.com/documentation/web-api/tutorials/february-2026-migration-guide), [Rücksprungadressen](https://developer.spotify.com/documentation/web-api/concepts/redirect_uri), [MusicBrainz-Suchfelder](https://musicbrainz.org/doc/Indexed_Search_Syntax), [Last.fm-Tag-Charts](https://www.last.fm/api/show/tag.getTopTracks).

@@ -22,7 +22,7 @@
       this.likedSongs = new Set();
       this.playbackTimer = null;
       this.playbackSeconds = 38;
-      this.soundEnabled = true;
+      this.soundEnabled = false;
 
       // Load liked songs
       try {
@@ -48,6 +48,11 @@
         legal: window.biasLegalView
       };
 
+      document.addEventListener('keydown', e => {
+        const target=e.target.closest('[role="button"][tabindex="0"]');
+        if (target && e.target === target && (e.key === 'Enter' || e.key === ' ')) {e.preventDefault();target.click();}
+        if (e.key === 'Escape') this.closeMobileNav();
+      });
       this.initRouting();
       this.initThemeToggle();
       this.initMobileNav();
@@ -69,13 +74,15 @@
         this.loadTrackToDock(BIAS_DATA.songs[0].id, false);
       }
 
-      console.log('bias.fm application initialized with Spotify/Tidal polish.');
+      window.addEventListener('error', event => {
+        if (/speicher|storage|quota/i.test(event.message || '')) this.showToast('Speichern fehlgeschlagen. Bitte prüfe den lokalen Browserspeicher.');
+      });
     }
 
     initRouting() {
       const handleHashChange = () => {
         const hash = window.location.hash.replace('#', '').trim();
-        const route = hash ? hash.split('/')[0] : 'home';
+        const route = hash ? hash.split(/[/?]/)[0] : 'home';
         this.navigateTo(route, false);
       };
 
@@ -105,19 +112,21 @@
 
       this.currentRoute = route;
       if (updateHash) {
-        window.location.hash = route === 'home' ? '' : `#${route}`;
+        history.pushState(null, '', route === 'home' ? location.pathname + location.search : `#${route}`);
       }
 
       // Update Nav active links
       document.querySelectorAll('.nav-link, .drawer-link').forEach(link => {
         const target = link.getAttribute('data-route') || (link.getAttribute('href') || '').replace('#', '');
         link.classList.toggle('is-active', target === route);
+        if(target === route) link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');
       });
 
       // Render view
       const mainContainer = document.getElementById('main-content');
       if (mainContainer && this.views[route]) {
         mainContainer.innerHTML = '';
+        document.title = `${({home:'Entdecken',charts:'Charts',kalender:'Comeback Radar',catalog:'Katalog',stats:'Hörstatistik',profile:'Mein Profil',game:'Tagesrätsel',curation:'Meine Sammlung',legal:'Informationen'})[route] || 'bias.fm'} · bias.fm`;
         this.views[route].render(mainContainer);
         // Instant top reset without smooth animation lag
         window.scrollTo(0, 0);
@@ -127,7 +136,11 @@
 
       // Close mobile drawer if open
       const drawer = document.getElementById('mobile-drawer');
-      if (drawer) drawer.classList.remove('is-open');
+      if (drawer) {
+        if (drawer.contains(document.activeElement)) mainContainer?.focus({preventScroll:true});
+        drawer.classList.remove('is-open');drawer.inert=true;
+      }
+      document.getElementById('mobile-menu-toggle')?.setAttribute('aria-expanded', 'false');
     }
 
     initThemeToggle() {
@@ -147,8 +160,19 @@
       if (toggle && drawer) {
         toggle.addEventListener('click', () => {
           drawer.classList.toggle('is-open');
+          const open=drawer.classList.contains('is-open');drawer.inert=!open;
+          toggle.setAttribute('aria-expanded', String(open));
+          if(open)drawer.querySelector('button').focus();
         });
       }
+    }
+
+    closeMobileNav() {
+      const drawer=document.getElementById('mobile-drawer');
+      const wasOpen=drawer?.classList.contains('is-open');
+      if(drawer){drawer.classList.remove('is-open');drawer.inert=true;}
+      const button=document.getElementById('mobile-menu-toggle');button?.setAttribute('aria-expanded','false');
+      if(wasOpen)button?.focus();
     }
 
     // ================= DOCK PLAYER CONTROLLER =================
@@ -163,6 +187,8 @@
         });
       }
 
+      document.getElementById('dock-prev-btn')?.addEventListener('click', () => this.moveTrack(-1));
+      document.getElementById('dock-next-btn')?.addEventListener('click', () => this.moveTrack(1));
       const likeBtn = document.getElementById('dock-like-btn');
       if (likeBtn) {
         likeBtn.addEventListener('click', () => {
@@ -224,8 +250,7 @@
       }
 
       if (autoPlay) {
-        this.startPlaybackSimulation();
-        this.playUiTone(440, 'triangle', 0.08); // pleasant chime
+        this.showToast(`${song.title} ausgewählt – öffne deinen Streamingdienst.`);
       }
 
       // Highlight in charts view if currently active
@@ -236,48 +261,13 @@
     }
 
     togglePlayback() {
-      if (this.isPlaying) {
-        this.pausePlaybackSimulation();
-      } else {
-        this.startPlaybackSimulation();
-      }
+      if (this.currentTrack?.links.spotify) window.open(this.currentTrack.links.spotify, '_blank', 'noopener,noreferrer');
     }
 
-    startPlaybackSimulation() {
-      this.isPlaying = true;
-      const playBtn = document.getElementById('dock-play-btn');
-      const visualizer = document.getElementById('dock-visualizer');
-      if (playBtn) playBtn.innerHTML = '❚❚';
-      if (visualizer) visualizer.classList.remove('is-paused');
-
-      clearInterval(this.playbackTimer);
-      this.playbackTimer = setInterval(() => {
-        this.playbackSeconds++;
-        if (this.playbackSeconds > 185) this.playbackSeconds = 0;
-        this.updatePlaybackBar();
-      }, 1000);
-    }
-
-    pausePlaybackSimulation() {
-      this.isPlaying = false;
-      const playBtn = document.getElementById('dock-play-btn');
-      const visualizer = document.getElementById('dock-visualizer');
-      if (playBtn) playBtn.innerHTML = '▶';
-      if (visualizer) visualizer.classList.add('is-paused');
-      clearInterval(this.playbackTimer);
-    }
-
-    updatePlaybackBar() {
-      const fill = document.getElementById('dock-timeline-fill');
-      const currTime = document.getElementById('dock-curr-time');
-      if (!fill || !currTime) return;
-
-      const mins = Math.floor(this.playbackSeconds / 60);
-      const secs = this.playbackSeconds % 60;
-      currTime.textContent = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-
-      const pct = Math.min(100, (this.playbackSeconds / 185) * 100);
-      fill.style.width = `${pct}%`;
+    moveTrack(direction) {
+      const songs = BIAS_DATA.songs;
+      const index = songs.findIndex(s => s.id === this.currentTrack?.id);
+      this.loadTrackToDock(songs[(index + direction + songs.length) % songs.length].id, false);
     }
 
     toggleLike(songId) {
@@ -300,6 +290,7 @@
       }
       try {
         localStorage.setItem('biasfm_liked_tracks', JSON.stringify(Array.from(this.likedSongs)));
+        if(this.currentTrack) this.loadTrackToDock(this.currentTrack.id, false);
       } catch (e) {}
     }
 
@@ -347,6 +338,7 @@
 
       biasStore.updateProfile({
         ultBiasArtist: art.id,
+        biasLine: biasStore.profile.biasLine.filter(id => id !== art.id),
         ultBiasMember: '',
         accentColor: art.fandomColor,
         fandomName: art.fandomName || art.name
@@ -362,20 +354,6 @@
       }
     }
 
-    copyShareCardText(pct, username) {
-      const text = `Mein Korea-Anteil am Hören auf bias.fm: ${pct}%\nTop Artists: NewJeans, 검정치마, SUMIN & Slom\nEntdecke deine Zahlen auf https://bias.fm`;
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(() => {
-          this.showToast('Text in Zwischenablage kopiert! 📋');
-          this.playUiTone(783.99, 'sine', 0.1);
-        }).catch(() => {
-          prompt('Dein Share-Text:', text);
-        });
-      } else {
-        prompt('Dein Share-Text:', text);
-      }
-    }
-
     showToast(message) {
       let toast = document.getElementById('global-toast');
       if (!toast) {
@@ -384,7 +362,8 @@
         toast.className = 'global-toast';
         document.body.appendChild(toast);
       }
-      toast.innerHTML = `<span style="color:var(--bias)">●</span> ${message}`;
+      toast.textContent = message;
+      toast.setAttribute('role', 'status');
       toast.classList.add('is-visible');
       clearTimeout(this.toastTimeout);
       this.toastTimeout = setTimeout(() => {

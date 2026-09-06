@@ -1934,3 +1934,28 @@
     display: none;
   }
 }
+
+/* Completed product states */
+.import-card { max-width: 900px; margin-bottom: 32px; }
+.import-actions { display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin-top:18px; }
+.inline-error { border:1px solid #f87171; background:rgba(248,113,113,.08); color:var(--fg); padding:16px; border-radius:10px; margin-top:16px; }
+.stats-empty { text-align:center; padding:64px 24px; border:1px solid var(--line); border-radius:16px; }
+.stats-empty p { max-width:540px; margin:16px auto 24px; color:var(--fg-mid); line-height:1.7; }
+.stats-empty-icon { font-size:64px; color:var(--bias); }
+.stats-empty h2 { font-size:28px; }
+.text-action { background:none; border:0; color:var(--fg); font:inherit; text-align:left; cursor:pointer; padding:4px 0; }
+.text-action:hover { color:var(--bias); }
+.favorite-row { display:flex; justify-content:space-between; gap:16px; align-items:center; padding:16px 0; border-bottom:1px solid var(--line); }
+.favorites-section { margin-top:32px; }
+.favorite-row .section-note { display:block; margin-top:4px; }
+.archive-filter { display:flex; gap:10px; align-items:center; margin:0 0 24px; color:var(--fg-mid); font-size:14px; }
+.dock-hint { font-size:12px; color:var(--fg-dim); margin:6px 0 0; text-align:center; }
+.riddle-hint-reveal { height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px; text-align:center; color:white; background:rgba(0,0,0,.35); }
+.riddle-hint-reveal span { font-size:44px; font-weight:800; overflow-wrap:anywhere; }
+.riddle-hint-reveal p { font-size:16px; line-height:1.5; margin-top:16px; }
+.skip-link { position:fixed; z-index:9999; left:16px; top:-100px; background:var(--bg-card); color:var(--fg); padding:12px 20px; border:2px solid var(--bias); border-radius:8px; }
+.skip-link:focus { top:12px; }
+:focus-visible { outline:2px solid var(--bias); outline-offset:4px; }
+button:disabled { opacity:.55; cursor:wait; }
+@media(max-width:600px) { .import-card { padding:20px; } .stats-empty { padding:40px 18px; } .favorite-row { align-items:flex-start; } .dock-hint { display:none; } .riddle-hint-reveal span { font-size:32px; } }
+@media(prefers-reduced-motion:reduce) { *, *::before, *::after { animation-duration:.01ms !important; transition-duration:.01ms !important; scroll-behavior:auto !important; } }

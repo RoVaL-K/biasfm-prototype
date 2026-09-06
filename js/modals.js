@@ -57,20 +57,16 @@
     }
 
     closeCurrentModal() {
-      if (this.activeModal) {
-        this.activeModal.classList.remove('is-active');
-        setTimeout(() => {
-          if (this.activeModal && this.activeModal.parentNode) {
-            this.activeModal.parentNode.removeChild(this.activeModal);
-          }
-          this.activeModal = null;
-          document.body.style.overflow = '';
-        }, 200);
-      }
+      if (!this.activeModal) return;
+      this.activeModal.remove();
+      this.activeModal = null;
+      document.body.style.overflow = '';
+      this.previousFocus?.focus();
     }
 
     createModalContainer(contentHtml) {
       this.closeCurrentModal();
+      this.previousFocus = document.activeElement;
       const wrap = document.createElement('div');
       wrap.className = 'modal-backdrop is-active';
       wrap.innerHTML = `
@@ -82,6 +78,14 @@
       document.body.appendChild(wrap);
       document.body.style.overflow = 'hidden';
       this.activeModal = wrap;
+      wrap.querySelector('.modal-close-btn').focus();
+      wrap.addEventListener('keydown', e => {
+        if (e.key !== 'Tab') return;
+        const focusable = [...wrap.querySelectorAll('button, a[href], input, select, textarea, [tabindex="0"]')].filter(el => !el.disabled && el.getClientRects().length);
+        const first = focusable[0], last = focusable[focusable.length-1];
+        if (e.shiftKey && document.activeElement === first) {e.preventDefault();last.focus();}
+        else if (!e.shiftKey && document.activeElement === last) {e.preventDefault();first.focus();}
+      });
       return wrap;
     }
 
@@ -91,8 +95,8 @@
       if (!song) return;
 
       const artist = (BIAS_DATA.artists || []).find(a => a.id === song.artistId);
-      const isrc = song.isrc || 'ISRC KRA000000000';
-      const mbid = song.mbid || 'MusicBrainz Recording';
+      const isrc = 'Noch nicht unabhängig geprüft';
+      const mbid = 'Noch nicht unabhängig geprüft';
 
       const producersHtml = (song.credits.producers || []).map(p => 
         `<span class="credit-pill credit-prod"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8"></polygon></svg> ${esc(p)}</span>`
@@ -126,7 +130,7 @@
         </div>
 
         <div class="modal-section">
-          <h4 class="section-label">Deep-Links (Kein Web-Player, direkt abspielen)</h4>
+          <h4 class="section-label">Bei deinem Streamingdienst suchen</h4>
           <div class="deeplinks-grid">
             ${song.links.spotify ? `
               <a href="${song.links.spotify}" target="_blank" rel="noopener" class="deeplink-btn spotify">
@@ -239,13 +243,13 @@
           <h4 class="section-label">Katalog & Top Tracks (${songs.length})</h4>
           <div class="artist-songs-list">
             ${songs.map((s, idx) => `
-              <div class="artist-song-row" onclick="biasModals.openSongModal('${s.id}')">
+              <div role="button" tabindex="0" class="artist-song-row" onclick="biasModals.openSongModal('${s.id}')">
                 <span class="song-idx">${idx + 1}</span>
                 <div class="song-meta">
                   <span class="song-t">${esc(s.title)} <span class="song-h">${esc(s.hangulTitle)}</span></span>
                   <span class="song-alb">${esc(s.album)} (${s.releaseYear})</span>
                 </div>
-                <span class="song-plays">${s.plays.toLocaleString('de-DE')} Scrobbles</span>
+                <span class="song-plays">Credits ansehen</span>
                 <span class="song-dur">${esc(s.duration)}</span>
               </div>
             `).join('')}
@@ -306,7 +310,7 @@
           <div class="modal-badges">
             <span class="pill pill-prod">Produzent / Beatmaker</span>
             <span class="pill pill-muted">${esc(prod.agency)}</span>
-            <span class="pill pill-accent">${prod.creditsCount} Verifizierte Credits</span>
+            <span class="pill pill-accent">${prod.creditsCount} Hinterlegte Credits</span>
           </div>
           <h2 class="modal-title">${esc(prod.name)} <span class="modal-hangul">${esc(prod.hangul)}</span></h2>
           <div class="modal-subtitle">
@@ -353,8 +357,9 @@
     // 4. Share Card Modal
     openShareCardModal(statsData) {
       const profile = biasStore.profile;
-      const pct = statsData.koreaShare || 78;
-      const username = profile.username || 'Stan';
+      const pct = statsData.koreaShare ?? 0;
+      this.shareData = statsData;
+      const username = statsData.username || profile.username || 'Musikfan';
       const ultArtist = (BIAS_DATA.artists || []).find(a => a.id === profile.ultBiasArtist);
       const ultName = ultArtist ? `${ultArtist.name} (${profile.ultBiasMember || 'All'})` : 'NewJeans (Hanni)';
 
@@ -362,7 +367,7 @@
         <div class="modal-header">
           <span class="pill pill-accent">Social Share-Card</span>
           <h2 class="modal-title">Dein Korea-Hörprofil teilen</h2>
-          <p class="modal-subtitle">Echte Hörstatistik ohne 50-Play-Spotify-Deckel. Bereit für Instagram Story, Discord oder X.</p>
+          <p class="modal-subtitle">Deine erkannten Künstler und Plays als Bild oder Text.</p>
         </div>
 
         <div class="modal-section">
@@ -378,7 +383,7 @@
               </div>
               <div style="text-align:right">
                 <div style="font-size:38px;font-weight:800;font-family:var(--font-mono);color:var(--bias);line-height:1">${pct}%</div>
-                <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:var(--fg-dim)">Korea-Anteil</div>
+                <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:var(--fg-dim)">Katalogbasierte Schätzung</div>
               </div>
             </div>
 
@@ -395,7 +400,7 @@
             </div>
 
             <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--fg-dim);border-top:1px solid var(--line);padding-top:12px">
-              <span>Plattformunabhängig · Last.fm scrobbles</span>
+              <span>${esc(statsData.periodLabel || "Hörstatistik")} · ${esc(statsData.provider || "")}</span>
               <span>bias.fm</span>
             </div>
           </div>
@@ -403,13 +408,33 @@
 
         <div class="modal-footer">
           <button class="btn btn-ghost" data-action="close-modal">Schließen</button>
-          <button class="btn btn-accent" id="copy-card-btn" onclick="biasApp.copyShareCardText(${pct}, '${esc(username)}')">
+          <button class="btn btn-ghost" id="download-card-btn">Als PNG speichern</button>
+          <button class="btn btn-accent" id="copy-card-btn">
             Text & Emoji kopieren
           </button>
         </div>
       `;
 
-      this.createModalContainer(content);
+      const modal = this.createModalContainer(content);
+      modal.querySelector('#copy-card-btn').onclick = async () => {
+        const text = `@${username} · bias.fm\n${pct}% zugeordnete koreanische Musik (Schätzung)\n${statsData.periodLabel} · ${statsData.totalScrobbles} analysierte Plays\nTop Artists: ${statsData.topArtists.slice(0,3).map(a => a.name).join(', ') || 'Noch keine erkannt'}\nAbgleich mit dem bias.fm-Katalog; übrige Plays nicht zugeordnet.`;
+        try {await navigator.clipboard.writeText(text);biasApp.showToast('Ergebnis kopiert.');}
+        catch {prompt('Ergebnis zum Kopieren:', text);}
+      };
+      modal.querySelector('#download-card-btn').onclick = () => {
+        const canvas = document.createElement('canvas'); canvas.width=1080;canvas.height=1080;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle='#10141e';ctx.fillRect(0,0,1080,1080);
+        ctx.fillStyle=biasStore.accentColor;ctx.fillRect(64,64,56,8);
+        ctx.font='bold 36px sans-serif';ctx.fillText('bias.fm / YOUR LISTENING ID',64,132);
+        ctx.fillStyle='#ffffff';ctx.font='bold 48px sans-serif';ctx.fillText('@'+username,64,226,950);
+        ctx.fillStyle=biasStore.accentColor;ctx.font='bold 172px sans-serif';ctx.fillText(pct+'%',64,440);
+        ctx.fillStyle='#ffffff';ctx.font='32px sans-serif';ctx.fillText('Katalogbasierter Korea-Anteil',64,502);
+        ctx.font='26px sans-serif';ctx.fillStyle='#bbc4d2';ctx.fillText(statsData.periodLabel,64,558);
+        statsData.topArtists.slice(0,3).forEach((a,i) => {ctx.fillStyle='#ffffff';ctx.font='32px sans-serif';ctx.fillText(`${i+1}. ${a.name}`,64,666+i*68,740);ctx.fillStyle=biasStore.accentColor;ctx.fillText(String(a.plays),865,666+i*68,150);});
+        ctx.fillStyle='#bbc4d2';ctx.font='24px sans-serif';ctx.fillText(`${statsData.totalScrobbles} Plays · ${statsData.provider} · Katalogabgleich`,64,922,950);ctx.fillText('Nicht zugeordnete Plays können weitere K-Music enthalten.',64,970,950);
+        canvas.toBlob(blob => {if(!blob) return;const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='biasfm-hoerprofil.png';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);},'image/png');
+      };
     }
   }
 

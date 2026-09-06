@@ -16,11 +16,14 @@
 
   class GameView {
     constructor() {
-      this.currentRiddle = BIAS_DATA.riddles[0];
+      this.currentRiddle = biasCore.daily();
       this.targetSong = (BIAS_DATA.songs || []).find(s => s.id === this.currentRiddle.songId) || BIAS_DATA.songs[0];
     }
 
     render(container) {
+      this.currentRiddle = biasCore.daily();
+      this.targetSong = BIAS_DATA.songs.find(s => s.id === this.currentRiddle.songId);
+      if (biasStore.riddleState.date !== this.currentRiddle.date) biasStore.updateRiddleState({date:this.currentRiddle.date,dayNumber:this.currentRiddle.dayNumber,guesses:[],status:'playing',blurLevel:24});
       const state = biasStore.riddleState;
       const blurVal = state.blurLevel !== undefined ? state.blurLevel : this.currentRiddle.initialBlur;
       const isFinished = state.status === 'won' || state.status === 'lost';
@@ -31,7 +34,7 @@
             <div>
               <div class="pill-row">
                 <span class="pill pill-accent">Rätsel des Tages #${this.currentRiddle.dayNumber}</span>
-                <span class="pill pill-muted">Ohne Audio · Keine GEMA · Tägliche Discovery</span>
+                <span class="pill pill-muted">Jeden Tag neu · Mitternacht in Korea</span>
               </div>
               <h1 class="view-title">Welcher Song wird gesucht?</h1>
               <p class="view-subtitle">Nutze die Hinweise, errate den Titel in maximal 5 Versuchen und teile deinen Score.</p>
@@ -43,7 +46,7 @@
             <div class="game-main-col">
               <!-- Clues Box -->
               <div class="game-clues-box">
-                <h3 class="clues-title">Verifizierte Song-Hinweise</h3>
+                <h3 class="clues-title">Deine Hinweise</h3>
                 <div class="clues-list">
                   <div class="clue-row">
                     <span class="clue-label">Veröffentlichungsjahr</span>
@@ -58,11 +61,11 @@
                     <span class="clue-val">${esc(this.currentRiddle.hintProducer)}</span>
                   </div>
                   <div class="clue-row lyric-clue">
-                    <span class="clue-label">Textzeile (Hangul)</span>
+                    <span class="clue-label">Titellänge</span>
                     <span class="clue-val lyric-hangul">${esc(this.currentRiddle.hintLyricHangul)}</span>
                   </div>
                   <div class="clue-row">
-                    <span class="clue-label">Übersetzung</span>
+                    <span class="clue-label">Künstlername</span>
                     <span class="clue-val italic">„${esc(this.currentRiddle.hintLyricTranslation)}“</span>
                   </div>
                 </div>
@@ -73,16 +76,13 @@
                 ${!isFinished ? `
                   <form id="riddle-form" class="riddle-input-group" autocomplete="off">
                     <div class="autocomplete-wrap">
-                      <input type="text" id="riddle-input" placeholder="Titel oder Artist eingeben..." required>
+                      <input type="text" id="riddle-input" placeholder="Gesuchten Songtitel eingeben..." aria-label="Songtitel" maxlength="200" required>
                       <div id="riddle-suggestions" class="autocomplete-dropdown"></div>
                     </div>
                     <button type="submit" class="btn btn-accent">Raten</button>
                   </form>
                   <div class="game-sub-bar">
                     <span id="guesses-remaining-text">${5 - state.guesses.length} von 5 Versuchen übrig</span>
-                    <button class="btn btn-ghost btn-xs" onclick="biasGameView.reduceBlurManual()">
-                      🔍 Cover etwas schärfen (-5px Blur)
-                    </button>
                   </div>
                 ` : this.renderFinishedBox(state)}
               </div>
@@ -96,13 +96,11 @@
             <!-- Right Visualizer Column -->
             <div class="game-visual-col">
               <div class="mystery-cover-wrap">
-                <div class="mystery-cover-card" id="riddle-cover-card" style="background:${this.currentRiddle.coverPlaceholderGradient}; filter: blur(${isFinished ? 0 : blurVal}px);">
-                  <div class="cover-inner-pattern">
-                    <span class="vinyl-center"></span>
-                  </div>
+                <div class="mystery-cover-card" id="riddle-cover-card" style="background:${this.currentRiddle.coverPlaceholderGradient}">
+                  <div class="riddle-hint-reveal"><span>${isFinished ? esc(this.targetSong.title) : state.guesses.length >= 3 ? esc(this.targetSong.artistName) : state.guesses.length >= 1 ? esc(this.targetSong.title[0]) + ' …' : '?'}</span><p>${isFinished ? esc(this.targetSong.artistName) : state.guesses.length >= 3 ? 'Gesuchter Künstler' : state.guesses.length >= 1 ? 'Erster Buchstabe des Titels' : 'Ein weiterer Hinweis nach deinem ersten Versuch'}</p></div>
                 </div>
                 <div class="cover-overlay-badge">
-                  <span>${isFinished ? 'Cover aufgedeckt' : `Cover-Blur: ${blurVal}px`}</span>
+                  <span>${isFinished ? 'Song aufgedeckt' : `Versuch ${state.guesses.length + 1} von 5`}</span>
                 </div>
               </div>
 
@@ -110,8 +108,8 @@
                 <h4>Spielregeln</h4>
                 <ul>
                   <li>Du hast 5 Versuche für den koreanischen Song des Tages.</li>
-                  <li>Jeder falsche Versuch reduziert den Blur-Filter des Albumcovers um 5px.</li>
-                  <li>Titel können auf Hangul, Englisch oder Romanisiert eingegeben werden.</li>
+                  <li>Nach dem ersten Versuch siehst du den Anfangsbuchstaben, nach dem dritten den Künstler.</li>
+                  <li>Nutze einen im Katalog hinterlegten Titel auf Hangul oder Englisch.</li>
                   <li>Um Mitternacht KST gibt es ein neues Rätsel!</li>
                 </ul>
               </div>
@@ -231,10 +229,10 @@
       const targetArtist = this.targetSong.artistName.toLowerCase();
       const g = guessText.toLowerCase();
 
-      const isTitleMatch = g.includes(targetTitle) || (targetHangul && g.includes(targetHangul));
+      if (state.date !== biasCore.koreaDate()) {this.render(document.getElementById('main-content'));biasApp.showToast('Ein neuer Tag in Korea: Das nächste Rätsel ist da.');return;}
+      if (state.guesses.some(guess => biasCore.normalize(guess.text) === biasCore.normalize(guessText))) {biasApp.showToast('Diesen Tipp hast du schon abgegeben.');return;}
       const isArtistMatch = g.includes(targetArtist);
-
-      const isCorrect = isTitleMatch || (isArtistMatch && isTitleMatch);
+      const isCorrect = biasCore.correctGuess(guessText, this.targetSong);
 
       let feedback = '';
       if (isCorrect) {
@@ -268,20 +266,6 @@
       }
     }
 
-    reduceBlurManual() {
-      const state = biasStore.riddleState;
-      const nextBlur = Math.max(0, (state.blurLevel !== undefined ? state.blurLevel : 24) - 5);
-      biasStore.updateRiddleState({ blurLevel: nextBlur });
-      const cover = document.getElementById('riddle-cover-card');
-      if (cover) {
-        cover.style.filter = `blur(${nextBlur}px)`;
-      }
-      const badge = document.querySelector('.cover-overlay-badge span');
-      if (badge) {
-        badge.textContent = `Cover-Blur: ${nextBlur}px`;
-      }
-    }
-
     shareScore() {
       const state = biasStore.riddleState;
       const count = state.guesses.length;
@@ -295,7 +279,7 @@
         boxes += '⬜ ';
       }
 
-      const text = `bias.fm Rätsel #${this.currentRiddle.dayNumber} ${isWon ? count : 'X'}/5\n${boxes}\nhttps://bias.fm`;
+      const text = `bias.fm Rätsel #${this.currentRiddle.dayNumber} ${isWon ? count : 'X'}/5\n${boxes}\n${location.origin}${location.pathname}#game`;
 
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(text).then(() => {

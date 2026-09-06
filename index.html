@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>bias.fm — Koreanische Musik, deine Zahlen</title>
-  <meta name="description" content="Entdeckungs-, Stats- und Community-Ebene für koreanische Musik aller Genres (Idol, Indie, R&amp;B, Hiphop, Produzenten). Echte Last.fm-Scrobbles, Comeback-Radar und Kanonische Metadaten.">
+  <meta name="description" content="Entdeckungs-, Stats- und Community-Ebene für koreanische Musik aller Genres (Idol, Indie, R&amp;B, Hiphop, Produzenten). Persönliche Hörstatistik, Comeback-Radar und Musik entdecken.">
   <meta property="og:title" content="bias.fm — Koreanische Musik, deine Zahlen">
-  <meta property="og:description" content="Comeback-Radar, verifizierte Scrobble-Charts und Fan-Identity für koreanische Musik aller Genres. Ohne eigenen Player.">
+  <meta property="og:description" content="Comeback-Radar, persönliche Hörstatistik und Fan-Identity für koreanische Musik aller Genres. Ohne eigenen Player.">
   <meta property="og:type" content="website">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%2338bdf8'/%3E%3C/svg%3E">
 
@@ -21,17 +21,18 @@
   <link rel="stylesheet" href="css/components.css">
   <link rel="stylesheet" href="css/layout.css">
   <link rel="stylesheet" href="css/views.css">
+  <link rel="stylesheet" href="css/polish.css">
 </head>
 <body>
+<a class="skip-link" href="#main-content">Zum Inhalt</a>
 
   <!-- Top Announcement Notice -->
   <div class="top-notice-bar">
     <div class="wrap notice-inner">
       <div class="notice-text">
-        <span class="notice-badge">Live Platform</span>
+        <span class="notice-badge">Korean Music Discovery</span>
         <span>bias.fm verbindet Hördaten &amp; Discovery für koreanische Musik aller Genres ohne eigenen Player.</span>
       </div>
-      <a href="#konzept" class="notice-link" style="color:var(--bias);font-weight:600">handover.md Konzept lesen →</a>
     </div>
   </div>
 
@@ -47,14 +48,13 @@
       <!-- Navigation Links -->
       <nav class="desktop-nav" aria-label="Hauptnavigation">
         <a href="#home" class="nav-link" data-route="home">Home</a>
-        <a href="#charts" class="nav-link" data-route="charts">Charts</a>
+        <a href="#charts" class="nav-link" data-route="charts">Entdecken</a>
         <a href="#kalender" class="nav-link" data-route="kalender">Radar</a>
         <a href="#catalog" class="nav-link" data-route="catalog">Katalog &amp; Produzenten</a>
         <a href="#game" class="nav-link" data-route="game">Rätsel</a>
         <a href="#stats" class="nav-link" data-route="stats">Stats</a>
         <a href="#profile" class="nav-link" data-route="profile">Profil</a>
-        <a href="#curation" class="nav-link" data-route="curation">Curation</a>
-        <a href="#konzept" class="nav-link" data-route="konzept">Konzept</a>
+        <a href="#curation" class="nav-link" data-route="curation">Sammlung</a>
       </nav>
 
       <!-- Right Header Actions -->
@@ -73,12 +73,6 @@
         <button class="user-badge-btn" id="header-ult-badge" onclick="biasApp.navigateTo('profile')" title="Dein Ult Bias">
           ★ NewJeans
         </button>
-
-        <!-- Audio FX Toggle -->
-        <button class="audio-toggle-btn" id="audio-fx-btn" title="UI Sound-Feedback an/aus" onclick="biasApp.soundEnabled = !biasApp.soundEnabled; biasApp.showToast(biasApp.soundEnabled ? 'UI-Sounds: An 🔊' : 'UI-Sounds: Stumm 🔇'); this.innerHTML = biasApp.soundEnabled ? '🔊' : '🔇';">
-          🔊
-        </button>
-
         <!-- Theme Toggle -->
         <button class="theme-btn" id="theme-toggle-btn" title="Farbschema wechseln (Dunkel / Hell)" aria-label="Farbschema wechseln">
           ◐
@@ -93,27 +87,26 @@
   </header>
 
   <!-- Mobile Drawer -->
-  <aside class="mobile-drawer" id="mobile-drawer" aria-label="Mobiles Navigationsmenü">
+  <aside class="mobile-drawer" id="mobile-drawer" inert aria-label="Mobiles Navigationsmenü">
     <div class="drawer-header">
       <span class="brand-logo"><span class="brand-dot"></span>bias.fm</span>
-      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('mobile-drawer').classList.remove('is-open')">✕</button>
+      <button class="btn btn-ghost btn-sm" onclick="biasApp.closeMobileNav()" aria-label="Menü schließen">✕</button>
     </div>
     <nav class="drawer-nav">
-      <a href="#home" class="drawer-link" onclick="biasApp.navigateTo('home')">Home</a>
-      <a href="#charts" class="drawer-link" onclick="biasApp.navigateTo('charts')">Charts</a>
-      <a href="#kalender" class="drawer-link" onclick="biasApp.navigateTo('kalender')">Comeback Radar</a>
-      <a href="#catalog" class="drawer-link" onclick="biasApp.navigateTo('catalog')">Katalog &amp; Produzenten</a>
-      <a href="#game" class="drawer-link" onclick="biasApp.navigateTo('game')">Rätsel des Tages</a>
-      <a href="#stats" class="drawer-link" onclick="biasApp.navigateTo('stats')">Korea-Anteil Rechner</a>
-      <a href="#profile" class="drawer-link" onclick="biasApp.navigateTo('profile')">Mein Fan-Profil</a>
-      <a href="#curation" class="drawer-link" onclick="biasApp.navigateTo('curation')">Curation Studio</a>
-      <a href="#konzept" class="drawer-link" onclick="biasApp.navigateTo('konzept')">Konzept &amp; Roadmap</a>
-      <a href="#legal" class="drawer-link" onclick="biasApp.navigateTo('legal')">Recht &amp; Datenschutz</a>
+      <a href="#home" class="drawer-link">Home</a>
+      <a href="#charts" class="drawer-link">Entdecken</a>
+      <a href="#kalender" class="drawer-link">Comeback Radar</a>
+      <a href="#catalog" class="drawer-link">Katalog &amp; Produzenten</a>
+      <a href="#game" class="drawer-link">Rätsel des Tages</a>
+      <a href="#stats" class="drawer-link">Korea-Anteil Rechner</a>
+      <a href="#profile" class="drawer-link">Mein Fan-Profil</a>
+      <a href="#curation" class="drawer-link">Meine Sammlung</a>
+      <a href="#legal" class="drawer-link">Recht &amp; Datenschutz</a>
     </nav>
   </aside>
 
   <!-- Dynamic Main Content Wrapper -->
-  <main id="main-content" class="main-content wrap" role="main"></main>
+  <main id="main-content" class="main-content wrap" role="main" tabindex="-1"></main>
 
   <!-- Persistent Bottom Now-Playing & Deep-Link Dock (Spotify / Tidal Style) -->
   <aside class="bottom-dock" id="bottom-dock" aria-label="Aktueller Track &amp; Schnell-Abspiel-Leiste">
@@ -133,24 +126,11 @@
       <!-- Center Playback Controls & Progress Bar -->
       <div class="dock-controls">
         <div class="dock-buttons-row">
-          <button class="dock-ctrl-btn" title="Vorheriger Track" onclick="biasApp.showToast('Vorheriger Track')">⏮</button>
-          <button class="dock-play-circle" id="dock-play-btn" title="Play / Pause">▶</button>
-          <button class="dock-ctrl-btn" title="Nächster Track" onclick="biasApp.showToast('Nächster Track')">⏭</button>
-          <!-- Equalizer Animated Bars -->
-          <div class="eq-visualizer is-paused" id="dock-visualizer" title="Live Visualizer">
-            <span class="eq-bar"></span>
-            <span class="eq-bar"></span>
-            <span class="eq-bar"></span>
-            <span class="eq-bar"></span>
-          </div>
+          <button class="dock-ctrl-btn" id="dock-prev-btn" title="Vorheriger Track">⏮</button>
+          <button class="dock-play-circle" id="dock-play-btn" title="Auf Spotify öffnen" aria-label="Ausgewählten Song auf Spotify öffnen">▶</button>
+          <button class="dock-ctrl-btn" id="dock-next-btn" title="Nächster Track">⏭</button>
         </div>
-        <div class="dock-timeline-row">
-          <span id="dock-curr-time">0:38</span>
-          <div class="dock-timeline-bar" onclick="biasApp.showToast('Scrubbing simuliert')">
-            <div class="dock-timeline-fill" id="dock-timeline-fill"></div>
-          </div>
-          <span id="dock-total-time">3:05</span>
-        </div>
+        <p class="dock-hint">Musik beim Streamingdienst öffnen</p>
       </div>
 
       <!-- Right Actions & Deep-Links -->
@@ -174,13 +154,13 @@
       <div class="footer-inner">
         <div class="footer-brand">
           <h4>bias.fm</h4>
-          <p>Kuratierte Entdeckungs-, Stats- und Community-Ebene für koreanische Musik aller Genres. Keine GEMA-pflichtigen Web-Player, stattdessen direkte Deep-Links zu lizenzierten Streaming-Plattformen.</p>
+          <p>Kuratierte Entdeckungs-, Stats- und Community-Ebene für koreanische Musik aller Genres. Hören bei deinem Streamingdienst, Entdecken und Sammeln auf bias.fm.</p>
         </div>
 
         <div class="footer-col">
           <h5>Discovery</h5>
           <ul>
-            <li><a href="#charts">Scrobble Charts</a></li>
+            <li><a href="#charts">Songs entdecken</a></li>
             <li><a href="#kalender">Comeback Radar</a></li>
             <li><a href="#catalog">Produzenten-Graph</a></li>
             <li><a href="#game">Rätsel des Tages</a></li>
@@ -192,31 +172,32 @@
           <ul>
             <li><a href="#stats">Korea-Anteil</a></li>
             <li><a href="#profile">Ult Bias &amp; Line</a></li>
-            <li><a href="#curation">Curation Studio</a></li>
-            <li><a href="#konzept">Handover Konzept</a></li>
+            <li><a href="#curation">Meine Sammlung</a></li>
+
           </ul>
         </div>
 
         <div class="footer-col">
           <h5>Recht &amp; Betrieb (DE)</h5>
           <ul>
-            <li><a href="#legal" onclick="biasLegalView.activeTab='impressum'">Impressum (§ 5 DDG)</a></li>
-            <li><a href="#legal" onclick="biasLegalView.activeTab='datenschutz'">Datenschutz (DSGVO)</a></li>
-            <li><a href="#legal" onclick="biasLegalView.activeTab='tdddg'">Cookies &amp; TDDDG</a></li>
-            <li><a href="#legal" onclick="biasLegalView.activeTab='urheberrecht'">Urheberrecht (GEMA)</a></li>
+            <li><a href="#legal" onclick="biasLegalView.activeTab='impressum'">Betreiber & Kontakt</a></li>
+            <li><a href="#legal" onclick="biasLegalView.activeTab='datenschutz'">Datenschutzhinweise</a></li>
+            <li><a href="#legal" onclick="biasLegalView.activeTab='tdddg'">Lokaler Speicher</a></li>
+            <li><a href="#legal" onclick="biasLegalView.activeTab='urheberrecht'">Musik &amp; Quellen</a></li>
           </ul>
         </div>
       </div>
 
       <div class="footer-bottom-bar">
-        <span>© 2026 bias.fm · Alle Daten kanonisch verifiziert via MusicBrainz &amp; ISRC</span>
-        <span>Entwickelt nach handover.md v2 Spezifikation</span>
+        <span>© 2026 bias.fm · Musik entdecken. Favoriten sammeln. Hördaten verstehen.</span>
+        <span>Dein Geschmack. Dein bias.fm.</span>
       </div>
     </div>
   </footer>
 
   <!-- Scripts -->
   <script src="js/data.js"></script>
+  <script src="js/core.js"></script>
   <script src="js/store.js"></script>
   <script src="js/search.js"></script>
   <script src="js/modals.js"></script>
@@ -226,6 +207,8 @@
   <script src="js/views/catalog.js"></script>
   <script src="js/views/game.js"></script>
   <script src="js/views/stats.js"></script>
+  <script src="js/connections.js"></script>
+  <script src="js/editorial.js"></script>
   <script src="js/views/profile.js"></script>
   <script src="js/views/curation.js"></script>
   <script src="js/views/konzept.js"></script>

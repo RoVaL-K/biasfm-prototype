@@ -1025,6 +1025,35 @@ const BIAS_DATA = {
   ]
 };
 
+// Seed metadata remains reference content; platform destinations use title searches
+// until individual recording URLs have been verified.
+BIAS_DATA.songs.forEach(song => {
+  const query = encodeURIComponent(`${song.artistName} ${song.title}`);
+  song.links.spotify = `https://open.spotify.com/search/${query}`;
+  song.links.apple = `https://music.apple.com/search?term=${query}`;
+  song.links.youtubeMusic = `https://music.youtube.com/search?q=${query}`;
+  song.links.melon = `https://www.melon.com/search/total/index.htm?q=${query}`;
+});
+
+// Artist identities checked against MusicBrainz on 2026-09-06. Recording IDs remain unverified.
+const VERIFIED_ARTIST_IDS = {
+  "newjeans": "49204a7a-ed85-407a-828f-6fd46f1d8126",
+  "sumin": "16f456c9-e23b-4675-ab6a-fd295712c256",
+  "black-skirts": "a697464c-69b1-4bbc-88cc-570c025a25e5",
+  "se-so-neon": "717d466b-36b8-4a43-86e9-e8b8c4a658d7",
+  "gidle": "0068ae6c-7156-40f9-a81f-39294af6a549",
+  "bibi": "21c93d2d-dc10-4f8f-ae91-7285eff37c2f",
+  "aespa": "b51c672b-85e0-48fe-8648-470a2422229f",
+  "younha": "5e3bc4c7-adbe-40e0-b56e-57d755908d52",
+  "crush": "d663f95b-096e-419b-8b5d-f9e8b980ad2b",
+  "ph-1": "aace796b-0569-49b6-a144-64ea24031962",
+  "dynamic-duo": "9f92f1e5-7b25-4be2-ab61-76b6db556887",
+  "lee-hi": "60c05c03-e33e-44a7-bef8-6fb245aaea51",
+  "iu": "b9545342-1e6d-4dae-84ac-013374ad8d7c",
+  "silica-gel": "2c8b5bb2-6110-488d-bc15-abb08379d3c6"
+};
+BIAS_DATA.artists.forEach(artist => { artist.mbid = VERIFIED_ARTIST_IDS[artist.id] || null; });
+
 // Export for Node and Browser environments
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = BIAS_DATA;

@@ -1,158 +1,193 @@
-// test.js — Comprehensive Test & Integrity Suite for bias.fm
-const fs = require('fs');
-const path = require('path');
-const { EventEmitter } = require('events');
-
-console.log('\n=================================================');
-console.log('  RUNNING BIAS.FM PLATFORM INTEGRITY TESTS');
-console.log('=================================================\n');
-
-let passedTests = 0;
-let totalTests = 0;
-
-function assert(condition, message) {
-  totalTests++;
-  if (condition) {
-    console.log(`  ✓ ${message}`);
-    passedTests++;
-  } else {
-    console.error(`  ✗ FAIL: ${message}`);
-    process.exitCode = 1;
+const {test} = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const {JSDOM} = require('jsdom');
+const {createServer} = require('./server');
+const {summarize,getListening} = require('./lib/listening');
+global.BIAS_DATA = require('./js/data');
+const core = require('./js/core');
+function app(saved={}) {
+  const html=fs.readFileSync('index.html','utf8');
+  const dom=new JSDOM(html.replace(/<script[\s\S]*?<\/script>/g,''), {url:'http://localhost/',runScripts:'dangerously',pretendToBeVisual:true});
+  const w=dom.window;
+  w.addEventListener('error',e=>{throw e.error;});
+  w.scrollTo=()=>{};w.HTMLElement.prototype.scrollIntoView=()=>{};w.TextEncoder=TextEncoder;w.AbortController=AbortController;
+  for(const [key,value] of Object.entries(saved)) w.localStorage.setItem(key,value);
+  for(const match of html.matchAll(/<script src="([^"]+)"/g)) {const script=w.document.createElement('script');script.textContent=fs.readFileSync(match[1],'utf8');new (require('node:vm').Script)(script.textContent);w.document.body.appendChild(script);}
+  w.biasApp.init();
+  return {w,close:()=>w.close()};
+}
+test('Korean day changes exactly at midnight KST; answers require a complete title',()=>{
+  assert.equal(core.koreaDate(new Date('2026-09-06T14:59:59Z')),'2026-09-06');
+  assert.equal(core.koreaDate(new Date('2026-09-06T15:00:00Z')),'2026-09-07');
+  assert.notEqual(core.daily(new Date('2026-09-06T14:59:59Z')).songId,core.daily(new Date('2026-09-06T15:00:00Z')).songId);
+  assert.equal(core.correctGuess('not Ditto at all',BIAS_DATA.songs[0]),false);
+  assert.equal(core.correctGuess('Ditto - NewJeans',BIAS_DATA.songs[0]),true);
+});
+test('Listening summaries use plays and leave unmatched artists unclassified',()=>{
+  const r=summarize([{name:'NewJeans',plays:7},{name:'뉴진스',plays:3},{name:'Unknown',plays:90}],{});
+  assert.equal(r.totalScrobbles,100);assert.equal(r.koreaScrobbles,10);assert.equal(r.koreaShare,10);assert.equal(r.unmatchedScrobbles,90);
+  assert.equal(summarize([],{}).koreaShare,0);
+  const identities=summarize([{name:'BIBI',mbids:['another-artist-id'],plays:90},{name:'비비',mbids:['21c93d2d-dc10-4f8f-ae91-7285eff37c2f'],plays:10}],{});
+  assert.equal(identities.koreaScrobbles,10);assert.equal(identities.unmatchedScrobbles,90);
+});
+test('Provider imports parse real schemas and reject failures or missing credentials',async()=>{
+  const result=await getListening('listenbrainz','tester',async()=>({ok:true,json:async()=>({payload:{listens:[{track_metadata:{artist_name:'NewJeans'}}]}})}));
+  assert.equal(result.koreaShare,100);assert.equal(result.totalScrobbles,1);
+  await assert.rejects(getListening('lastfm','tester',undefined,''),/nicht freigeschaltet/);
+  await assert.rejects(getListening('bad','tester'),/gültigen/);
+  await assert.rejects(getListening('listenbrainz','tester',async()=>({ok:false,status:404})),/nicht gefunden/);
+  let calls=0;
+  const last=await getListening('lastfm','tester',async()=>({ok:true,json:async()=>{calls++;return {topartists:{artist:[{name:'NewJeans',playcount:'5'}],'@attr':{totalPages:'2'}}};}}),'test-key');
+  assert.equal(calls,2);assert.equal(last.totalScrobbles,10);
+});
+test('HTTP server serves the actual app and protects private files and malformed paths',async()=>{
+  const server=createServer();await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  const origin=`http://127.0.0.1:${server.address().port}`;
+  try {
+    for(const p of ['/','/js/core.js','/css/views.css']) assert.equal((await fetch(origin+p)).status,200,p);
+    for(const p of ['/server.js','/.git/config','/package.json','/lib/listening.js','/.env','/api/nope']) assert.equal((await fetch(origin+p)).status,404,p);
+    assert.equal((await fetch(origin+'/%E0%A4%A')).status,400);
+    assert.equal((await fetch(origin+'/',{method:'POST'})).status,405);
+    assert.equal((await fetch(origin+'/api/listening?provider=no&username=test')).status,400);
+  }finally{await new Promise(resolve=>server.close(resolve));}
+});
+test('Every view renders, dock controls stay inside the dock and navigation renders once',()=>{
+  const {w,close}=app();try {
+    for(const route of ['home','charts','kalender','catalog','game','stats','profile','curation','legal']) {w.biasApp.navigateTo(route);assert.ok(w.document.querySelector('#main-content h1'),route);}
+    assert.ok(w.document.querySelector('#bottom-dock .dock-wrap .dock-actions'));
+    assert.equal(w.document.querySelector('#dock-total-time'),null);
+    w.biasApp.navigateTo('home');assert.ok(!w.document.querySelector('#main-content').textContent.includes('78%'));
+    let count=0;const render=w.biasStatsView.render.bind(w.biasStatsView);w.biasStatsView.render=c=>{count++;render(c);};w.biasApp.navigateTo('stats');assert.equal(count,1);
+    const initial=w.biasApp.currentTrack.id;w.document.querySelector('#dock-next-btn').click();assert.notEqual(w.biasApp.currentTrack.id,initial);w.document.querySelector('#dock-prev-btn').click();assert.equal(w.biasApp.currentTrack.id,initial);
+  }finally{close();}
+});
+test('Favorites, custom aliases, riddle answers and profile survive a reload',()=>{
+  const a=app();let saved;
+  try {
+    a.w.biasApp.toggleLike('track-ditto');
+    a.w.biasStore.addCurationAlias({artistId:'newjeans',alias:'my special nickname'});
+    a.w.biasApp.navigateTo('game');a.w.biasGameView.submitGuess(a.w.biasGameView.targetSong.title);
+    assert.equal(a.w.biasStore.riddleState.status,'won');
+    saved=Object.fromEntries(Object.keys(a.w.localStorage).map(k=>[k,a.w.localStorage.getItem(k)]));
+  }finally{a.close();}
+  const b=app(saved);try {
+    assert.ok(b.w.biasApp.likedSongs.has('track-ditto'));
+    assert.equal(b.w.biasSearch.search('my special nickname')[0].id,'newjeans');
+    b.w.biasApp.navigateTo('game');assert.equal(b.w.document.querySelector('#riddle-form'),null);
+    b.w.biasApp.navigateTo('profile');assert.ok(b.w.document.querySelector('[data-favorite-remove="track-ditto"]'));
+  }finally{b.close();}
+});
+test('Calendar create, update, genre filtering, escaped iCal and delete',()=>{
+  const {w,close}=app();try {
+    w.biasApp.navigateTo('curation');
+    const fields={'cb-act':'Test & Artist','cb-title':'Release, One; 새','cb-date':'2099-01-02','cb-genres':'Hiphop','cb-desc':'First line\nBEGIN:VEVENT'};
+    for(const [id,value] of Object.entries(fields)) w.document.getElementById(id).value=value;
+    w.biasCurationView.handleSubmitComeback({preventDefault(){}});
+    const cb=w.biasStore.customComebacks[0];assert.ok(w.biasStore.isTracked(cb.id));
+    w.biasCurationView.editComeback(cb.id);w.document.getElementById('cb-title').value='Updated';w.biasCurationView.handleSubmitComeback({preventDefault(){}});assert.equal(w.biasStore.customComebacks.length,1);
+    w.biasCalendarView.activeGenre='R&B';assert.equal(w.biasCalendarView.filteredComebacks().length,1);
+    const ics=w.biasCalendarView.generateIcsContent([cb]);assert.ok(ics.includes('Release\\, One\\; 새'));assert.ok(ics.includes('First line\\nBEGIN:VEVENT'));assert.equal(ics.match(/\r\nBEGIN:VEVENT/g).length,1);
+    for(const line of ics.split('\r\n')) assert.ok(Buffer.byteLength(line)<=75);
+    w.biasCurationView.deleteComeback(cb.id);w.document.getElementById('confirm-delete').click();assert.equal(w.biasStore.customComebacks.length,0);assert.equal(w.biasStore.isTracked(cb.id),false);
+  }finally{close();}
+});
+test('Modal switching keeps the new dialog; user text is not rendered as HTML',async()=>{
+  const {w,close}=app();try {
+    w.biasModals.openSongModal('track-ditto');w.biasModals.openArtistModal('newjeans');
+    await new Promise(r=>setTimeout(r,230));assert.ok(w.biasModals.activeModal?.isConnected);assert.equal(w.document.querySelectorAll('.modal-backdrop').length,1);
+    w.biasApp.showToast('<img src=x onerror=alert(1)>');assert.equal(w.document.querySelector('#global-toast img'),null);
+    w.biasModals.closeCurrentModal();assert.equal(w.document.body.style.overflow,'');
+  }finally{close();}
+});
+test('Stats render imported figures and preserve prior results when refresh fails',async()=>{
+  const {w,close}=app();try {
+    w.biasApp.navigateTo('stats');assert.equal(w.document.querySelector('#share-stats'),null);
+    const result=summarize([{name:'NewJeans',plays:1},{name:'Unknown',plays:9}],{username:'tester',provider:'listenbrainz',periodLabel:'Letzte 10 Plays'});
+    w.fetch=async()=>({ok:true,headers:{get:()=> 'application/json'},json:async()=>result});
+    w.document.getElementById('listening-username').value='tester';await w.biasStatsView.handleConnect({preventDefault(){}});
+    assert.equal(w.biasStatsView.result.koreaShare,10);assert.ok(w.document.querySelector('#share-stats'));
+    w.fetch=async()=>{throw new Error('Offline');};await w.biasStatsView.handleConnect({preventDefault(){}});
+    assert.equal(w.document.querySelector('[role="alert"]').textContent,'Offline');assert.equal(w.biasStatsView.result.totalScrobbles,10);
+    w.biasStatsView.openShareCard();assert.ok(w.document.querySelector('#download-card-btn'));
+  }finally{close();}
+});
+test('Corrupt saved types recover safely',()=>{
+  const {w,close}=app({biasfm_profile:'null',biasfm_tracked_comebacks:'{}',biasfm_custom_comebacks:'null'});try{w.biasApp.navigateTo('profile');assert.ok(w.document.querySelector('.fan-username'));}finally{close();}
+});
+test('A full browser store cannot report an unsaved profile or riddle as saved',()=>{
+  const {w,close}=app();try {
+    const username=w.biasStore.profile.username;
+    const status=w.biasStore.riddleState.status;
+    w.Storage.prototype.setItem=()=>{throw new Error('Quota exceeded');};
+    assert.throws(()=>w.biasStore.updateProfile({username:'Not saved'}),/nicht gespeichert/);
+    assert.equal(w.biasStore.profile.username,username);
+    assert.throws(()=>w.biasStore.updateRiddleState({status:'won'}),/nicht gespeichert/);
+    assert.equal(w.biasStore.riddleState.status,status);
+  }finally{close();}
+});
+test('Spotify link validation and playlist persistence work without OAuth credentials',()=>{
+  const {w,close}=app();try{
+    assert.equal(w.biasApi.spotifyUrl('https://open.spotify.com/user/test?si=x','user'),'https://open.spotify.com/user/test');
+    assert.throws(()=>w.biasApi.spotifyUrl('https://open.spotify.com.evil.test/user/x','user'));
+    assert.throws(()=>w.biasApi.spotifyUrl('javascript:alert(1)','user'));
+    assert.throws(()=>w.biasApi.spotifyUrl('https://open.spotify.com/playlist/not-an-id','playlist'));
+    w.biasApp.navigateTo('profile');w.document.querySelector('#spotify-profile-url').value='https://open.spotify.com/user/test';w.document.querySelector('#spotify-link-form').dispatchEvent(new w.Event('submit',{cancelable:true}));
+    assert.equal(w.biasStore.profile.spotifyProfileUrl,'https://open.spotify.com/user/test');
+    w.document.querySelector('#playlist-name').value='<b>My music</b>';w.document.querySelector('#playlist-url').value='https://open.spotify.com/playlist/1234567890123456789012';w.document.querySelector('#playlist-link-form').dispatchEvent(new w.Event('submit',{cancelable:true}));
+    assert.equal(w.biasStore.profile.spotifyPlaylists.length,1);assert.equal(w.document.querySelector('.playlist-card b').textContent,'<b>My music</b>');
+    w.document.querySelector('[data-remove-playlist]').click();assert.equal(w.biasStore.profile.spotifyPlaylists.length,0);
+  }finally{close();}
+});
+test('Spotify PKCE checks state, keeps tokens server-side, pages playlists and disconnects securely',async()=>{
+  const {createSpotify}=require('./lib/spotify');let refreshes=0;
+  const spotify=createSpotify({clientId:'test-client',origin:'http://127.0.0.1:3000',fetcher:async(url,opts)=>{
+    if(url.includes('/api/token')){if(opts.body.get('grant_type')==='refresh_token')refreshes++;return {ok:true,json:async()=>({access_token:'private-access',refresh_token:'private-refresh',expires_in:refreshes?3600:0})};}
+    if(url.endsWith('/me'))return {ok:true,json:async()=>({id:'tester',display_name:'Tester'})};
+    if(url.includes('/me/playlists'))return {ok:true,json:async()=>({items:[{id:'abc',name:'My playlist',owner:{display_name:'Tester'},items:{total:3},images:[]}],next:'next-page',total:21})};
+    throw Error('Unexpected URL');
+  }});
+  async function request(path,cookie='',method='GET',origin='http://127.0.0.1:3000'){
+    const res={headers:{},setHeader(k,v){this.headers[k]=v;},writeHead(status,h){this.status=status;Object.assign(this.headers,h);},end(){}};
+    await spotify.handle({method,headers:{cookie,host:'127.0.0.1:3000',origin}},res,new URL(path,'http://127.0.0.1:3000'),(status,text)=>{res.status=status;res.body=JSON.parse(text);});return res;
   }
-}
-
-// 1. Test Data Integrity
-console.log('\n--- 1. Testing Catalog & Data Layer ---');
-const BIAS_DATA = require('./js/data.js');
-
-assert(BIAS_DATA !== undefined, 'BIAS_DATA is defined and exportable');
-assert(Array.isArray(BIAS_DATA.artists) && BIAS_DATA.artists.length >= 10, `Found ${BIAS_DATA.artists?.length} curated artists (>= 10)`);
-assert(Array.isArray(BIAS_DATA.producers) && BIAS_DATA.producers.length >= 5, `Found ${BIAS_DATA.producers?.length} first-class producers (>= 5)`);
-assert(Array.isArray(BIAS_DATA.songs) && BIAS_DATA.songs.length >= 10, `Found ${BIAS_DATA.songs?.length} canonical songs (>= 10)`);
-assert(Array.isArray(BIAS_DATA.comebacks) && BIAS_DATA.comebacks.length >= 5, `Found ${BIAS_DATA.comebacks?.length} comebacks in radar (>= 5)`);
-assert(Array.isArray(BIAS_DATA.fandomColors) && BIAS_DATA.fandomColors.length === 8, 'Found exactly 8 authentic fandom colors (handover.md spec)');
-
-// Check canonical IDs on songs
-BIAS_DATA.songs.forEach(s => {
-  assert(Boolean(s.isrc), `Song "${s.title}" has canonical ISRC: ${s.isrc}`);
-  assert(Boolean(s.mbid), `Song "${s.title}" has MusicBrainz ID`);
-  assert(Boolean(s.credits?.producers), `Song "${s.title}" has verified producers`);
-  assert(Boolean(s.links?.spotify), `Song "${s.title}" has Spotify deep-link`);
+  const start=await request('/api/spotify/connect');const initialCookie=start.headers['Set-Cookie'].split(';')[0];const auth=new URL(start.headers.Location);
+  assert.equal(auth.searchParams.get('code_challenge_method'),'S256');assert.ok(auth.searchParams.get('code_challenge').length>=43);
+  await assert.rejects(request('/api/spotify/callback?code=x&state=wrong',initialCookie),/ungültig/);
+  const done=await request('/api/spotify/callback?code=x&state='+auth.searchParams.get('state'),initialCookie);const cookie=done.headers['Set-Cookie'].split(';')[0];assert.notEqual(cookie,initialCookie);
+  const status=await request('/api/spotify/status',cookie);assert.equal(status.body.connected,true);assert.ok(!JSON.stringify(status.body).includes('private-'));
+  const list=await request('/api/spotify/playlists?offset=20',cookie);assert.equal(list.body.nextOffset,40);assert.equal(list.body.items[0].total,3);assert.equal(refreshes,1);
+  await assert.rejects(request('/api/spotify/disconnect',cookie,'POST','https://evil.test'),/direkt/);
+  await request('/api/spotify/disconnect',cookie,'POST');assert.equal((await request('/api/spotify/status',cookie)).body.connected,false);
+  await assert.rejects(request('/api/spotify/callback?code=x&state='+auth.searchParams.get('state'),initialCookie),/ungültig/);
 });
-
-// Check producers have verified credits
-BIAS_DATA.producers.forEach(p => {
-  assert(p.creditsCount > 0, `Producer ${p.name} has credits count: ${p.creditsCount}`);
-  assert(Array.isArray(p.keyWorks) && p.keyWorks.length > 0, `Producer ${p.name} has key works list`);
+test('Editorial data survives server restart, hides drafts and prevents unauthorized or stale edits',async()=>{
+  const os=require('node:os'),path=require('node:path');const directory=fs.mkdtempSync(path.join(os.tmpdir(),'biasfm-editorial-'));
+  const options={editorial:{directory,adminToken:'a-test-only-key-with-32-characters'},fetchReleases:async()=>({items:[],fetchedAt:new Date().toISOString()})};
+  let server=createServer(options);await new Promise(r=>server.listen(0,'127.0.0.1',r));let origin=`http://127.0.0.1:${server.address().port}`;
+  const headers={'Content-Type':'application/json',Authorization:'Bearer a-test-only-key-with-32-characters'};
+  try{
+    assert.equal((await fetch(origin+'/api/editorial/releases')).status,401);
+    assert.equal((await fetch(origin+'/api/editorial/releases',{method:'POST',headers,body:JSON.stringify({act:'A'})})).status,400);
+    const input={act:'Artist',title:'New single',date:'2026-09-20',type:'Single',genres:['Idol'],sourceUrl:'https://example.com/announcement',state:'draft',pipelineStep:1};
+    let response=await fetch(origin+'/api/editorial/releases',{method:'POST',headers,body:JSON.stringify(input)});assert.equal(response.status,201);let item=await response.json();
+    assert.equal((await(await fetch(origin+'/api/releases')).json()).items.length,0);
+    response=await fetch(origin+'/api/editorial/releases',{method:'POST',headers,body:JSON.stringify({...item,state:'published'})});assert.equal(response.status,200);const published=await response.json();
+    response=await fetch(origin+'/api/editorial/releases',{method:'POST',headers,body:JSON.stringify({...item,title:'Stale'})});assert.equal(response.status,409);
+    await new Promise(r=>server.close(r));server=createServer(options);await new Promise(r=>server.listen(0,'127.0.0.1',r));origin=`http://127.0.0.1:${server.address().port}`;
+    assert.equal((await(await fetch(origin+'/api/releases')).json()).items[0].title,'New single');
+    assert.equal((await fetch(origin+`/api/editorial/releases/${published.id}?version=1`,{method:'DELETE',headers})).status,409);
+    assert.equal((await fetch(origin+`/api/editorial/releases/${published.id}?version=2`,{method:'DELETE',headers})).status,200);
+    assert.equal((await(await fetch(origin+'/api/releases')).json()).items.length,0);
+    assert.equal((await fetch(origin+'/.data/releases.json')).status,404);
+  }finally{await new Promise(r=>server.close(r));fs.rmSync(directory,{recursive:true,force:true});}
 });
-
-// 2. Test File Existence
-console.log('\n--- 2. Testing File System & Assets ---');
-const REQUIRED_FILES = [
-  'index.html',
-  'server.js',
-  'handover.md',
-  'package.json',
-  'css/variables.css',
-  'css/base.css',
-  'css/components.css',
-  'css/layout.css',
-  'css/views.css',
-  'js/data.js',
-  'js/store.js',
-  'js/search.js',
-  'js/modals.js',
-  'js/views/home.js',
-  'js/views/charts.js',
-  'js/views/calendar.js',
-  'js/views/catalog.js',
-  'js/views/game.js',
-  'js/views/stats.js',
-  'js/views/profile.js',
-  'js/views/curation.js',
-  'js/views/konzept.js',
-  'js/views/legal.js',
-  'js/app.js'
-];
-
-REQUIRED_FILES.forEach(file => {
-  const fullPath = path.join(__dirname, file);
-  const exists = fs.existsSync(fullPath);
-  const size = exists ? fs.statSync(fullPath).size : 0;
-  assert(exists && size > 50, `File ${file} exists and is non-empty (${size} bytes)`);
+test('Release feed rejects incomplete dates and mismatched artists and retains source attribution',async()=>{
+  const {fetchReleases}=require('./lib/releases');
+  const fixture={'release-groups':[
+    {id:'59218bb7-ba92-470b-a359-71f9f90bd7eb',title:'Release','first-release-date':'2026-09-20','artist-credit':[{artist:{name:'NewJeans',id:'49204a7a-ed85-407a-828f-6fd46f1d8126'}}]},
+    {id:'6493859c-f44d-4b8d-b5bd-bb79a5e34aa9',title:'Wrong','first-release-date':'2026-09-20','artist-credit':[{artist:{name:'NewJeans',id:'not-the-catalog-artist'}}]},
+    {id:'6493859c-f44d-4b8d-b5bd-bb79a5e34aa9',title:'Incomplete','first-release-date':'2026','artist-credit':[{artist:{name:'NewJeans',id:'49204a7a-ed85-407a-828f-6fd46f1d8126'}}]}
+  ]};
+  const r=await fetchReleases(async()=>({ok:true,json:async()=>fixture}),new Date('2026-09-06T00:00:00Z'));assert.equal(r.items.length,1);assert.equal(r.items[0].sourceName,'MusicBrainz');assert.ok(r.items[0].sourceUrl.startsWith('https://musicbrainz.org/release-group/'));
 });
-
-// 3. Test HTTP Server Request Handler (Mock Engine without network isolation limits)
-console.log('\n--- 3. Testing HTTP Server Routing & Static Asset Delivery ---');
-
-// Mock request and response to test the server handler directly
-function createMockReq(url) {
-  const req = new EventEmitter();
-  req.url = url;
-  req.method = 'GET';
-  req.headers = {};
-  return req;
-}
-
-function createMockRes(callback) {
-  const res = new EventEmitter();
-  res.headers = {};
-  res.statusCode = 200;
-  res.body = [];
-
-  res.writeHead = function (status, headers) {
-    res.statusCode = status;
-    Object.assign(res.headers, headers);
-  };
-
-  res.write = function (chunk) {
-    if (chunk) res.body.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-  };
-
-  res.end = function (chunk) {
-    if (chunk) res.body.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-    res.completeBody = Buffer.concat(res.body).toString('utf-8');
-    callback(res);
-  };
-
-  return res;
-}
-
-// We can test file resolution and MIME types using the server logic directly
-const MIME_TYPES = {
-  '.html': 'text/html; charset=utf-8',
-  '.css': 'text/css; charset=utf-8',
-  '.js': 'application/javascript; charset=utf-8',
-  '.json': 'application/json; charset=utf-8',
-  '.svg': 'image/svg+xml',
-  '.md': 'text/markdown; charset=utf-8'
-};
-
-function testDirectRoute(pathname, expectedContentType) {
-  let targetFile = pathname === '/' ? '/index.html' : pathname;
-  const fullPath = path.join(__dirname, targetFile);
-  const exists = fs.existsSync(fullPath);
-  assert(exists, `Route ${pathname} maps to file ${targetFile}`);
-  const ext = path.extname(targetFile);
-  const mime = MIME_TYPES[ext] || '';
-  assert(mime.includes(expectedContentType), `MIME type for ${pathname} is ${mime}`);
-}
-
-testDirectRoute('/', 'text/html');
-testDirectRoute('/css/variables.css', 'text/css');
-testDirectRoute('/css/views.css', 'text/css');
-testDirectRoute('/js/data.js', 'application/javascript');
-testDirectRoute('/js/app.js', 'application/javascript');
-testDirectRoute('/handover.md', 'text/markdown');
-
-console.log('\n=================================================');
-console.log(`  TEST RESULTS: ${passedTests} / ${totalTests} PASSED`);
-console.log('=================================================\n');
-
-if (passedTests === totalTests) {
-  console.log('  ALL SUITES PASSED (100%)! bias.fm is ready for production.\n');
-  process.exit(0);
-} else {
-  console.error('  SOME TESTS FAILED!\n');
-  process.exit(1);
-}

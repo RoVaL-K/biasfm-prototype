@@ -72,7 +72,7 @@
 
                 <div class="card-footer-info">
                   <span>Plattform: <b>bias.fm</b></span>
-                  <span class="mono">VERIFIED STAN</span>
+                  <span class="mono">MEIN MUSIKPROFIL</span>
                 </div>
               </div>
             </div>
@@ -142,8 +142,8 @@
                   </select>
                 </div>
 
-                <h3 class="settings-section-title" style="margin-top:24px">4. Offizielle Fandom-Akzentfarbe</h3>
-                <p class="section-note">Wähle eine der 8 kuratierten Fandom-Farben — kein freier Colorpicker (nach handover.md).</p>
+                <h3 class="settings-section-title" style="margin-top:24px">4. Deine Akzentfarbe</h3>
+                <p class="section-note">Wähle eine der 8 kuratierten Fandom-Farben — passend zu deinem Musikgeschmack.</p>
                 <div class="fandom-swatches-grid">
                   ${BIAS_DATA.fandomColors.map(fc => `
                     <button type="button" class="fandom-swatch-card ${fc.color === biasStore.accentColor ? 'is-active' : ''}" 
@@ -171,6 +171,12 @@
       `;
 
       this.attachEvents(container);
+      if(window.biasConnections) biasConnections.mount(container);
+      const favorites = BIAS_DATA.songs.filter(song => biasApp.likedSongs.has(song.id));
+      const section = document.createElement('section'); section.className = 'settings-card favorites-section';
+      section.innerHTML = `<h2>Deine gespeicherten Songs <span class="pill pill-muted">${favorites.length}</span></h2><p class="section-note">Dein Profil und deine Sammlung werden in diesem Browser gespeichert.</p>${favorites.length ? favorites.map(song => `<div class="favorite-row"><button class="text-action" data-favorite-open="${song.id}">${esc(song.title)} <span class="section-note">${esc(song.artistName)}</span></button><button class="btn btn-ghost btn-sm" data-favorite-remove="${song.id}" aria-label="${esc(song.title)} aus Favoriten entfernen">Entfernen</button></div>`).join('') : '<p>Noch keine Favoriten. Wähle einen Song und tippe auf das Herz.</p><a class="btn btn-ghost" href="#charts">Songs entdecken →</a>'}`;
+      section.addEventListener('click', e => {const open=e.target.closest('[data-favorite-open]');const remove=e.target.closest('[data-favorite-remove]');if(open) biasModals.openSongModal(open.dataset.favoriteOpen);if(remove){biasApp.toggleLike(remove.dataset.favoriteRemove);this.render(container);}});
+      container.querySelector('.view-profile').appendChild(section);
     }
 
     attachEvents(container) {
@@ -230,19 +236,20 @@
       const wreckerSelect = document.getElementById('prof-wrecker');
 
       const selectedChips = document.querySelectorAll('.bias-select-chip.is-selected');
-      const biasLine = Array.from(selectedChips).map(c => c.dataset.artistId);
+      const biasLine = Array.from(selectedChips).map(c => c.dataset.artistId).filter(id => id !== ultArtistSelect.value).slice(0,3);
 
       const username = usernameInput ? usernameInput.value.trim() : 'Stan';
       const ultBiasArtist = ultArtistSelect ? ultArtistSelect.value : 'newjeans';
       const ultBiasMember = ultMemberSelect ? ultMemberSelect.value : '';
       const biasWrecker = wreckerSelect ? wreckerSelect.value : '';
 
+      if (!username || username.length > 40) { biasApp.showToast('Bitte einen Nutzernamen mit 1 bis 40 Zeichen eingeben.'); usernameInput.focus(); return; }
       biasStore.updateProfile({
         username,
         ultBiasArtist,
         ultBiasMember,
         biasLine,
-        biasWrecker
+        biasWrecker: biasWrecker === ultBiasArtist ? "" : biasWrecker
       });
 
       biasApp.showToast('Profil erfolgreich gespeichert!');

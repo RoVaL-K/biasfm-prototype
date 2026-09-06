@@ -14,9 +14,8 @@
   }
 
   function getDaysUntil(dateStr) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const target = new Date(dateStr + 'T00:00:00');
+    const today = new Date(biasCore.koreaDate());
+    const target = new Date(dateStr);
     const diffTime = target - today;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     if (diffDays === 0) return 'Heute!';
@@ -29,6 +28,10 @@
     constructor() {
       this.filterTrackedOnly = false;
       this.activeGenre = 'Alle';
+      this.showArchive = false;
+      this.remoteReleases=[];
+      this.releaseLoaded=false;
+      this.loadingReleases=false;
     }
 
     render(container) {
@@ -39,12 +42,12 @@
           <div class="view-header">
             <div>
               <h1 class="view-title">Comeback Radar</h1>
-              <p class="view-subtitle">Redaktionell gepflegte Pipeline · Teaser, MV-Drops, Release &amp; Promotions</p>
+              <p class="view-subtitle">Neue Releases deiner Katalog-Künstler, öffentliche Ankündigungen und deine eigenen Termine.</p>
             </div>
             <div class="header-actions">
               <button class="btn btn-ghost" onclick="biasCalendarView.exportAllIcal()">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                Alle als .ics exportieren
+                Auswahl als .ics exportieren
               </button>
               <button class="btn btn-accent" onclick="biasApp.navigateTo('curation')">
                 + Comeback vorschlagen
@@ -52,6 +55,7 @@
             </div>
           </div>
 
+          <div id="release-source-status" class="release-source-bar"></div>
           <!-- Filter Controls -->
           <div class="filter-bar">
             <div class="tag-tabs" id="cal-genre-tabs">
@@ -63,13 +67,14 @@
 
             <div class="filter-toggle-wrap">
               <label class="toggle-switch">
-                <input type="checkbox" id="cal-tracked-only" ${this.filterTrackedOnly ? 'checked' : ''}>
+                <input aria-label="Nur gemerkte Termine" type="checkbox" id="cal-tracked-only" ${this.filterTrackedOnly ? 'checked' : ''}>
                 <span class="toggle-slider"></span>
               </label>
-              <span class="filter-label">Nur getrackte Biases (${biasStore.trackedComebacks.size})</span>
+              <span class="filter-label">Nur gemerkte Termine (${biasStore.trackedComebacks.size})</span>
             </div>
           </div>
 
+          <label class="archive-filter"><input type="checkbox" id="cal-archive" ${this.showArchive ? 'checked' : ''}> Vergangene Termine anzeigen</label>
           <!-- Timeline Container -->
           <div class="timeline-container" id="timeline-container"></div>
         </div>
@@ -77,15 +82,31 @@
 
       this.attachEvents(container);
       this.updateTimeline();
+      this.renderSourceStatus();
+      if (!this.releaseLoaded && typeof fetch === "function") this.loadReleases();
+    }
+
+    renderSourceStatus() {
+      const box=document.getElementById('release-source-status');if(!box)return;
+      box.innerHTML=`<div><b>${this.loadingReleases?'Releases werden geladen …':'Release-Quellen'}</b><p>${this.releaseWarning?esc(this.releaseWarning):this.releaseLoaded?`${this.remoteReleases.length} externe Einträge · ${this.releaseFetchedAt ? 'MusicBrainz abgerufen '+new Date(this.releaseFetchedAt).toLocaleString('de-DE') : 'Öffentliche Redaktion'}`:'MusicBrainz & öffentliche Redaktion'}</p><small>MusicBrainz: Katalog-Künstler, letzte und nächste 90 Tage. Keine vollständige Liste aller Comebacks.${this.releaseLimited?' Die Quelle liefert nur die ersten 100 Suchtreffer.':''}</small></div><button class="btn btn-ghost btn-sm" id="refresh-releases" ${this.loadingReleases?'disabled':''}>Aktualisieren</button>`;
+      box.querySelector('button').onclick=()=>this.loadReleases();
+    }
+
+    async loadReleases() {
+      if(this.loadingReleases)return;this.loadingReleases=true;this.renderSourceStatus();
+      try{const result=await biasApi.request('api/releases',{signal:AbortSignal.timeout(30000)});this.remoteReleases=result.items;this.releaseWarning=result.warning || '';this.releaseFetchedAt=result.fetchedAt;this.releaseLimited=result.limited;this.releaseLoaded=true;}
+      catch(error){this.releaseWarning=error.message;}
+      finally{this.loadingReleases=false;if(biasApp.currentRoute==='kalender'){this.renderSourceStatus();this.updateTimeline();}}
     }
 
     getAllComebacks() {
-      const standard = BIAS_DATA.comebacks || [];
+      const standard = this.remoteReleases;
       const custom = biasStore.customComebacks || [];
       return [...custom, ...standard].sort((a, b) => new Date(a.date) - new Date(b.date));
     }
 
     attachEvents(container) {
+      container.querySelector('#cal-archive').addEventListener('change', e => {this.showArchive = e.target.checked;this.updateTimeline();});
       const tabs = container.querySelectorAll('.tag-tab');
       tabs.forEach(tab => {
         tab.addEventListener('click', () => {
@@ -105,25 +126,24 @@
       }
     }
 
+    filteredComebacks() {
+      return this.getAllComebacks().filter(cb =>
+        (this.showArchive || cb.date >= biasCore.koreaDate()) &&
+        (!this.filterTrackedOnly || biasStore.isTracked(cb.id)) &&
+        (this.activeGenre === 'Alle' || (cb.genres || []).some(g => this.activeGenre === 'R&B' ? /R&B|Hiphop/i.test(g) : this.activeGenre === 'Indie' ? /Indie|Rock/i.test(g) : g.includes(this.activeGenre))));
+    }
+
     updateTimeline() {
       const container = document.getElementById('timeline-container');
       if (!container) return;
 
-      let list = this.getAllComebacks();
-
-      if (this.filterTrackedOnly) {
-        list = list.filter(cb => biasStore.isTracked(cb.id));
-      }
-
-      if (this.activeGenre !== 'Alle') {
-        list = list.filter(cb => (cb.genres || []).some(g => g.includes(this.activeGenre)));
-      }
+      const list = this.filteredComebacks();
 
       if (list.length === 0) {
         container.innerHTML = `
           <div class="timeline-empty">
-            <p>Keine anstehenden Comebacks für diese Filterkombination.</p>
-            <button class="btn btn-ghost btn-sm" onclick="biasCalendarView.resetFilters()">Filter zurücksetzen</button>
+            <p>Keine Termine für diese Auswahl. Trage einen bestätigten Release in deiner Sammlung ein.</p>
+            <button class="btn btn-ghost btn-sm" onclick="biasCalendarView.resetFilters()">Filter zurücksetzen</button><a class="btn btn-accent btn-sm" href="#curation">Termin hinzufügen</a>
           </div>
         `;
         return;
@@ -153,7 +173,7 @@
             <div class="comeback-card ${isTracked ? 'is-tracked' : ''}">
               <div class="cb-card-header">
                 <div class="cb-act-info">
-                  <span class="cb-type-badge">${esc(cb.type)}</span>
+                  <span class="cb-type-badge">${esc(cb.type)}</span> <span class="pill pill-muted">${esc(cb.sourceName || "Persönlicher Termin")}</span>
                   <h3 class="cb-act-name">
                     ${esc(cb.act)} <span class="cb-hangul">${esc(cb.actHangul || '')}</span>
                   </h3>
@@ -167,7 +187,7 @@
               </div>
 
               <!-- Pipeline Stepper -->
-              <div class="pipeline-stepper">
+              ${cb.sourceName === 'MusicBrainz' ? `<p class="section-note">${esc(getDaysUntil(cb.date))} · Veröffentlichungsdatum laut Quelle</p>` : `<div class="pipeline-stepper">
                 <div class="step ${pipelineStep >= 1 ? 'is-done' : ''}">
                   <span class="step-dot"></span>
                   <span class="step-label">Ankündigung</span>
@@ -189,6 +209,7 @@
                 </div>
               </div>
 
+              `}
               <p class="cb-desc">${esc(cb.description || '')}</p>
 
               <div class="cb-footer">
@@ -199,8 +220,9 @@
                   <button class="btn btn-ghost btn-sm" onclick="biasCalendarView.downloadSingleIcal('${cb.id}')">
                     .ics Kalender
                   </button>
+                  ${cb.sourceUrl ? `<a href="${esc(cb.sourceUrl)}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm">Quelle ↗</a>` : ''}
                   ${cb.teaserUrl ? `
-                    <a href="${cb.teaserUrl}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm">
+                    <a href="${esc(cb.teaserUrl)}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm">
                       Teaser ↗
                     </a>` : ''}
                 </div>
@@ -228,6 +250,8 @@
     toggleTrack(comebackId) {
       biasStore.toggleTrackComeback(comebackId);
       this.updateTimeline();
+      const label = document.querySelector('.filter-label');
+      if (label) label.textContent = `Nur gemerkte Termine (${biasStore.trackedComebacks.size})`;
     }
 
     resetFilters() {
@@ -241,6 +265,7 @@
     }
 
     generateIcsContent(comebacks) {
+      const escapeIcs = text => String(text || '').replace(/\\/g, '\\\\').replace(/\r?\n/g, '\\n').replace(/;/g, '\\;').replace(/,/g, '\\,');
       let ics = [
         'BEGIN:VCALENDAR',
         'VERSION:2.0',
@@ -255,10 +280,10 @@
         ics.push(
           'BEGIN:VEVENT',
           `UID:${cb.id}@bias.fm`,
-          `DTSTAMP:${dt}T000000Z`,
+          `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "")}`,
           `DTSTART;VALUE=DATE:${dt}`,
-          `SUMMARY:[Comeback] ${cb.act} - ${cb.title} (${cb.type})`,
-          `DESCRIPTION:${cb.description || ''}\\nTyp: ${cb.type}\\nGenres: ${(cb.genres || []).join(', ')}`,
+          `SUMMARY:${escapeIcs(`[Comeback] ${cb.act} - ${cb.title} (${cb.type})`)}`,
+          `DESCRIPTION:${escapeIcs(`${cb.description || ''}\nTyp: ${cb.type}\nGenres: ${(cb.genres || []).join(', ')}`)}`,
           'URL:https://bias.fm',
           'STATUS:CONFIRMED',
           'END:VEVENT'
@@ -266,7 +291,7 @@
       });
 
       ics.push('END:VCALENDAR');
-      return ics.join('\r\n');
+      return ics.map(line => {let parts=[],part='';for(const char of line){if(new TextEncoder().encode(part+char).length>73){parts.push(part);part=' '+char;}else part+=char;}parts.push(part);return parts.join('\r\n');}).join('\r\n') + '\r\n';
     }
 
     downloadIcs(content, filename) {
@@ -289,7 +314,8 @@
     }
 
     exportAllIcal() {
-      const all = this.getAllComebacks();
+      const all = this.filteredComebacks();
+      if (!all.length) {biasApp.showToast('Keine Termine für den Export vorhanden.');return;}
       const ics = this.generateIcsContent(all);
       this.downloadIcs(ics, 'biasfm_comeback_radar.ics');
     }

@@ -23,9 +23,9 @@
   class HomeView {
     render(container) {
       const profile = biasStore.profile;
-      const todayRiddle = BIAS_DATA.riddles[0];
+      const todayRiddle = biasCore.daily();
       const topSong = BIAS_DATA.songs[0];
-      const nextComeback = BIAS_DATA.comebacks[0];
+      const nextComeback = biasStore.customComebacks.filter(cb => cb.date >= biasCore.koreaDate()).sort((a,b)=>a.date.localeCompare(b.date))[0] || {date:'Dein Kalender',act:'Dein nächster Release',actHangul:'',title:'Noch keine Termine gespeichert',type:'Termin hinzufügen',status:'Sammlung öffnen'};
       const greeting = getGreeting();
 
       // 6 Top Tracks for Spotify-style Quick Access
@@ -41,7 +41,7 @@
             </div>
             <h1 class="hero-headline">Deine Hördaten, <em>koreanisch</em> kuratiert.</h1>
             <p class="hero-desc">
-              Comeback-Radar, echte Last.fm-Scrobble-Charts und Fan-Identität für Idol, Indie, R&amp;B, Hiphop und die Produzenten dahinter. Gestreamt wird da, wo du ohnehin bist — wir sind die intelligente Ebene darüber.
+              Dein Comeback-Radar, persönliche Hörstatistiken und Fan-Profil für Idol, Indie, R&amp;B, Hiphop und die Produzenten dahinter. Gestreamt wird da, wo du ohnehin bist — wir sind die intelligente Ebene darüber.
             </p>
 
             <div class="hero-actions">
@@ -81,13 +81,13 @@
             <div class="sec-head" style="margin-bottom:14px">
               <div>
                 <h2>${greeting}, ${esc(profile.username)}</h2>
-                <span class="sub">Schnellzugriff · Meistgehörte Tracks der Community</span>
+                <span class="sub">Schnellzugriff · Songs aus dem Katalog</span>
               </div>
             </div>
 
             <div class="quick-sixpack">
               ${sixPackSongs.map(song => `
-                <div class="sixpack-tile" onclick="biasApp.loadTrackToDock('${song.id}')">
+                <div role="button" tabindex="0" class="sixpack-tile" onclick="biasApp.loadTrackToDock('${song.id}')">
                   <div class="sixpack-thumb" style="background:${song.coverGradient || 'linear-gradient(135deg, #1e3a8a, #38bdf8)'}">
                     <span class="sixpack-thumb-icon">♪</span>
                   </div>
@@ -106,7 +106,7 @@
           <!-- Spotlight 3-Cards Grid -->
           <section class="spotlight-grid">
             <!-- 1. Next Comeback Card -->
-            <div class="spotlight-card" onclick="biasApp.navigateTo('kalender')">
+            <div role="button" tabindex="0" class="spotlight-card" onclick="biasApp.navigateTo('kalender')">
               <div class="card-tag">Nächstes Comeback</div>
               <div class="card-content">
                 <span class="card-date-badge">${nextComeback.date}</span>
@@ -120,27 +120,27 @@
             </div>
 
             <!-- 2. Korea-Share Donut Card -->
-            <div class="spotlight-card spotlight-donut-card" onclick="biasApp.navigateTo('stats')">
+            <div role="button" tabindex="0" class="spotlight-card spotlight-donut-card" onclick="biasApp.navigateTo('stats')">
               <div class="card-tag">Korea-Anteil am Hören</div>
               <div class="donut-flex">
                 <div class="donut-visual">
                   <svg width="76" height="76" viewBox="0 0 76 76">
                     <circle cx="38" cy="38" r="30" fill="none" stroke="var(--line)" stroke-width="8"></circle>
                     <circle cx="38" cy="38" r="30" fill="none" stroke="var(--bias)" stroke-width="8"
-                            stroke-linecap="round" stroke-dasharray="188.5" stroke-dashoffset="41.4"></circle>
+                            stroke-linecap="round" stroke-dasharray="188.5" stroke-dashoffset="188.5"></circle>
                   </svg>
-                  <span class="donut-number">78%</span>
+                  <span class="donut-number">–</span>
                 </div>
                 <div class="donut-text">
                   <h4>Plattformunabhängig</h4>
-                  <p>Last.fm &amp; ListenBrainz scrobbles statt 50-Play-Spotify-Fenster.</p>
+                  <p>Öffentliches Musikprofil laden und deinen Korea-Anteil entdecken.</p>
                 </div>
               </div>
               <div class="card-footer-link">Rechner &amp; Share-Card →</div>
             </div>
 
             <!-- 3. Daily Riddle Teaser -->
-            <div class="spotlight-card" onclick="biasApp.navigateTo('game')">
+            <div role="button" tabindex="0" class="spotlight-card" onclick="biasApp.navigateTo('game')">
               <div class="card-tag">Tägliches Song-Rätsel #${todayRiddle.dayNumber}</div>
               <div class="card-content">
                 <h3 class="card-title">Erkennst du den Song?</h3>
@@ -155,21 +155,21 @@
           <section class="home-section" style="margin-bottom:48px">
             <div class="sec-head">
               <div>
-                <h2>#1 Song der Community</h2>
-                <span class="sub">Verifizierte Scrobbles · Meistgehört diese Woche</span>
+                <h2>Aus dem Katalog</h2>
+                <span class="sub">Song entdecken · Credits ansehen · Beim Anbieter hören</span>
               </div>
               <button class="btn btn-ghost" onclick="biasApp.navigateTo('charts')">Alle Charts ansehen →</button>
             </div>
 
-            <div class="spotlight-track-banner" onclick="biasApp.loadTrackToDock('${topSong.id}')">
-              <div class="track-rank-badge">#1</div>
+            <div role="button" tabindex="0" class="spotlight-track-banner" onclick="biasApp.loadTrackToDock('${topSong.id}')">
+              <div class="track-rank-badge">♪</div>
               <div class="track-details">
                 <h3>${esc(topSong.title)} <span class="hangul">${esc(topSong.hangulTitle)}</span></h3>
                 <p class="artist-sub">${esc(topSong.artistName)} · Album: <b>${esc(topSong.album)}</b> (${topSong.releaseYear})</p>
                 <div class="track-credits-summary">
                   <span>Produziert von: <b>${esc(topSong.credits.producers.join(', '))}</b></span>
                   <span>·</span>
-                  <span class="mono">${topSong.plays.toLocaleString('de-DE')} Scrobbles</span>
+                  <span>In deiner Sammlung merken</span>
                 </div>
               </div>
               <div class="track-actions">
@@ -180,51 +180,6 @@
             </div>
           </section>
 
-          <!-- Pillars / Why bias.fm -->
-          <section class="home-section">
-            <div class="sec-head">
-              <h2>Warum bias.fm anders aufgebaut ist</h2>
-              <span class="sub">Architektur-Entscheidungen nach handover.md v2</span>
-            </div>
-
-            <div class="pillars-grid">
-              <div class="pillar-card">
-                <div class="pillar-num">01</div>
-                <h4>Produzenten als First-Class Entities</h4>
-                <p>In koreanischem R&amp;B, Hiphop und Indie ist der Beatmaker der Grund zum Hören. Slom, 250, GRAY und FRNK haben eigene Profil- und Credits-Graphen.</p>
-              </div>
-
-              <div class="pillar-card">
-                <div class="pillar-num">02</div>
-                <h4>Hangul &amp; Choseong zuerst</h4>
-                <p>수민, SUMIN und Sumin sind ein einziges Objekt. Die Suche durchsucht Hangul-Konsonanten (초성) und Romanisierungen gleichberechtigt.</p>
-              </div>
-
-              <div class="pillar-card">
-                <div class="pillar-num">03</div>
-                <h4>Bias auch für Solo-Artists</h4>
-                <p>Dein Ult ist entweder ein Solo-Act (SUMIN, BIBI, IU) oder ein Gruppen-Act mit Mitglied (NewJeans Hanni). Gedeckelt auf 1 Ult + 3 Bias-Line.</p>
-              </div>
-
-              <div class="pillar-card">
-                <div class="pillar-num">04</div>
-                <h4>Kein Spotify-first Zwang</h4>
-                <p>Wegen Dev-Mode-Beschränkungen (5-Nutzer-Limit, keine Audio Features) koppeln wir Hördaten an Last.fm/ListenBrainz. Spotify bleibt reines Abspielziel.</p>
-              </div>
-
-              <div class="pillar-card">
-                <div class="pillar-num">05</div>
-                <h4>Kanonische Metadaten</h4>
-                <p>ISRC und MusicBrainz-Recording IDs bilden den Primärschlüssel. Keine Fake-Stats durch Remix-, Instrumental- oder Speed-Up-Varianten.</p>
-              </div>
-
-              <div class="pillar-card">
-                <div class="pillar-num">06</div>
-                <h4>Kuratierung &amp; Editorial</h4>
-                <p>Verifizierte Metadaten-Templates statt halluzinierter KI-Texte. Integriertes Curation Studio zur Pflege des Katalogs.</p>
-              </div>
-            </div>
-          </section>
         </div>
       `;
     }

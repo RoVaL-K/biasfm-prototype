@@ -53,7 +53,7 @@
           const matchChoseong = getChoseong(artist.hangul).includes(qChoseong);
           const matchName = cleanString(artist.name).includes(q);
           const matchRom = cleanString(artist.romanized).includes(q);
-          const matchAliases = (artist.aliases || []).some(a => cleanString(a).includes(q));
+          const matchAliases = [...(artist.aliases || []), ...(biasStore.curationAliases || []).filter(a => a.artistId === artist.id).map(a => a.alias)].some(a => cleanString(a).includes(q));
           const matchGenres = (artist.genres || []).some(g => cleanString(g).includes(q));
 
           let score = 0;
@@ -136,8 +136,8 @@
 
       // 4. Search Comebacks
       const allComebacks = [
-        ...(BIAS_DATA.comebacks || []),
-        ...(biasStore ? biasStore.customComebacks : [])
+        ...(biasStore ? biasStore.customComebacks : []),
+        ...(typeof biasCalendarView !== "undefined" ? biasCalendarView.remoteReleases || [] : [])
       ];
 
       allComebacks.forEach(cb => {

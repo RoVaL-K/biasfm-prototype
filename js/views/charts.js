@@ -18,23 +18,30 @@
       this.activeTag = 'Alle';
       this.activeGen = 'Alle';
       this.searchQuery = '';
+      this.source='catalog';
+      this.liveTag='k-pop';
+      this.liveResult=null;
+      this.liveError='';
+      this.liveLoading=false;
     }
 
     render(container) {
+      if(this.source === 'live') {this.renderLive(container);return;}
       container.innerHTML = `
         <div class="view-charts">
           <!-- Clean View Header without floating search input -->
           <div class="view-header">
             <div>
               <div class="pill-row">
-                <span class="pill pill-accent">Top 50 Community Charts</span>
-                <span class="pill pill-muted">Last.fm Scrobbles · Verifizierte Metadaten</span>
+                <span class="pill pill-accent">Katalog entdecken</span>
+                <span class="pill pill-muted">Idol · Indie · R&B · Hiphop</span>
               </div>
-              <h1 class="view-title">bias.fm Scrobble Charts</h1>
-              <p class="view-subtitle">Die meistgehörten koreanischen Tracks der Community · Hangul, Romanisierung und Produzenten-Credits</p>
+              <h1 class="view-title">Songs für deine Sammlung</h1>
+              <p class="view-subtitle">Entdecke den bestehenden Katalog nach Genre, Generation und Künstler. Deine persönlichen Hörzahlen findest du unter Stats.</p>
             </div>
           </div>
 
+          <div class="source-tabs"><button class="source-tab is-active" onclick="biasChartsView.switchSource('catalog')">Katalog</button><button class="source-tab" onclick="biasChartsView.switchSource('live')">Last.fm-Charts ↗</button></div>
           <!-- Unified Spotify/Tidal Style Toolbar (Tabs + Search + Generation in one row) -->
           <div class="charts-toolbar-bar">
             <div class="tag-tabs" id="chart-tag-tabs">
@@ -70,7 +77,7 @@
               <span class="col-title">Titel &amp; Artist</span>
               <span class="col-tags">Tags</span>
               <span class="col-producers">Credits</span>
-              <span class="col-plays">Scrobbles</span>
+              <span class="col-plays">Jahr</span>
               <span class="col-actions">Abspielen</span>
             </div>
             <div id="chart-rows-container" class="chart-rows"></div>
@@ -80,6 +87,24 @@
 
       this.attachEvents(container);
       this.updateRows();
+    }
+
+    switchSource(source) {
+      this.source=source;this.render(document.getElementById('main-content'));
+      if(source==='live'&&!this.liveResult)this.loadLive();
+    }
+
+    renderLive(container) {
+      container.innerHTML=`<div class="view-charts"><div class="view-header"><div><span class="pill pill-accent">Last.fm · Tag-Charts</span><h1 class="view-title">Was die Community hört.</h1><p class="view-subtitle">Die von Last.fm gelieferten Top-Titel pro Genre-Tag. Kein persönliches Ranking und keine Wochenchart.</p></div></div><div class="source-tabs"><button class="source-tab" onclick="biasChartsView.switchSource('catalog')">Katalog</button><button class="source-tab is-active">Last.fm-Charts ↗</button></div><div class="charts-toolbar-bar"><label>Genre <select id="live-chart-tag" class="select-input">${['k-pop','k-indie','k-hiphop','k-rnb'].map(tag=>`<option ${tag===this.liveTag?'selected':''}>${tag}</option>`).join('')}</select></label><button id="refresh-live-chart" class="btn btn-ghost" ${this.liveLoading?'disabled':''}>Aktualisieren</button></div>${this.liveLoading?'<div class="stats-empty" role="status"><h2>Charts werden geladen …</h2></div>':this.liveError?`<div class="stats-empty"><h2>Charts gerade nicht verfügbar</h2><p role="alert">${esc(this.liveError)}</p><button class="btn btn-accent" onclick="biasChartsView.loadLive()">Erneut versuchen</button><button class="btn btn-ghost" onclick="biasChartsView.switchSource('catalog')">Katalog entdecken</button></div>`:this.liveResult?`<p class="section-note">Abgerufen ${new Date(this.liveResult.fetchedAt).toLocaleString('de-DE')} · <a href="${esc(this.liveResult.sourceUrl)}" target="_blank" rel="noopener">Quelle: Last.fm ↗</a></p><div class="live-chart-list">${this.liveResult.items.map(song=>`<a class="live-chart-row" href="${esc(song.url)}" target="_blank" rel="noopener"><b class="mono">${song.rank}</b><span><strong>${esc(song.title)}</strong><small>${esc(song.artist)}</small></span><span>Auf Spotify suchen ↗</span></a>`).join('') || '<p>Keine Titel für diesen Tag vorhanden.</p>'}</div>`:''}</div>`;
+      container.querySelector('#live-chart-tag').onchange=e=>{this.liveTag=e.target.value;this.loadLive();};
+      container.querySelector('#refresh-live-chart').onclick=()=>this.loadLive();
+    }
+
+    async loadLive() {
+      if(this.liveLoading)return;this.liveLoading=true;this.liveError='';this.renderLive(document.getElementById('main-content'));
+      try{this.liveResult=await biasApi.request('api/charts?tag='+encodeURIComponent(this.liveTag));}
+      catch(error){this.liveError=error.message;}
+      finally{this.liveLoading=false;if(biasApp.currentRoute==='charts'&&this.source==='live')this.renderLive(document.getElementById('main-content'));}
     }
 
     attachEvents(container) {
@@ -122,6 +147,8 @@
           if (this.activeTag === 'Hiphop / R&B') {
             return s.genres.includes('R&B') || s.genres.includes('Hiphop');
           }
+          if (this.activeTag === 'Indie') return s.genres.some(g => /Indie|Rock/.test(g));
+          if (this.activeTag === 'Ballade') return s.genres.some(g => /Ballade|OST/.test(g));
           return s.genres.includes(this.activeTag);
         });
       }
@@ -169,10 +196,10 @@
         const isCurrent = currentDockSong && currentDockSong.id === s.id;
 
         return `
-          <div class="chart-row-item ${isCurrent ? 'is-active-track' : ''}" onclick="biasApp.loadTrackToDock('${s.id}')">
+          <div role="button" tabindex="0" class="chart-row-item ${isCurrent ? 'is-active-track' : ''}" onclick="biasApp.loadTrackToDock('${s.id}')">
             <div class="col-rank">
               <span class="rank-num">${idx + 1}</span>
-              ${deltaHtml}
+
             </div>
 
             <!-- Thumbnail Cover with Play Hover -->
@@ -205,7 +232,7 @@
             </div>
 
             <div class="col-plays">
-              <span class="mono plays-val">${s.plays.toLocaleString('de-DE')}</span>
+              <span class="mono plays-val">${s.releaseYear}</span>
             </div>
 
             <div class="col-actions">

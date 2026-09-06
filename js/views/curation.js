@@ -1,4 +1,4 @@
-// js/views/curation.js — Editorial & Curation Studio (V1-Infrastruktur nach handover.md)
+// js/views/curation.js — Editorial & Curation Studio (Deine Sammlung nach handover.md)
 // Ermöglicht das Einreichen von Comebacks, Alias-Pflege und Auflösung von Scrobble-Duplikaten.
 
 (function (root, factory) {
@@ -25,11 +25,11 @@
           <div class="view-header">
             <div>
               <div class="pill-row">
-                <span class="pill pill-accent">V1-Infrastruktur</span>
-                <span class="pill pill-muted">handover.md § 7 #15</span>
+                <span class="pill pill-accent">Deine Sammlung</span>
+                <span class="pill pill-muted">In diesem Browser gespeichert</span>
               </div>
-              <h1 class="view-title">Redaktions- &amp; Curation Studio</h1>
-              <p class="view-subtitle">Qualität entsteht durch Pflege: Comebacks eintragen, Hangul-Aliasse matchen und Scrobble-Duplikate bereinigen.</p>
+              <h1 class="view-title">Deine Termine &amp; Suchaliase</h1>
+              <p class="view-subtitle">Verwalte eigene Release-Termine und ergänze die Suche um Namen, die du verwendest.</p>
             </div>
           </div>
 
@@ -37,11 +37,12 @@
           <div class="filter-bar">
             <div class="tag-tabs" id="curation-tabs">
               <button class="tag-tab ${this.activeTab === 'comebacks' ? 'is-active' : ''}" data-tab="comebacks">
-                Comeback einreichen (${biasStore.customComebacks.length + BIAS_DATA.comebacks.length})
+                Comeback einreichen (${biasStore.customComebacks.length})
               </button>
               <button class="tag-tab ${this.activeTab === 'aliases' ? 'is-active' : ''}" data-tab="aliases">
                 Hangul- &amp; Alias-Pflege (${biasStore.curationAliases.length})
               </button>
+              <button class="tag-tab ${this.activeTab === 'editorial' ? 'is-active' : ''}" data-tab="editorial">Öffentliche Redaktion</button>
               <button class="tag-tab ${this.activeTab === 'duplicates' ? 'is-active' : ''}" data-tab="duplicates">
                 Scrobble-Duplikate Queue
               </button>
@@ -58,6 +59,11 @@
     }
 
     attachEvents(container) {
+      container.addEventListener('click', e => {
+        const edit=e.target.closest('[data-edit-comeback]'), del=e.target.closest('[data-delete-comeback]');
+        if(edit) this.editComeback(edit.dataset.editComeback);
+        if(del) this.deleteComeback(del.dataset.deleteComeback);
+      });
       const tabs = container.querySelectorAll('.tag-tab');
       tabs.forEach(tab => {
         tab.addEventListener('click', () => {
@@ -73,6 +79,7 @@
       const area = document.getElementById('curation-content-area');
       if (!area) return;
 
+      if (this.activeTab === 'editorial') {biasEditorial.render(area);return;}
       if (this.activeTab === 'comebacks') {
         this.renderComebackEditor(area);
       } else if (this.activeTab === 'aliases') {
@@ -145,7 +152,7 @@
               </div>
 
               <button type="submit" class="btn btn-accent btn-lg" style="margin-top:10px">
-                Im Comeback-Radar veröffentlichen
+                Termin speichern
               </button>
             </form>
           </div>
@@ -153,7 +160,7 @@
           <!-- Custom Submissions List -->
           <div class="curation-box">
             <h3 class="box-title">Eigene eingereichte Comebacks (${customList.length})</h3>
-            <p class="box-sub">Lokal persistiert in deinem Workspace.</p>
+            <p class="box-sub">Nur in diesem Browser gespeichert.</p>
 
             <div class="custom-cb-list">
               ${customList.length === 0 ? `
@@ -168,9 +175,10 @@
                       <h4 style="margin:6px 0 2px;font-size:16px">${esc(cb.act)} — ${esc(cb.title)}</h4>
                       <span style="font-size:12px;color:var(--fg-dim)">Datum: <b>${cb.date}</b></span>
                     </div>
-                    <span class="pill pill-accent">Live im Radar</span>
+                    <span class="pill pill-accent">Persönlicher Termin</span>
                   </div>
                   <p style="font-size:13px;color:var(--fg-mid);margin:8px 0 0">${esc(cb.description || 'Keine Notiz')}</p>
+                  <div class="import-actions"><button class="btn btn-ghost btn-sm" data-edit-comeback="${esc(cb.id)}">Bearbeiten</button><button class="btn btn-ghost btn-sm" data-delete-comeback="${esc(cb.id)}">Löschen</button></div>
                 </div>
               `).join('')}
             </div>
@@ -190,10 +198,13 @@
       const teaserUrl = document.getElementById('cb-teaser').value.trim();
       const description = document.getElementById('cb-desc').value.trim();
 
+      if (!act || !title || act.length > 120 || title.length > 200 || description.length > 2000 || !/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(date))) {biasApp.showToast('Bitte Titel, Künstler und ein gültiges Datum prüfen.');return;}
+      if (teaserUrl && !/^https?:\/\//i.test(teaserUrl)) {biasApp.showToast('Bitte einen Link mit https:// oder http:// eingeben.');return;}
+      if (biasStore.customComebacks.some(cb => cb.id !== this.editingId && cb.act.toLowerCase() === act.toLowerCase() && cb.title.toLowerCase() === title.toLowerCase() && cb.date === date)) {biasApp.showToast('Dieser Termin ist bereits gespeichert.');return;}
       const genres = genresInput.split(',').map(g => g.trim()).filter(Boolean);
 
       const newCb = {
-        id: `custom-cb-${Date.now()}`,
+        id: this.editingId || `custom-cb-${crypto.randomUUID()}`,
         act,
         actHangul,
         title,
@@ -207,9 +218,36 @@
         isTracked: true
       };
 
-      biasStore.addCustomComeback(newCb);
+      if(this.editingId) {
+        const updated = biasStore.customComebacks.map(cb => cb.id === this.editingId ? newCb : cb);
+        localStorage.setItem('biasfm_custom_comebacks', JSON.stringify(updated));
+        biasStore.customComebacks = updated;
+      } else {biasStore.addCustomComeback(newCb);biasStore.toggleTrackComeback(newCb.id);}
+      this.editingId = null;
       biasApp.showToast(`Comeback für ${act} erfolgreich angelegt!`);
       this.renderActiveTabContent();
+    }
+
+    editComeback(id) {
+      const cb = biasStore.customComebacks.find(c => c.id === id);if(!cb) return;
+      this.editingId = id;
+      const fields = {'cb-act':'act','cb-hangul':'actHangul','cb-title':'title','cb-date':'date','cb-type':'type','cb-teaser':'teaserUrl','cb-desc':'description'};
+      for(const [field,key] of Object.entries(fields)) document.getElementById(field).value = cb[key] || '';
+      document.getElementById('cb-genres').value = cb.genres.join(', ');
+      document.getElementById('cb-act').focus();
+      document.getElementById('new-comeback-form').scrollIntoView({block:'center',behavior:'smooth'});
+    }
+
+    deleteComeback(id) {
+      const cb = biasStore.customComebacks.find(c => c.id === id);if(!cb) return;
+      const modal = biasModals.createModalContainer(`<div class="modal-header"><h2>Termin löschen?</h2><p>${esc(cb.act)} — ${esc(cb.title)} wird aus deiner Sammlung und Merkliste entfernt.</p></div><div class="modal-footer"><button class="btn btn-ghost" data-action="close-modal">Behalten</button><button class="btn btn-accent" id="confirm-delete">Termin löschen</button></div>`);
+      modal.querySelector('#confirm-delete').onclick = () => {
+        const updated = biasStore.customComebacks.filter(c => c.id !== id);
+        localStorage.setItem('biasfm_custom_comebacks', JSON.stringify(updated));
+        biasStore.customComebacks = updated;
+        if(biasStore.isTracked(id)) biasStore.toggleTrackComeback(id);
+        this.editingId = null;biasModals.closeCurrentModal();this.renderActiveTabContent();biasApp.showToast('Termin gelöscht.');
+      };
     }
 
     // 2. Alias Editor
@@ -288,8 +326,8 @@
       const artist = (BIAS_DATA.artists || []).find(a => a.id === artistId);
       if (!artist) return;
 
-      if (!artist.aliases) artist.aliases = [];
-      artist.aliases.push(alias);
+      if (!alias || alias.length > 120) {biasApp.showToast('Bitte einen Alias mit 1 bis 120 Zeichen eingeben.');return;}
+      if (biasStore.curationAliases.some(a => a.artistId === artistId && biasCore.normalize(a.alias) === biasCore.normalize(alias))) {biasApp.showToast('Dieser Alias ist bereits hinterlegt.');return;}
 
       biasStore.addCurationAlias({
         id: `alias-${Date.now()}`,
@@ -305,55 +343,7 @@
 
     // 3. Duplicates Queue
     renderDuplicatesQueue(area) {
-      area.innerHTML = `
-        <div class="curation-box">
-          <h3 class="box-title">Scrobble-Duplikate Queue (Kanonisierung)</h3>
-          <p class="box-sub">
-            handover.md § 6: Ohne Auflösung werden Instrumental-, Remix-, Speed-up- und JP-Versionen zu Fake-Stats. 
-            Hier werden Scrobble-Varianten mit dem Original-ISRC zusammengeführt.
-          </p>
-
-          <div class="duplicates-table-wrap" style="margin-top:18px">
-            <div class="duplicates-card-row">
-              <div class="dup-info">
-                <span class="pill pill-song">Eingehender Scrobble</span>
-                <h4>„Ditto - Instrumental Version“ (NewJeans)</h4>
-                <span style="font-size:12px;color:var(--fg-dim)">Erkannt von: Last.fm · 342 Plays diesen Monat</span>
-              </div>
-              <div class="dup-arrow">➔</div>
-              <div class="dup-target">
-                <span class="pill pill-accent">Kanonisches Ziel</span>
-                <h4>„Ditto“ (ISRC KRA382201948)</h4>
-                <span style="font-size:12px;color:var(--fg-dim)">Original Album Track · Prod. 250</span>
-              </div>
-              <div class="dup-action">
-                <button class="btn btn-accent btn-sm" onclick="biasApp.showToast('Erfolgreich mit kanonischem ISRC zusammengeführt!')">
-                  Zusammenführen ✓
-                </button>
-              </div>
-            </div>
-
-            <div class="duplicates-card-row">
-              <div class="dup-info">
-                <span class="pill pill-song">Eingehender Scrobble</span>
-                <h4>„밤양갱 (Bam Yang Gang) - Sped Up“ (BIBI)</h4>
-                <span style="font-size:12px;color:var(--fg-dim)">Erkannt von: Spotify Scrobble · 812 Plays</span>
-              </div>
-              <div class="dup-arrow">➔</div>
-              <div class="dup-target">
-                <span class="pill pill-accent">Kanonisches Ziel</span>
-                <h4>„밤양갱 Bam Yanggaeng“ (ISRC KRB432400012)</h4>
-                <span style="font-size:12px;color:var(--fg-dim)">Original Single · Prod. Jang Ki-ha</span>
-              </div>
-              <div class="dup-action">
-                <button class="btn btn-accent btn-sm" onclick="biasApp.showToast('Erfolgreich mit kanonischem ISRC zusammengeführt!')">
-                  Zusammenführen ✓
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
+      area.innerHTML = `<div class="curation-box"><h3 class="box-title">Keine offenen Duplikate</h3><p class="box-sub">Die Hörstatistik zählt Plays anhand der vom Dienst gelieferten Künstlerdaten. Aktuell liegen keine geprüften Vorschläge zur Zusammenführung einzelner Aufnahmen vor.</p><p>Instrumentals, Remixe und Sprachversionen bleiben eigenständige Aufnahmen. Ohne geprüfte Zuordnung wird nichts zusammengeführt.</p><a class="btn btn-ghost" href="#stats">Zur Hörstatistik →</a></div>`;
     }
   }
 

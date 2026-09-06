@@ -20,7 +20,7 @@
   };
 
   const DEFAULT_PROFILE = {
-    username: 'Bunnies_Slom',
+    username: 'Musikfan',
     ultBiasArtist: 'newjeans',
     ultBiasMember: 'Hanni',
     biasLine: ['sumin', 'black-skirts', 'gidle'],
@@ -34,7 +34,12 @@
   function getItem(key, fallback) {
     try {
       const data = localStorage.getItem(key);
-      return data ? JSON.parse(data) : fallback;
+      if (!data) return fallback;
+      const parsed = JSON.parse(data);
+      if (fallback === null) return parsed;
+      if (Array.isArray(fallback)) return Array.isArray(parsed) ? parsed : fallback;
+      if (typeof fallback === 'object') return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? {...fallback, ...parsed} : fallback;
+      return typeof parsed === typeof fallback ? parsed : fallback;
     } catch (e) {
       console.warn('LocalStorage read error:', e);
       return fallback;
@@ -45,16 +50,18 @@
     try {
       localStorage.setItem(key, JSON.stringify(val));
     } catch (e) {
-      console.warn('LocalStorage write error:', e);
+      throw new Error('Deine Änderungen konnten nicht gespeichert werden. Bitte erlaube lokalen Speicher und versuche es erneut.');
     }
   }
 
   class BiasStore {
     constructor() {
       this.profile = getItem(STORAGE_KEYS.PROFILE, DEFAULT_PROFILE);
+      if (typeof this.profile.username !== 'string') this.profile.username = DEFAULT_PROFILE.username;
+      if (!Array.isArray(this.profile.biasLine)) this.profile.biasLine = [];
       this.theme = getItem(STORAGE_KEYS.THEME, 'dark');
       this.accentColor = getItem(STORAGE_KEYS.COLOR, this.profile.accentColor || '#38bdf8');
-      this.trackedComebacks = new Set(getItem(STORAGE_KEYS.TRACKED_CBS, ['cb-02', 'cb-03']));
+      this.trackedComebacks = new Set(getItem(STORAGE_KEYS.TRACKED_CBS, []));
       this.customComebacks = getItem(STORAGE_KEYS.CUSTOM_CBS, []);
       this.activePersonaId = getItem(STORAGE_KEYS.ACTIVE_PERSONA, 'persona-indie');
       this.curationAliases = getItem(STORAGE_KEYS.CURATION_ALIASES, []);
@@ -62,13 +69,13 @@
 
       // Load today's riddle state
       const todayState = getItem(STORAGE_KEYS.RIDDLE_STATE, null);
-      const today = new Date().toISOString().slice(0, 10);
-      if (todayState && todayState.date === today) {
+      const today = biasCore.koreaDate();
+      if (todayState && todayState.date === today && Array.isArray(todayState.guesses) && ['playing','won','lost'].includes(todayState.status)) {
         this.riddleState = todayState;
       } else {
         this.riddleState = {
           date: today,
-          dayNumber: 42,
+          dayNumber: biasCore.daily().dayNumber,
           guesses: [],
           status: 'playing', // 'playing', 'won', 'lost'
           blurLevel: 24
@@ -83,6 +90,12 @@
       const root = document.documentElement;
       root.setAttribute('data-theme', this.theme);
       root.style.setProperty('--bias', this.accentColor);
+      if (/^#[0-9a-f]{6}$/i.test(this.accentColor)) {
+        const rgb = this.accentColor.slice(1).match(/.{2}/g).map(n => parseInt(n,16)).join(', ');
+        root.style.setProperty('--bias-rgb',rgb);
+        root.style.setProperty('--bias-glow',`rgba(${rgb}, 0.28)`);
+        root.style.setProperty('--bias-glow-soft',`rgba(${rgb}, 0.08)`);
+      }
     }
 
     setTheme(theme) {
@@ -110,8 +123,9 @@
     }
 
     updateProfile(updates) {
-      this.profile = { ...this.profile, ...updates };
-      setItem(STORAGE_KEYS.PROFILE, this.profile);
+      const nextProfile = { ...this.profile, ...updates };
+      setItem(STORAGE_KEYS.PROFILE, nextProfile);
+      this.profile = nextProfile;
       if (updates.accentColor) {
         this.setAccentColor(updates.accentColor, updates.fandomName);
       }
@@ -134,14 +148,16 @@
     }
 
     addCustomComeback(comeback) {
-      this.customComebacks.unshift(comeback);
-      setItem(STORAGE_KEYS.CUSTOM_CBS, this.customComebacks);
+      const nextComebacks = [comeback, ...this.customComebacks];
+      setItem(STORAGE_KEYS.CUSTOM_CBS, nextComebacks);
+      this.customComebacks = nextComebacks;
       this.emit('customComebacksChange', this.customComebacks);
     }
 
     addCurationAlias(alias) {
-      this.curationAliases.unshift(alias);
-      setItem(STORAGE_KEYS.CURATION_ALIASES, this.curationAliases);
+      const nextAliases = [alias, ...this.curationAliases];
+      setItem(STORAGE_KEYS.CURATION_ALIASES, nextAliases);
+      this.curationAliases = nextAliases;
       this.emit('aliasesChange', this.curationAliases);
     }
 
@@ -158,8 +174,9 @@
     }
 
     updateRiddleState(updates) {
-      this.riddleState = { ...this.riddleState, ...updates };
-      setItem(STORAGE_KEYS.RIDDLE_STATE, this.riddleState);
+      const nextState = { ...this.riddleState, ...updates };
+      setItem(STORAGE_KEYS.RIDDLE_STATE, nextState);
+      this.riddleState = nextState;
       this.emit('riddleChange', this.riddleState);
     }
 

@@ -133,7 +133,7 @@
         if (item.type === 'producer') {
           const p = item.data;
           return `
-            <div class="catalog-card producer-card" onclick="biasModals.openProducerModal('${p.id}')">
+            <div role="button" tabindex="0" class="catalog-card producer-card" onclick="biasModals.openProducerModal('${p.id}')">
               <div class="card-head-meta">
                 <span class="pill pill-prod">Produzent</span>
                 <span class="pill pill-muted">${esc(p.agency)}</span>
@@ -147,8 +147,8 @@
               </div>
 
               <div class="card-footer-stats">
-                <span><b>${p.creditsCount}</b> Credits</span>
-                <span><b>${p.totalScrobbles.toLocaleString('de-DE')}</b> Plays</span>
+                <span><b>${(p.keyWorks || []).length}</b> ausgewählte Werke</span>
+                <span>Profil öffnen →</span>
               </div>
             </div>
           `;
@@ -156,7 +156,7 @@
           const a = item.data;
           const memberBadge = a.members ? `${a.members.length} Mitglieder` : 'Solo-Act';
           return `
-            <div class="catalog-card artist-card" onclick="biasModals.openArtistModal('${a.id}')">
+            <div role="button" tabindex="0" class="catalog-card artist-card" onclick="biasModals.openArtistModal('${a.id}')">
               <div class="card-head-meta">
                 <span class="pill pill-artist">${memberBadge}</span>
                 <span class="pill pill-muted">${esc(a.agency || 'Independent')}</span>
@@ -171,7 +171,7 @@
 
               <div class="card-footer-stats">
                 <span style="color:${a.fandomColor}">● ${esc(a.fandomName || 'Fandom')}</span>
-                <span><b>${a.totalScrobbles.toLocaleString('de-DE')}</b> Scrobbles</span>
+                <span>Profil öffnen →</span>
               </div>
             </div>
           `;
