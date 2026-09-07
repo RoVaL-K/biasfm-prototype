@@ -8,6 +8,7 @@ export async function onRequest(context) {
     spotify: Boolean(env.SPOTIFY_CLIENT_ID),
     lastfm: Boolean(env.LASTFM_API_KEY),
     editorial: Boolean(env.EDITORIAL_TOKEN && String(env.EDITORIAL_TOKEN).length >= 24),
+    accounts: Boolean(env.DB && env.SESSIONS),
     operator: {name: env.OPERATOR_NAME || '', address: env.OPERATOR_ADDRESS || '', email: env.OPERATOR_EMAIL || ''},
     runtime: 'cloudflare-pages-functions'
   });
