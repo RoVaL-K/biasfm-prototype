@@ -42,6 +42,7 @@
         curation: window.biasCurationView,
         settings: {render:c=>biasProfileView.renderEdit(c)},
         saved: {render:c=>biasProfileView.renderSaved(c)},
+        notifications: window.biasNotificationsView,
         admin: {render:c=>{c.innerHTML='<h1 class="view-title">Redaktion</h1><div id="admin-content"></div>';biasEditorial.render(c.querySelector('#admin-content'));}},
         legal: window.biasLegalView
       };
@@ -123,7 +124,7 @@
       const mainContainer = document.getElementById('main-content');
       if (mainContainer && this.views[route]) {
         mainContainer.innerHTML = '';
-        document.title = `${({home:'Entdecken',charts:'Charts',kalender:'Comeback Radar',catalog:'Entdecken',settings:'Einstellungen',saved:'Gemerkt',admin:'Redaktion',stats:'Hörstatistik',profile:'Mein Profil',game:'Tagesrätsel',curation:'Meine Sammlung',legal:'Informationen'})[route] || 'bias.fm'} · bias.fm`;
+        document.title = `${({home:'Entdecken',charts:'Charts',kalender:'Comeback Radar',catalog:'Entdecken',settings:'Einstellungen',saved:'Gemerkt',notifications:'Benachrichtigungen',admin:'Redaktion',stats:'Hörstatistik',profile:'Mein Profil',game:'Tagesrätsel',curation:'Meine Sammlung',legal:'Informationen'})[route] || 'bias.fm'} · bias.fm`;
         this.views[route].render(mainContainer);
         // Instant top reset without smooth animation lag
         window.scrollTo(0, 0);

@@ -35,7 +35,7 @@
   const PRODUCT_PALETTES = {
     // Product themes control the interface. They are deliberately independent
     // from the personal profile accent below.
-    dark: {bias: '#37d9a5', rgb: '55, 217, 165', label: 'Mono Mint'},
+    dark: {bias: '#2fd3a4', rgb: '47, 211, 164', label: 'Ocean Ink'},
     night: {bias: '#ff7b72', rgb: '255, 123, 114', label: 'Seoul Night Market'},
     holographic: {bias: '#a78bfa', rgb: '167, 139, 250', label: 'Holographic Pop'},
     light: {bias: '#167d78', rgb: '22, 125, 120', label: 'Warm Paper'},
