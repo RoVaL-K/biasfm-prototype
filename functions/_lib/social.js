@@ -1,6 +1,6 @@
 import {fail} from './http.js';
 import {ARTISTS} from './catalog.js';
-import {accountProfile, ensureSchema, requireAccount} from './auth.js';
+import {accountProfile, ensureSchema, readSession, requireAccount} from './auth.js';
 
 function artist(artistId) {
   const value = String(artistId || '').trim();
@@ -67,6 +67,10 @@ export async function publicProfile(request, env, username) {
   const profile = accountProfile(row, false);
   const privacy = profile.privacy || {};
   if (privacy.profile === 'private') throw fail(404, 'Profil nicht gefunden.');
+  if (privacy.profile === 'followers') {
+    const {account: viewer} = await readSession(request, env);
+    if (!viewer?.userId) throw fail(404, 'Profil nicht gefunden.');
+  }
   if (privacy.favorites !== 'public') profile.favoriteArtists = [];
   if (privacy.stats !== 'public') delete profile.stats;
   return {profile};
