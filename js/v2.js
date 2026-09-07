@@ -326,7 +326,8 @@
     },
     async followArtist(id, followed) {
       if (!this.authenticated || !root.biasApi) return;
-      try { await root.biasApi.request('api/follows/artists', {method: followed ? 'POST' : 'DELETE', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({artistId: id, release: true, announcement: Boolean(root.biasStore.followPreferences[id]?.announcement)})}); }
+      const preferences = root.biasStore.followPreferences[id] || {};
+      try { await root.biasApi.request('api/follows/artists', {method: followed ? 'POST' : 'DELETE', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({artistId: id, release: preferences.release !== false, announcement: preferences.announcement === true})}); }
       catch (error) { root.biasApp.showToast(error.message); }
     },
     async markNotificationRead(id) {
