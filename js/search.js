@@ -219,10 +219,12 @@
       this.searchShell?.style.setProperty('--search-shell-left', leftValue);
       this.searchShell?.style.setProperty('--search-start-width', startValue);
       this.searchShell?.style.setProperty('--search-panel-width', widthValue);
+      this.searchShell?.style.setProperty('--search-surface-width', widthValue);
       this.searchShell?.style.setProperty('--search-shell-height', heightValue);
       panel.style.setProperty('--search-shell-left', leftValue);
       panel.style.setProperty('--search-start-width', startValue);
       panel.style.setProperty('--search-panel-width', widthValue);
+      panel.style.setProperty('--search-surface-width', widthValue);
       panel.style.setProperty('--search-shell-height', heightValue);
     }
 
@@ -382,6 +384,11 @@
         return;
       }
 
+      // Let the navigation return as soon as the closing motion starts. The
+      // shell remains above it during the short contraction, so there is no
+      // visible jump or late menu re-entry.
+      document.body.classList.remove('search-is-open');
+
       const finish = () => {
         this.restoreSearchTrigger();
         document.body.classList.remove('search-is-open');
@@ -395,7 +402,7 @@
       shell.classList.add('is-closing');
       panel.classList.remove('is-open', 'is-opening');
       panel.classList.add('is-closing');
-      this.closeTimer = setTimeout(finish, 360);
+      this.closeTimer = setTimeout(finish, 285);
     }
 
     renderResults(query, resultsEl) {

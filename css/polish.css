@@ -1270,12 +1270,17 @@ body.search-is-open .header-right-actions {
   opacity: 1;
   transform: scale(.94);
   transform-origin: left center;
-  transition: width .48s var(--ease-bounce), min-width .48s var(--ease-bounce), transform .48s var(--ease-bounce), box-shadow .24s var(--ease-smooth), border-color .24s var(--ease-smooth);
+  transition: width .38s cubic-bezier(.22, .86, .28, 1.02), min-width .38s cubic-bezier(.22, .86, .28, 1.02), transform .32s var(--ease-smooth), box-shadow .24s var(--ease-smooth), border-color .24s var(--ease-smooth);
 }
 .brand-search-cluster .search-input-shell.is-opening { transform: scale(.94); }
 .brand-search-cluster .search-input-shell.is-expanded,
-.brand-search-cluster .search-input-shell.is-open { width: var(--search-panel-width, 720px); min-width: var(--search-panel-width, 720px); transform: scale(1); }
-.brand-search-cluster .search-input-shell.is-closing { width: var(--search-start-width, 112px); min-width: var(--search-start-width, 112px); transform: scale(.94); }
+.brand-search-cluster .search-input-shell.is-open { width: var(--search-surface-width, var(--search-panel-width, 720px)); min-width: var(--search-surface-width, var(--search-panel-width, 720px)); transform: scale(1); }
+.brand-search-cluster .search-input-shell.is-closing {
+  width: var(--search-start-width, 112px);
+  min-width: var(--search-start-width, 112px);
+  transform: scale(.98);
+  transition: width .24s var(--ease-smooth), min-width .24s var(--ease-smooth), transform .2s var(--ease-smooth), opacity .16s var(--ease-smooth);
+}
 .brand-search-cluster .search-input-shell .search-shell-icon { width: 18px; height: 18px; color: var(--bias); flex: 0 0 auto; }
 .brand-search-cluster .search-input-shell #omnisearch-input {
   width: 100%;
@@ -1306,14 +1311,21 @@ body.search-is-open .brand-search-cluster .search-input-shell {
   visibility: visible;
   pointer-events: auto;
 }
+/* A legacy trigger rule applies scale(.88) while search is open. Override it
+   for the morph so the input and suggestion surface share one exact width. */
+body.search-is-open .brand-search-cluster .search-input-shell.is-opening { transform: scale(.94); }
+body.search-is-open .brand-search-cluster .search-input-shell.is-expanded,
+body.search-is-open .brand-search-cluster .search-input-shell.is-open { transform: scale(1); }
+body.search-is-open .brand-search-cluster .search-input-shell.is-closing { transform: scale(.98); }
 .brand-search-cluster .omnisearch-dialog {
   position: absolute;
   top: calc(var(--search-shell-height, 44px) + 8px);
   left: var(--search-shell-left, 0px);
   z-index: 1999;
   display: block;
-  width: var(--search-panel-width, 720px);
-  max-width: min(720px, calc(100vw - 20px));
+  width: var(--search-surface-width, var(--search-panel-width, 720px));
+  min-width: var(--search-surface-width, var(--search-panel-width, 720px));
+  max-width: none;
   max-height: min(62dvh, 560px);
   margin: 0;
   padding: 0;
@@ -1329,12 +1341,19 @@ body.search-is-open .brand-search-cluster .search-input-shell {
   transition: opacity .2s var(--ease-smooth), transform .34s var(--ease-bounce);
 }
 .brand-search-cluster .omnisearch-dialog.is-open { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
-.brand-search-cluster .omnisearch-dialog.is-closing { opacity: 0; transform: translateY(-8px) scale(.98); pointer-events: none; }
+.brand-search-cluster .omnisearch-dialog.is-closing {
+  opacity: 0;
+  transform: translateY(-8px) scale(.98);
+  pointer-events: none;
+  transition: opacity .18s var(--ease-smooth), transform .22s var(--ease-smooth);
+}
 .brand-search-cluster .omnisearch-container { display: block; }
 .brand-search-cluster .omnisearch-body {
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
   max-height: min(62dvh, 560px);
+  width: 100%;
+  min-width: 0;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 18px;
@@ -1344,6 +1363,9 @@ body.search-is-open .brand-search-cluster .search-input-shell {
 }
 body.search-is-open .brand-search-cluster .search-trigger-btn:not(.search-input-shell) { visibility: hidden; pointer-events: none; }
 
+/* Reveal the nav promptly while the search shell contracts. */
+.desktop-nav { transition: opacity .16s var(--ease-smooth), transform .2s var(--ease-smooth), visibility .16s var(--ease-smooth); }
+
 @media (max-width: 600px) {
   .brand-search-cluster .search-input-shell {
     grid-template-columns: 17px minmax(0, 1fr) auto;
@@ -1351,7 +1373,7 @@ body.search-is-open .brand-search-cluster .search-trigger-btn:not(.search-input-
     padding: 0 11px;
   }
   .brand-search-cluster .search-input-shell #omnisearch-input { font-size: 14px; }
-  .brand-search-cluster .omnisearch-dialog { max-width: calc(100vw - 20px); }
+  .brand-search-cluster .omnisearch-dialog { max-width: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
