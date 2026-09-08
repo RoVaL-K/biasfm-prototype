@@ -275,6 +275,8 @@
 
       const trigger = document.querySelector('[data-action="open-search"]');
       trigger?.classList.add('is-active');
+      trigger?.setAttribute('aria-expanded', 'true');
+      document.body.classList.add('search-is-open');
       requestAnimationFrame(() => {
         if (modal.open) modal.classList.add('is-open');
       });
@@ -288,7 +290,10 @@
     closeOmnisearch(animate = true) {
       const modal = document.getElementById('omnisearch-dialog');
       this.isModalOpen = false;
-      document.querySelector('[data-action="open-search"]')?.classList.remove('is-active');
+      const trigger = document.querySelector('[data-action="open-search"]');
+      trigger?.classList.remove('is-active');
+      trigger?.setAttribute('aria-expanded', 'false');
+      document.body.classList.remove('search-is-open');
       if (!modal) return;
       if (this.closeTimer) clearTimeout(this.closeTimer);
       modal.classList.remove('is-open', 'is-opening');

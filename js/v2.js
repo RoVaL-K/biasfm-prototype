@@ -235,7 +235,7 @@
 
   function setupHeader() {
     document.querySelector('.kbd-badge')?.remove();
-    document.querySelector('.search-trigger-btn')?.setAttribute('title', 'Suche öffnen');
+    document.querySelector('.search-trigger-btn')?.setAttribute('title', 'Search öffnen (Cmd+K oder /)');
     const oldAccount = document.querySelector('.account-menu');
     if (oldAccount && !document.getElementById('account-control')) oldAccount.outerHTML = '<div id="account-control"></div>';
     const oldTheme = document.getElementById('theme-toggle-btn');

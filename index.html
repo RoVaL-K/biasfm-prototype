@@ -33,11 +33,21 @@
   <!-- Main Navigation Header -->
   <header class="main-header">
     <div class="wrap nav-wrap">
-      <!-- Logo -->
-      <a href="#home" class="brand-logo" aria-label="bias.fm Startseite">
-        <span class="brand-dot"></span>
-        <span>bias.fm</span>
-      </a>
+      <!-- Brand + search trigger -->
+      <div class="brand-search-cluster">
+        <a href="#home" class="brand-logo" aria-label="bias.fm Startseite">
+          <span class="brand-dot"></span>
+          <span>bias.fm</span>
+        </a>
+        <button type="button" class="search-trigger-btn" data-action="open-search" title="Search öffnen (Cmd+K oder /)" aria-label="Search öffnen" aria-expanded="false">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <span class="search-trigger-label">Search</span>
+          <span class="kbd-badge">⌘K</span>
+        </button>
+      </div>
 
       <!-- Navigation Links -->
       <nav class="desktop-nav" aria-label="Hauptnavigation">
@@ -49,16 +59,6 @@
 
       <!-- Right Header Actions -->
       <div class="header-right-actions">
-        <!-- Omnisearch Trigger -->
-        <button type="button" class="search-trigger-btn" data-action="open-search" title="Suche öffnen (Cmd+K oder /)" aria-label="Suche öffnen">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          </svg>
-          <span>Suche...</span>
-          <span class="kbd-badge">⌘K</span>
-        </button>
-
         <!-- Current Ult Bias Badge Button -->
         <details class="account-menu"><summary aria-label="Persönlicher Bereich">Mein Bereich ▾</summary><div class="account-dropdown"><p>Auf diesem Gerät</p><a href="#profile">Mein Profil</a><a href="#stats">Meine Stats</a><a href="#saved">Gemerkt</a><a href="#settings">Einstellungen</a></div></details>
         <!-- Theme Toggle -->
