@@ -38,6 +38,11 @@
       this.selectedIndex = 0;
       this.currentResults = [];
       this.closeTimer = null;
+      this.searchShell = null;
+      this.searchPanel = null;
+      this.searchPlaceholder = null;
+      this.searchTriggerTemplate = null;
+      this.searchCluster = null;
     }
 
     search(query, options = {}) {
@@ -182,161 +187,215 @@
         }
       });
 
-      // Delegate click on search buttons/inputs
+      // Delegate the trigger and close the inline surface when focus moves elsewhere.
       document.addEventListener('click', (e) => {
         const trigger = e.target.closest('[data-action="open-search"]');
-        if (trigger) {
+        if (trigger && !trigger.hasAttribute('data-search-shell')) {
           e.preventDefault();
           this.openOmnisearch();
+          return;
+        }
+        if (this.isModalOpen && !e.target.closest('[data-search-shell], #omnisearch-dialog')) {
+          this.closeOmnisearch();
         }
       });
     }
 
-    positionOmnisearch(modal, trigger = document.querySelector('[data-action="open-search"]')) {
-      if (!modal || !trigger) return;
-      const rect = trigger.getBoundingClientRect();
+    positionOmnisearch(panel = this.searchPanel, anchor = this.searchPlaceholder || this.searchShell || document.querySelector('[data-action="open-search"]')) {
+      if (!panel || !anchor) return;
+      const cluster = this.searchCluster || anchor.closest('.brand-search-cluster');
+      if (!cluster) return;
+      const rect = anchor.getBoundingClientRect();
+      const clusterRect = cluster.getBoundingClientRect();
       const viewportPadding = window.innerWidth <= 600 ? 10 : 16;
       const panelWidth = Math.min(720, Math.max(rect.width, window.innerWidth - rect.left - viewportPadding));
-      const left = Math.max(viewportPadding, Math.min(rect.left, window.innerWidth - panelWidth - viewportPadding));
-      const top = Math.max(viewportPadding, rect.top);
-      modal.style.setProperty('--search-anchor-left', `${Math.round(left)}px`);
-      modal.style.setProperty('--search-anchor-top', `${Math.round(top)}px`);
-      modal.style.setProperty('--search-start-width', `${Math.round(rect.width)}px`);
-      modal.style.setProperty('--search-panel-width', `${Math.round(panelWidth)}px`);
+      const left = Math.max(0, Math.round(rect.left - clusterRect.left));
+      const startWidth = Math.max(1, Math.round(rect.width || 112));
+      const height = Math.max(40, Math.round(rect.height || 44));
+      const widthValue = `${Math.round(panelWidth)}px`;
+      const leftValue = `${left}px`;
+      const startValue = `${startWidth}px`;
+      const heightValue = `${height}px`;
+      this.searchShell?.style.setProperty('--search-shell-left', leftValue);
+      this.searchShell?.style.setProperty('--search-start-width', startValue);
+      this.searchShell?.style.setProperty('--search-panel-width', widthValue);
+      this.searchShell?.style.setProperty('--search-shell-height', heightValue);
+      panel.style.setProperty('--search-shell-left', leftValue);
+      panel.style.setProperty('--search-start-width', startValue);
+      panel.style.setProperty('--search-panel-width', widthValue);
+      panel.style.setProperty('--search-shell-height', heightValue);
+    }
+
+    createSearchSurface(trigger) {
+      if (this.searchShell && this.searchPanel && this.searchPlaceholder) {
+        return { shell: this.searchShell, panel: this.searchPanel };
+      }
+      const cluster = trigger?.closest('.brand-search-cluster') || document.querySelector('.brand-search-cluster');
+      if (!trigger || !cluster) return {};
+      const rect = trigger.getBoundingClientRect();
+      this.searchCluster = cluster;
+      this.searchTriggerTemplate = trigger.cloneNode(true);
+
+      const placeholder = document.createElement('span');
+      placeholder.className = 'search-trigger-spacer';
+      placeholder.setAttribute('aria-hidden', 'true');
+      placeholder.style.width = `${Math.round(rect.width || 112)}px`;
+      placeholder.style.height = `${Math.round(rect.height || 44)}px`;
+      placeholder.style.flex = `0 0 ${Math.round(rect.width || 112)}px`;
+      trigger.replaceWith(placeholder);
+
+      const shell = document.createElement('div');
+      shell.className = 'search-trigger-btn search-input-shell';
+      shell.dataset.searchShell = 'true';
+      shell.setAttribute('role', 'search');
+      shell.setAttribute('aria-label', 'Search');
+      shell.setAttribute('aria-expanded', 'false');
+      shell.innerHTML = `
+        <svg class="search-shell-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="search" id="omnisearch-input" placeholder="Suche nach Artist, Track oder Produzent …" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="Suche nach Artists, Tracks und Credits" aria-controls="omnisearch-results" aria-autocomplete="list">
+        <span class="search-shell-esc" aria-hidden="true">ESC</span>
+      `;
+
+      const panel = document.createElement('div');
+      panel.id = 'omnisearch-dialog';
+      panel.className = 'omnisearch-dialog';
+      panel.setAttribute('role', 'dialog');
+      panel.setAttribute('aria-label', 'Suchvorschläge');
+      panel.setAttribute('aria-hidden', 'true');
+      panel.innerHTML = `
+        <div class="omnisearch-body">
+          <div id="omnisearch-results" class="omnisearch-results" role="listbox" aria-label="Suchergebnisse"></div>
+          <div class="omnisearch-footer">
+            <span><b>↑↓</b> Navigieren</span>
+            <span><b>↵</b> Öffnen</span>
+            <span><b>Hangul / Choseong (초성)</b> unterstützt</span>
+          </div>
+        </div>
+      `;
+
+      cluster.append(shell, panel);
+      this.searchShell = shell;
+      this.searchPanel = panel;
+      this.searchPlaceholder = placeholder;
+
+      const input = shell.querySelector('#omnisearch-input');
+      const resultsEl = panel.querySelector('#omnisearch-results');
+      input.addEventListener('input', () => {
+        this.selectedIndex = 0;
+        this.renderResults(input.value, resultsEl);
+      });
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          this.navigateResults(1, resultsEl);
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          this.navigateResults(-1, resultsEl);
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          this.selectCurrentResult();
+        }
+      });
+      panel.addEventListener('click', (e) => {
+        const quickChip = e.target.closest('[data-search-query]');
+        if (quickChip) {
+          this.quickQuery(quickChip.dataset.searchQuery);
+          return;
+        }
+        const itemEl = e.target.closest('.search-item');
+        if (itemEl) {
+          this.selectedIndex = parseInt(itemEl.dataset.index, 10);
+          this.selectCurrentResult();
+        }
+      });
+      return { shell, panel };
+    }
+
+    restoreSearchTrigger() {
+      const placeholder = this.searchPlaceholder;
+      const template = this.searchTriggerTemplate;
+      this.searchPanel?.remove();
+      this.searchShell?.remove();
+      if (placeholder && template && placeholder.isConnected) {
+        const trigger = template.cloneNode(true);
+        trigger.classList.remove('is-active');
+        trigger.setAttribute('aria-expanded', 'false');
+        placeholder.replaceWith(trigger);
+      }
+      this.searchShell = null;
+      this.searchPanel = null;
+      this.searchPlaceholder = null;
+      this.searchTriggerTemplate = null;
+      this.searchCluster = null;
     }
 
     openOmnisearch() {
-      let modal = document.getElementById('omnisearch-dialog');
-      if (!modal) {
-        modal = document.createElement('dialog');
-        modal.id = 'omnisearch-dialog';
-        modal.className = 'omnisearch-dialog';
-        modal.innerHTML = `
-          <div class="omnisearch-backdrop" data-action="close-search"></div>
-          <div class="omnisearch-container">
-            <div class="omnisearch-header">
-              <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="11" cy="11" r="8"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-              </svg>
-              <input type="search" id="omnisearch-input" placeholder="Suche nach Hangul (뉴진스), Romanisierung (Sumin), Track, Produzent …" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="Suche nach Artists, Tracks und Credits" aria-controls="omnisearch-results" aria-autocomplete="list">
-              <span class="kbd-badge">ESC</span>
-            </div>
-            <div class="omnisearch-body">
-              <div id="omnisearch-results" class="omnisearch-results" role="listbox" aria-label="Suchergebnisse"></div>
-              <div class="omnisearch-footer">
-                <span><b>↑↓</b> Navigieren</span>
-                <span><b>↵</b> Öffnen</span>
-                <span><b>Hangul / Choseong (초성)</b> unterstützt</span>
-              </div>
-            </div>
-          </div>
-        `;
-        document.body.appendChild(modal);
-
-        const input = modal.querySelector('#omnisearch-input');
-        const resultsEl = modal.querySelector('#omnisearch-results');
-
-        input.addEventListener('input', () => {
-          this.selectedIndex = 0;
-          this.renderResults(input.value, resultsEl);
-        });
-
-        input.addEventListener('keydown', (e) => {
-          if (e.key === 'ArrowDown') {
-            e.preventDefault();
-            this.navigateResults(1, resultsEl);
-          } else if (e.key === 'ArrowUp') {
-            e.preventDefault();
-            this.navigateResults(-1, resultsEl);
-          } else if (e.key === 'Enter') {
-            e.preventDefault();
-            this.selectCurrentResult();
-          }
-        });
-
-        modal.addEventListener('click', (e) => {
-          if (e.target.dataset.action === 'close-search' || e.target === modal) {
-            this.closeOmnisearch();
-          }
-          const quickChip = e.target.closest('[data-search-query]');
-          if (quickChip) {
-            this.quickQuery(quickChip.dataset.searchQuery);
-            return;
-          }
-          const itemEl = e.target.closest('.search-item');
-          if (itemEl) {
-            const idx = parseInt(itemEl.dataset.index, 10);
-            this.selectedIndex = idx;
-            this.selectCurrentResult();
-          }
-        });
-      }
-
+      const trigger = document.querySelector('[data-action="open-search"]:not([data-search-shell])');
+      const surface = this.createSearchSurface(trigger);
+      const shell = surface.shell || this.searchShell;
+      const panel = surface.panel || this.searchPanel;
+      if (!shell || !panel) return;
       if (this.closeTimer) {
         clearTimeout(this.closeTimer);
         this.closeTimer = null;
       }
-      const trigger = document.querySelector('[data-action="open-search"]');
-      this.positionOmnisearch(modal, trigger);
-      modal.classList.remove('is-closing');
-      modal.classList.add('is-opening');
+      this.positionOmnisearch(panel, this.searchPlaceholder || shell);
+      shell.classList.remove('is-closing');
+      panel.classList.remove('is-closing');
+      shell.classList.add('is-opening');
+      panel.classList.add('is-opening');
       this.isModalOpen = true;
-      if (typeof modal.show === 'function' && !modal.open) {
-        modal.show();
-      } else if (!modal.open) {
-        modal.setAttribute('open', '');
-      }
-
-      trigger?.classList.add('is-active');
-      trigger?.setAttribute('aria-expanded', 'true');
+      shell.setAttribute('aria-expanded', 'true');
+      panel.setAttribute('aria-hidden', 'false');
       document.body.classList.add('search-is-open');
       if (!this._resizeBound) {
         window.addEventListener('resize', () => {
-          if (this.isModalOpen) this.positionOmnisearch(document.getElementById('omnisearch-dialog'));
-        }, {passive: true});
+          if (this.isModalOpen) this.positionOmnisearch(this.searchPanel, this.searchPlaceholder || this.searchShell);
+        }, { passive: true });
         this._resizeBound = true;
       }
       requestAnimationFrame(() => {
-        if (modal.open) modal.classList.add('is-open');
+        if (!this.isModalOpen) return;
+        shell.classList.remove('is-opening');
+        shell.classList.add('is-expanded', 'is-open');
+        panel.classList.remove('is-opening');
+        panel.classList.add('is-open');
       });
-
-      const input = modal.querySelector('#omnisearch-input');
+      const input = shell.querySelector('#omnisearch-input');
       input.value = '';
       input.focus();
-      this.renderResults('', modal.querySelector('#omnisearch-results'));
+      this.renderResults('', panel.querySelector('#omnisearch-results'));
     }
 
     closeOmnisearch(animate = true) {
-      const modal = document.getElementById('omnisearch-dialog');
+      const shell = this.searchShell;
+      const panel = this.searchPanel;
       this.isModalOpen = false;
-      const trigger = document.querySelector('[data-action="open-search"]');
-      trigger?.classList.remove('is-active');
-      trigger?.setAttribute('aria-expanded', 'false');
-      if (!modal) { document.body.classList.remove('search-is-open'); return; }
+      if (shell) shell.setAttribute('aria-expanded', 'false');
+      if (panel) panel.setAttribute('aria-hidden', 'true');
       if (this.closeTimer) clearTimeout(this.closeTimer);
-      modal.classList.remove('is-open', 'is-opening');
-      if (!modal.open) {
-        modal.classList.remove('is-closing');
+      if (!shell || !panel) {
         document.body.classList.remove('search-is-open');
         return;
       }
-      if (!animate) {
-        modal.classList.remove('is-closing', 'has-query', 'has-results');
-        if (typeof modal.close === 'function') modal.close();
-        else modal.removeAttribute('open');
-        document.body.classList.remove('search-is-open');
-        return;
-      }
-      modal.classList.add('is-closing');
+
       const finish = () => {
-        modal.classList.remove('is-closing', 'has-query', 'has-results');
-        if (typeof modal.close === 'function' && modal.open) modal.close();
-        else modal.removeAttribute('open');
+        this.restoreSearchTrigger();
         document.body.classList.remove('search-is-open');
         this.closeTimer = null;
       };
-      this.closeTimer = setTimeout(finish, 240);
+      if (!animate) {
+        finish();
+        return;
+      }
+      shell.classList.remove('is-open', 'is-expanded', 'is-opening');
+      shell.classList.add('is-closing');
+      panel.classList.remove('is-open', 'is-opening');
+      panel.classList.add('is-closing');
+      this.closeTimer = setTimeout(finish, 360);
     }
 
     renderResults(query, resultsEl) {
