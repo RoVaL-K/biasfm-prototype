@@ -196,7 +196,7 @@
       if (!modal || !trigger) return;
       const rect = trigger.getBoundingClientRect();
       const viewportPadding = window.innerWidth <= 600 ? 10 : 16;
-      const panelWidth = Math.min(720, Math.max(0, window.innerWidth - (viewportPadding * 2)));
+      const panelWidth = Math.min(720, Math.max(rect.width, window.innerWidth - rect.left - viewportPadding));
       const left = Math.max(viewportPadding, Math.min(rect.left, window.innerWidth - panelWidth - viewportPadding));
       const top = Math.max(viewportPadding, rect.top);
       modal.style.setProperty('--search-anchor-left', `${Math.round(left)}px`);
@@ -282,8 +282,8 @@
       modal.classList.remove('is-closing');
       modal.classList.add('is-opening');
       this.isModalOpen = true;
-      if (typeof modal.showModal === 'function' && !modal.open) {
-        modal.showModal();
+      if (typeof modal.show === 'function' && !modal.open) {
+        modal.show();
       } else if (!modal.open) {
         modal.setAttribute('open', '');
       }

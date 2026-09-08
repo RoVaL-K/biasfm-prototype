@@ -1194,6 +1194,7 @@ body.search-is-open .brand-search-cluster .search-trigger-btn {
   transform: scale(.88);
 }
 .omnisearch-dialog {
+  z-index: 2000;
   top: var(--search-anchor-top, clamp(78px, 14vh, 154px));
   left: var(--search-anchor-left, 16px);
   width: var(--search-panel-width, min(720px, calc(100vw - 32px)));
@@ -1223,3 +1224,16 @@ body.search-is-open .brand-search-cluster .search-trigger-btn {
 @media (prefers-reduced-motion: reduce) {
   .omnisearch-dialog { transition: none; }
 }
+
+/* The expanded search is part of the header; it must not dim or inert the page. */
+.omnisearch-dialog::backdrop {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+body.search-is-open .header-right-actions {
+  opacity: 1;
+  filter: none;
+  pointer-events: none;
+}
+.omnisearch-body { background: color-mix(in srgb, var(--bg-card) 98%, var(--bias) 2%); }
