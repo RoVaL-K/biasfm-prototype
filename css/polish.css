@@ -1281,6 +1281,31 @@ body.search-is-open .header-right-actions {
   transform: scale(.98);
   transition: width .24s var(--ease-smooth), min-width .24s var(--ease-smooth), transform .2s var(--ease-smooth), opacity .16s var(--ease-smooth);
 }
+.brand-search-cluster .search-input-shell.is-handing-off {
+  opacity: 0;
+  transform: scale(.98);
+  transition: width .24s var(--ease-smooth), min-width .24s var(--ease-smooth), transform .22s var(--ease-smooth), opacity .22s var(--ease-smooth);
+}
+.brand-search-cluster .search-trigger-returning {
+  position: absolute;
+  top: 0;
+  left: var(--search-shell-left, 0px);
+  z-index: 2001;
+  display: inline-flex !important;
+  width: var(--search-start-width, 112px) !important;
+  min-width: var(--search-start-width, 112px) !important;
+  height: var(--search-shell-height, 44px);
+  min-height: var(--search-shell-height, 44px);
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(.94);
+  transform-origin: left center;
+  transition: opacity .22s var(--ease-smooth), transform .26s var(--ease-smooth);
+}
+.brand-search-cluster .search-trigger-returning.is-visible {
+  opacity: 1;
+  transform: scale(1);
+}
 .brand-search-cluster .search-input-shell .search-shell-icon { width: 18px; height: 18px; color: var(--bias); flex: 0 0 auto; }
 .brand-search-cluster .search-input-shell #omnisearch-input {
   width: 100%;

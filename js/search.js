@@ -43,6 +43,7 @@
       this.searchPlaceholder = null;
       this.searchTriggerTemplate = null;
       this.searchCluster = null;
+      this.returningTrigger = null;
     }
 
     search(query, options = {}) {
@@ -316,17 +317,43 @@
       return { shell, panel };
     }
 
+    prepareTriggerHandoff() {
+      if (this.returningTrigger || !this.searchCluster || !this.searchPlaceholder || !this.searchTriggerTemplate) return;
+      const trigger = this.searchTriggerTemplate.cloneNode(true);
+      trigger.classList.remove('is-active');
+      trigger.classList.add('search-trigger-returning');
+      trigger.setAttribute('aria-expanded', 'false');
+      trigger.style.setProperty('--search-shell-left', this.searchShell?.style.getPropertyValue('--search-shell-left') || '0px');
+      trigger.style.setProperty('--search-start-width', this.searchShell?.style.getPropertyValue('--search-start-width') || '112px');
+      trigger.style.setProperty('--search-shell-height', this.searchShell?.style.getPropertyValue('--search-shell-height') || '44px');
+      this.searchCluster.appendChild(trigger);
+      this.returningTrigger = trigger;
+      requestAnimationFrame(() => {
+        if (!this.returningTrigger || this.isModalOpen) return;
+        trigger.classList.add('is-visible');
+        this.searchShell?.classList.add('is-handing-off');
+      });
+    }
+
     restoreSearchTrigger() {
       const placeholder = this.searchPlaceholder;
       const template = this.searchTriggerTemplate;
+      const returning = this.returningTrigger;
+      let restored = null;
       this.searchPanel?.remove();
       this.searchShell?.remove();
       if (placeholder && template && placeholder.isConnected) {
-        const trigger = template.cloneNode(true);
-        trigger.classList.remove('is-active');
+        const trigger = returning || template.cloneNode(true);
+        trigger.classList.remove('is-active', 'search-trigger-returning', 'is-visible');
         trigger.setAttribute('aria-expanded', 'false');
+        trigger.style.removeProperty('--search-shell-left');
+        trigger.style.removeProperty('--search-start-width');
+        trigger.style.removeProperty('--search-shell-height');
         placeholder.replaceWith(trigger);
+        restored = trigger;
       }
+      if (returning && returning !== restored) returning.remove();
+      this.returningTrigger = null;
       this.searchShell = null;
       this.searchPanel = null;
       this.searchPlaceholder = null;
@@ -344,8 +371,10 @@
         clearTimeout(this.closeTimer);
         this.closeTimer = null;
       }
+      this.returningTrigger?.remove();
+      this.returningTrigger = null;
       this.positionOmnisearch(panel, this.searchPlaceholder || shell);
-      shell.classList.remove('is-closing');
+      shell.classList.remove('is-closing', 'is-handing-off');
       panel.classList.remove('is-closing');
       shell.classList.add('is-opening');
       panel.classList.add('is-opening');
@@ -402,7 +431,8 @@
       shell.classList.add('is-closing');
       panel.classList.remove('is-open', 'is-opening');
       panel.classList.add('is-closing');
-      this.closeTimer = setTimeout(finish, 285);
+      this.prepareTriggerHandoff();
+      this.closeTimer = setTimeout(finish, 300);
     }
 
     renderResults(query, resultsEl) {
