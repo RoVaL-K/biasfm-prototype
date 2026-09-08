@@ -896,3 +896,67 @@ body { background: var(--bg-gradient); color: var(--fg); }
 @media (prefers-reduced-motion: reduce) {
   .search-trigger-btn, .search-trigger-btn svg, .omnisearch-dialog, .omnisearch-body { transition: none; animation: none; }
 }
+
+/* Centered desktop navigation — compact actions leave room for a true viewport center. */
+@media (min-width: 1200px) {
+  .desktop-nav {
+    position: absolute;
+    left: 50%;
+    justify-self: auto;
+    transform: translateX(-50%);
+  }
+}
+
+/* Nav motion: subtle enough for a persistent header, visible enough to feel responsive. */
+.desktop-nav .nav-link {
+  isolation: isolate;
+  will-change: transform, color;
+  animation: nav-link-enter .48s var(--ease-spring) both;
+  transition: color .22s var(--ease-smooth), transform .26s var(--ease-spring);
+}
+.desktop-nav .nav-link:nth-child(1) { animation-delay: .02s; }
+.desktop-nav .nav-link:nth-child(2) { animation-delay: .06s; }
+.desktop-nav .nav-link:nth-child(3) { animation-delay: .10s; }
+.desktop-nav .nav-link:nth-child(4) { animation-delay: .14s; }
+.desktop-nav .nav-link::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 10px -13px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bias) 10%, transparent);
+  opacity: 0;
+  transform: scale(.78);
+  transition: opacity .22s var(--ease-smooth), transform .28s var(--ease-spring);
+}
+.desktop-nav .nav-link::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  right: auto;
+  bottom: 10px;
+  width: 0;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+  transform: translateX(-50%);
+  transition: width .28s var(--ease-spring), background-color .22s var(--ease-smooth);
+}
+.desktop-nav .nav-link:hover,
+.desktop-nav .nav-link:focus-visible { color: var(--fg-bright); transform: translateY(-2px); }
+.desktop-nav .nav-link:hover::before,
+.desktop-nav .nav-link:focus-visible::before { opacity: 1; transform: scale(1); }
+.desktop-nav .nav-link:hover::after,
+.desktop-nav .nav-link:focus-visible::after,
+.desktop-nav .nav-link.is-active::after { width: calc(100% + 4px); }
+.desktop-nav .nav-link.is-active { color: var(--seafoam); transform: translateY(-1px); }
+.desktop-nav .nav-link.is-active::before { opacity: .72; transform: scale(1); }
+@keyframes nav-link-enter {
+  from { opacity: 0; transform: translateY(-8px) scale(.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .desktop-nav .nav-link { animation: none; transition: none; }
+  .desktop-nav .nav-link::before, .desktop-nav .nav-link::after { transition: none; }
+}
