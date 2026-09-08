@@ -1415,6 +1415,11 @@ body.search-is-open .brand-search-cluster .search-trigger-btn:not(.search-input-
 }
 .account-menu > summary .avatar-header { width: 34px; height: 34px; }
 
+/* The logo and the signed-in control share the same outer header edge on desktop. */
+@media (min-width: 801px) {
+  .nav-wrap { padding-right: 0; }
+}
+
 
 /* Profile listening activity */
 .profile-listening-card { margin-top: 22px; padding: clamp(20px, 4vw, 30px); }
