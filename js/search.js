@@ -37,6 +37,7 @@
       this.isModalOpen = false;
       this.selectedIndex = 0;
       this.currentResults = [];
+      this.closeTimer = null;
     }
 
     search(query, options = {}) {
@@ -259,6 +260,12 @@
         });
       }
 
+      if (this.closeTimer) {
+        clearTimeout(this.closeTimer);
+        this.closeTimer = null;
+      }
+      modal.classList.remove('is-closing');
+      modal.classList.add('is-opening');
       this.isModalOpen = true;
       if (typeof modal.showModal === 'function' && !modal.open) {
         modal.showModal();
@@ -266,25 +273,49 @@
         modal.setAttribute('open', '');
       }
 
+      const trigger = document.querySelector('[data-action="open-search"]');
+      trigger?.classList.add('is-active');
+      requestAnimationFrame(() => {
+        if (modal.open) modal.classList.add('is-open');
+      });
+
       const input = modal.querySelector('#omnisearch-input');
       input.value = '';
       input.focus();
       this.renderResults('', modal.querySelector('#omnisearch-results'));
     }
 
-    closeOmnisearch() {
+    closeOmnisearch(animate = true) {
       const modal = document.getElementById('omnisearch-dialog');
-      if (modal) {
-        if (typeof modal.close === 'function') {
-          modal.close();
-        } else {
-          modal.removeAttribute('open');
-        }
-      }
       this.isModalOpen = false;
+      document.querySelector('[data-action="open-search"]')?.classList.remove('is-active');
+      if (!modal) return;
+      if (this.closeTimer) clearTimeout(this.closeTimer);
+      modal.classList.remove('is-open', 'is-opening');
+      if (!modal.open) {
+        modal.classList.remove('is-closing');
+        return;
+      }
+      if (!animate) {
+        modal.classList.remove('is-closing', 'has-query', 'has-results');
+        if (typeof modal.close === 'function') modal.close();
+        else modal.removeAttribute('open');
+        return;
+      }
+      modal.classList.add('is-closing');
+      const finish = () => {
+        modal.classList.remove('is-closing', 'has-query', 'has-results');
+        if (typeof modal.close === 'function' && modal.open) modal.close();
+        else modal.removeAttribute('open');
+        this.closeTimer = null;
+      };
+      this.closeTimer = setTimeout(finish, 240);
     }
 
     renderResults(query, resultsEl) {
+      const modal = document.getElementById('omnisearch-dialog');
+      const hasQuery = Boolean(String(query || '').trim());
+      modal?.classList.toggle('has-query', hasQuery);
       if (!query.trim()) {
         resultsEl.innerHTML = `
           <div class="search-empty">
@@ -305,6 +336,7 @@
 
       const results = this.search(query);
       this.currentResults = results;
+      modal?.classList.toggle('has-results', results.length > 0);
 
       if (results.length === 0) {
         resultsEl.innerHTML = `
@@ -359,7 +391,7 @@
       const selected = this.currentResults[this.selectedIndex];
       if (!selected) return;
 
-      this.closeOmnisearch();
+      this.closeOmnisearch(false);
 
       if (selected.type === 'song' && window.biasModals) {
         window.biasModals.openSongModal(selected.item.id);
