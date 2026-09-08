@@ -213,7 +213,7 @@
     const active = Boolean(root.biasAccount?.authenticated || root.biasStore.followedArtists?.size || root.biasStore.unreadNotifications());
     if (notify) {
       notify.hidden = !active;
-      notify.innerHTML = `<button type="button" class="notification-trigger" data-route="notifications" aria-label="Benachrichtigungen${root.biasStore.unreadNotifications() ? `, ${root.biasStore.unreadNotifications()} ungelesen` : ''}"><span aria-hidden="true">♢</span>${root.biasStore.unreadNotifications() ? `<b>${root.biasStore.unreadNotifications() > 9 ? '9+' : root.biasStore.unreadNotifications()}</b>` : ''}</button>`;
+      notify.innerHTML = `<button type="button" class="notification-trigger" data-route="notifications" aria-label="Benachrichtigungen${root.biasStore.unreadNotifications() ? `, ${root.biasStore.unreadNotifications()} ungelesen` : ''}"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg>${root.biasStore.unreadNotifications() ? `<b>${root.biasStore.unreadNotifications() > 9 ? '9+' : root.biasStore.unreadNotifications()}</b>` : ''}</button>`;
     }
     renderThemeMenu();
   }

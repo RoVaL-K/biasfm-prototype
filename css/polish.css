@@ -726,3 +726,80 @@ body { background: var(--bg-gradient); color: var(--fg); }
   .avatar-upload-row { align-items: flex-start; flex-direction: column; }
   .notification-item { padding: 15px; }
 }
+
+/* Header layout — keep navigation and actions in separate, non-overlapping zones. */
+.main-header { min-height: var(--header-height); }
+.nav-wrap {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: clamp(20px, 3vw, 48px);
+  min-width: 0;
+}
+.brand-logo { min-width: max-content; }
+.desktop-nav {
+  position: static;
+  left: auto;
+  transform: none;
+  justify-self: center;
+  min-width: 0;
+  gap: clamp(18px, 2.2vw, 32px);
+}
+.nav-link { white-space: nowrap; }
+.header-right-actions {
+  justify-self: end;
+  min-width: 0;
+  flex: 0 1 auto;
+  gap: 9px;
+}
+.search-trigger-btn {
+  width: clamp(190px, 21vw, 280px);
+  min-width: 0;
+  flex: 0 1 280px;
+  white-space: nowrap;
+}
+.search-trigger-btn > span:not(.kbd-badge) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#account-control, #notifications-control, .theme-menu { min-width: 0; flex: 0 0 auto; }
+.header-login { white-space: nowrap; }
+.account-menu { min-width: 0; max-width: clamp(150px, 17vw, 230px); }
+.account-menu summary { width: 100%; min-width: 0; }
+.account-menu summary .account-name { min-width: 0; flex: 1 1 auto; }
+.account-menu summary > span:last-child { flex: 0 0 auto; }
+.theme-menu > summary { justify-content: center; }
+#notifications-control[hidden] { display: none !important; }
+#notifications-control:not([hidden]) { display: block; }
+.notification-trigger svg { width: 19px; height: 19px; display: block; }
+
+@media (max-width: 1120px) {
+  .nav-wrap { gap: 20px; }
+  .desktop-nav { gap: 16px; }
+  .search-trigger-btn { width: 210px; flex-basis: 210px; }
+}
+
+@media (max-width: 1024px) {
+  .search-trigger-btn {
+    width: 44px;
+    flex: 0 0 44px;
+    padding: 8px 12px;
+    justify-content: center;
+  }
+  .search-trigger-btn > span { display: none; }
+  .search-trigger-btn svg { margin: 0 auto; }
+}
+
+@media (max-width: 800px) {
+  .nav-wrap { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .header-right-actions { gap: 7px; }
+  .account-menu { max-width: 190px; }
+}
+
+@media (max-width: 480px) {
+  .nav-wrap { gap: 10px; }
+  .header-right-actions { gap: 6px; }
+  .account-menu { max-width: 44px; }
+  .header-login { min-width: 0; }
+}
