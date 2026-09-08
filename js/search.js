@@ -205,11 +205,11 @@
                 <circle cx="11" cy="11" r="8"></circle>
                 <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
               </svg>
-              <input type="search" id="omnisearch-input" placeholder="Suche nach Hangul (뉴진스), Romanisierung (Sumin), Track, Produzent..." autocomplete="off" autocorrect="off" spellcheck="false">
+              <input type="search" id="omnisearch-input" placeholder="Suche nach Hangul (뉴진스), Romanisierung (Sumin), Track, Produzent …" autocomplete="off" autocorrect="off" spellcheck="false" aria-label="Suche nach Artists, Tracks und Credits" aria-controls="omnisearch-results" aria-autocomplete="list">
               <span class="kbd-badge">ESC</span>
             </div>
             <div class="omnisearch-body">
-              <div id="omnisearch-results" class="omnisearch-results"></div>
+              <div id="omnisearch-results" class="omnisearch-results" role="listbox" aria-label="Suchergebnisse"></div>
               <div class="omnisearch-footer">
                 <span><b>↑↓</b> Navigieren</span>
                 <span><b>↵</b> Öffnen</span>
@@ -245,6 +245,11 @@
           if (e.target.dataset.action === 'close-search' || e.target === modal) {
             this.closeOmnisearch();
           }
+          const quickChip = e.target.closest('[data-search-query]');
+          if (quickChip) {
+            this.quickQuery(quickChip.dataset.searchQuery);
+            return;
+          }
           const itemEl = e.target.closest('.search-item');
           if (itemEl) {
             const idx = parseInt(itemEl.dataset.index, 10);
@@ -255,9 +260,9 @@
       }
 
       this.isModalOpen = true;
-      if (typeof modal.showModal === 'function') {
+      if (typeof modal.showModal === 'function' && !modal.open) {
         modal.showModal();
-      } else {
+      } else if (!modal.open) {
         modal.setAttribute('open', '');
       }
 
@@ -286,11 +291,11 @@
             <p class="search-tip-title">Direkte Entdeckungs-Suche</p>
             <p class="search-tip-sub">Tippe z. B. <b>„수민“</b>, <b>„slom“</b>, <b>„ditto“</b>, <b>„prod“</b> oder <b>„indie“</b>.</p>
             <div class="search-quick-tags">
-              <button class="quick-chip" onclick="biasSearch.quickQuery('NewJeans')">NewJeans</button>
-              <button class="quick-chip" onclick="biasSearch.quickQuery('Slom')">Slom</button>
-              <button class="quick-chip" onclick="biasSearch.quickQuery('검정치마')">검정치마</button>
-              <button class="quick-chip" onclick="biasSearch.quickQuery('BIBI')">BIBI</button>
-              <button class="quick-chip" onclick="biasSearch.quickQuery('R&B')">R&B</button>
+              <button type="button" class="quick-chip" data-search-query="NewJeans">NewJeans</button>
+              <button type="button" class="quick-chip" data-search-query="Slom">Slom</button>
+              <button type="button" class="quick-chip" data-search-query="검정치마">검정치마</button>
+              <button type="button" class="quick-chip" data-search-query="BIBI">BIBI</button>
+              <button type="button" class="quick-chip" data-search-query="R&amp;B">R&amp;B</button>
             </div>
           </div>
         `;
@@ -311,6 +316,7 @@
         return;
       }
 
+      this.selectedIndex = Math.min(Math.max(this.selectedIndex, 0), results.length - 1);
       resultsEl.innerHTML = results.map((r, i) => {
         const isSelected = i === this.selectedIndex;
         const typeBadge = {
@@ -321,13 +327,13 @@
         }[r.type] || '';
 
         return `
-          <div class="search-item ${isSelected ? 'is-selected' : ''}" data-index="${i}">
+          <button type="button" class="search-item ${isSelected ? 'is-selected' : ''}" data-index="${i}" role="option" aria-selected="${isSelected}" id="omnisearch-result-${i}">
             <div class="search-item-info">
               <div class="search-item-title">${this.escapeHtml(r.title)} ${typeBadge}</div>
               <div class="search-item-sub">${this.escapeHtml(r.subtitle)}</div>
             </div>
             <span class="search-item-arrow">→</span>
-          </div>
+          </button>
         `;
       }).join('');
     }
@@ -340,9 +346,11 @@
       items.forEach((item, idx) => {
         if (idx === this.selectedIndex) {
           item.classList.add('is-selected');
-          item.scrollIntoView({ block: 'nearest' });
+          item.setAttribute('aria-selected', 'true');
+          item.scrollIntoView?.({ block: 'nearest' });
         } else {
           item.classList.remove('is-selected');
+          item.setAttribute('aria-selected', 'false');
         }
       });
     }

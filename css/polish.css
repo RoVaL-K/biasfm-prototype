@@ -57,6 +57,15 @@ body { background:var(--bg); }
 @media(max-width:1100px) { .desktop-nav { gap:0; } .nav-link { padding:8px;font-size:13px; } .nav-wrap { gap:12px; } .search-trigger-btn>span:not(.kbd-badge) { display:none; } }
 @media(max-width:800px) { .hero-section { padding:28px; } .connection-heading,.connection-account,.release-source-bar { align-items:flex-start;flex-wrap:wrap; } .inline-form { flex-wrap:wrap; } .inline-form .text-input { flex-basis:100%; } .playlist-grid { grid-template-columns:1fr; } .live-chart-row { grid-template-columns:28px 1fr;gap:12px; } .live-chart-row>span:last-child { grid-column:2; } .provider-mark { font-size:16px; } }
 @media(max-width:480px) { .hero-section { padding:24px 20px; } .hero-headline { font-size:36px; } .main-content { padding-top:22px; } .hero-actions .btn { width:100%;justify-content:center; } .hero-fandom-bar { align-items:flex-start;flex-wrap:wrap; } .source-tab { padding:12px; } }
+@media(max-width:600px) {
+  .omnisearch-dialog { width: calc(100vw - 18px); max-height: 84dvh; border-radius: 16px; }
+  .omnisearch-header { padding: 14px 15px; gap: 9px; }
+  #omnisearch-input { font-size: 15px; }
+  .omnisearch-results { max-height: 64dvh; padding: 7px; }
+  .search-item { min-height: 62px; padding: 11px 10px; }
+  .omnisearch-footer { gap: 8px 12px; padding: 10px 13px; }
+  .omnisearch-footer span:last-child { flex-basis: 100%; }
+}
 
 .hero-section { max-width:none; margin-bottom:28px; }
 .hero-headline { max-width:920px; }
@@ -340,6 +349,51 @@ body { background: var(--bg-gradient); color: var(--fg); }
 .search-trigger-btn svg { order: 2; flex: 0 0 auto; color: var(--sky); }
 .search-trigger-btn > span:not(.kbd-badge) { flex: 1; text-align: left; }
 .search-trigger-btn .kbd-badge { display: none; }
+.omnisearch-dialog {
+  width: min(720px, calc(100vw - 28px));
+  max-width: none;
+  max-height: min(78dvh, 680px);
+  margin: auto;
+  padding: 0;
+  overflow: hidden;
+  color: var(--fg);
+  background: var(--bg-card);
+  border: 1px solid var(--line-strong);
+  border-radius: 20px;
+  box-shadow: var(--shadow-lg), 0 0 0 1px rgba(var(--bias-rgb), .08);
+}
+.omnisearch-dialog::backdrop {
+  background: rgba(3, 5, 8, .76);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.omnisearch-backdrop { display: none; }
+.omnisearch-container { display: grid; grid-template-rows: auto minmax(0, 1fr); min-height: 0; max-height: inherit; }
+.omnisearch-header { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 17px 20px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--bg-card) 88%, var(--bias) 12%); }
+.omnisearch-header .search-icon { color: var(--bias); flex-shrink: 0; }
+#omnisearch-input { width: 100%; min-width: 0; padding: 0; border: 0; outline: 0; color: var(--fg-bright); background: transparent; font: 600 16px/1.35 var(--font-sans); }
+#omnisearch-input::placeholder { color: var(--fg-dim); font-weight: 500; }
+.omnisearch-header .kbd-badge { min-width: 38px; padding: 5px 7px; border: 1px solid var(--line-light); border-radius: 6px; color: var(--fg-mid); background: var(--bg-subtle); font: 700 10px/1 var(--font-mono); text-align: center; }
+.omnisearch-body { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-height: 0; }
+.omnisearch-results { min-height: 0; max-height: min(58dvh, 510px); overflow-y: auto; overscroll-behavior: contain; padding: 9px; }
+.search-empty { padding: 35px 22px 30px; text-align: center; }
+.search-tip-title { margin-bottom: 8px; color: var(--fg-bright); font-size: 17px; font-weight: 700; }
+.search-tip-sub { max-width: 520px; margin: 0 auto; color: var(--fg-mid); font-size: 13px; }
+.search-tip-sub b { color: var(--fg); font-weight: 700; }
+.search-quick-tags { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 20px; }
+.quick-chip { min-height: 36px; padding: 7px 12px; border: 1px solid var(--line); border-radius: var(--radius-full); color: var(--fg-mid); background: var(--bg-subtle); font: 600 12px var(--font-sans); cursor: pointer; transition: border-color var(--tr-fast), color var(--tr-fast), background var(--tr-fast), transform var(--tr-fast); }
+.quick-chip:hover, .quick-chip:focus-visible { color: var(--fg-bright); border-color: var(--bias); background: var(--bias-glow-soft); transform: translateY(-1px); }
+.search-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 16px; width: 100%; min-height: 66px; padding: 12px 14px; border: 1px solid transparent; border-radius: 12px; color: var(--fg); background: transparent; text-align: left; font: inherit; cursor: pointer; transition: background var(--tr-fast), border-color var(--tr-fast), transform var(--tr-fast); }
+.search-item:hover, .search-item.is-selected { border-color: color-mix(in srgb, var(--bias) 55%, var(--line)); background: var(--bg-subtle); }
+.search-item.is-selected { box-shadow: 0 0 0 2px var(--bias-glow-soft); }
+.search-item-info { min-width: 0; }
+.search-item-title { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; color: var(--fg-bright); font-size: 14px; font-weight: 700; line-height: 1.35; }
+.search-item-sub { overflow: hidden; margin-top: 4px; color: var(--fg-mid); font-size: 12px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.search-item-arrow { color: var(--bias); font-size: 20px; line-height: 1; transition: transform var(--tr-fast); }
+.search-item:hover .search-item-arrow, .search-item.is-selected .search-item-arrow { transform: translateX(3px); }
+.omnisearch-footer { display: flex; flex-wrap: wrap; gap: 13px 20px; padding: 11px 18px; border-top: 1px solid var(--line); color: var(--fg-dim); background: var(--bg-subtle); font-size: 11px; }
+.omnisearch-footer span { display: inline-flex; align-items: center; gap: 5px; }
+.omnisearch-footer b { color: var(--fg-mid); font: 700 11px var(--font-mono); }
 #account-control { display: flex; align-items: center; }
 .header-login { min-height: 44px; padding: 0 17px; border: 1px solid var(--seafoam); border-radius: var(--radius-control); background: var(--seafoam); color: #061610; font: 700 14px var(--font-sans); cursor: pointer; }
 .header-login:hover { filter: brightness(1.08); transform: translateY(-1px); }
