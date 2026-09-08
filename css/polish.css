@@ -898,13 +898,18 @@ body { background: var(--bg-gradient); color: var(--fg); }
 }
 
 /* Centered desktop navigation — compact actions leave room for a true viewport center. */
-@media (min-width: 1200px) {
+@media (min-width: 1025px) {
   .desktop-nav {
     position: absolute;
     left: 50%;
     justify-self: auto;
     transform: translateX(-50%);
   }
+}
+
+@media (min-width: 1025px) and (max-width: 1120px) {
+  .account-menu { max-width: 92px; }
+  .account-menu .account-name { display: none; }
 }
 
 /* Nav motion: subtle enough for a persistent header, visible enough to feel responsive. */
