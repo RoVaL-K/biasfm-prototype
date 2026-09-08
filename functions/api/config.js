@@ -7,6 +7,7 @@ export async function onRequest(context) {
   return json(context.request, {
     spotify: Boolean(env.SPOTIFY_CLIENT_ID),
     lastfm: Boolean(env.LASTFM_API_KEY),
+    lastfmOAuth: Boolean(env.LASTFM_API_KEY && env.LASTFM_API_SECRET && env.DB && env.SESSIONS),
     editorial: Boolean(env.EDITORIAL_TOKEN && String(env.EDITORIAL_TOKEN).length >= 24),
     accounts: Boolean(env.DB && env.SESSIONS),
     oauth: {google: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.SESSIONS), discord: Boolean(env.DISCORD_CLIENT_ID && env.DISCORD_CLIENT_SECRET && env.SESSIONS)},

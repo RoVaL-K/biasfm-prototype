@@ -104,9 +104,19 @@ async function ensureSchema(db) {
       PRIMARY KEY (provider, subject),
       UNIQUE (account_id, provider)
     )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS lastfm_connections (
+      account_id TEXT PRIMARY KEY,
+      username TEXT NOT NULL,
+      username_key TEXT NOT NULL UNIQUE,
+      session_key TEXT NOT NULL,
+      subscriber INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`),
     db.prepare('CREATE INDEX IF NOT EXISTS account_notifications_user_created ON account_notifications (user_id, created_at DESC)'),
     db.prepare('CREATE INDEX IF NOT EXISTS artist_follows_artist ON artist_follows (artist_id)'),
-    db.prepare('CREATE INDEX IF NOT EXISTS account_identities_account ON account_identities (account_id)')
+    db.prepare('CREATE INDEX IF NOT EXISTS account_identities_account ON account_identities (account_id)'),
+    db.prepare('CREATE INDEX IF NOT EXISTS lastfm_connections_account ON lastfm_connections (account_id)')
   ]);
   schemaReady.add(db);
 }

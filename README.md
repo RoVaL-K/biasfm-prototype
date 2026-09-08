@@ -104,6 +104,7 @@ npm start
 Weitere Werte in `.env`:
 
 - `LASTFM_API_KEY`: Betreiber-Schlüssel für Hörstatistik und Charts.
+- `LASTFM_API_SECRET`: Server-seitiger Last.fm-Secret für die optionale Konto-Verknüpfung. Die Last.fm-Callback-URL lautet `https://biasfm-prototype.pages.dev/api/lastfm/callback`.
 - `SPOTIFY_CLIENT_ID`: Client-ID der eigenen Spotify-App. Im Spotify-Dashboard muss `<APP_ORIGIN>/api/spotify/callback` als Rücksprungadresse registriert sein. Lokal `http://127.0.0.1:3000/api/spotify/callback`, nicht `localhost`.
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`: OAuth-Client für Google. Als autorisierte Rücksprungadresse `https://biasfm-prototype.pages.dev/api/auth/google/callback` und für den GitHub-Pages-Mirror ebenfalls dieselbe Cloudflare-Adresse verwenden. Der Login fordert nur `openid email profile` an.
 - `DISCORD_CLIENT_ID` / `DISCORD_CLIENT_SECRET`: OAuth-Client für Discord. Als Rücksprungadresse `https://biasfm-prototype.pages.dev/api/auth/discord/callback` eintragen und die Scopes `identify` und `email` erlauben. Discord muss eine bestätigte E-Mail-Adresse liefern, damit ein Account sicher mit einem bestehenden E-Mail-Konto zusammengeführt werden kann.

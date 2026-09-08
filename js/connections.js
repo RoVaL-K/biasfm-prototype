@@ -18,11 +18,11 @@
     if(!(response.headers.get('content-type')||'').includes('application/json')) throw Error('Die Verbindung benötigt den bias.fm-Server.');
     const data=await response.json();if(!response.ok)throw Error(data.error || 'Anfrage fehlgeschlagen.');return data;
   }
-  const connections={status:null,playlists:[],nextOffset:null,error:'',loading:false,
+  const connections={status:null,lastfmStatus:null,lastfmError:'',playlists:[],nextOffset:null,error:'',loading:false,
     mount(container,editable=true){
       this.editable=editable;
       const section=document.createElement('section');section.id='music-connections';section.className='settings-card connections-section';container.querySelector('.view-profile').appendChild(section);this.render();
-      if(typeof fetch==='function')this.loadStatus();
+      if(typeof fetch==='function'){this.loadStatus();this.loadLastfmStatus();}
     },
     render(){
       const box=document.getElementById('music-connections');if(!box)return;
@@ -44,6 +44,7 @@
         <div class="playlist-grid">${saved.map((p,i)=>`<article class="playlist-card"><span class="playlist-symbol">♫</span><a href="${esc(p.url)}" target="_blank" rel="noopener"><b>${esc(p.name)}</b><span>Auf Spotify öffnen ↗</span></a><button class="btn btn-ghost btn-sm" data-remove-playlist="${i}" aria-label="${esc(p.name)} entfernen">✕</button></article>`).join('') || '<p class="section-note">Speichere Playlists, zu denen du immer wieder zurückkommst.</p>'}</div>
         ${status?.connected?`<div class="connection-heading"><h3>Playlists aus deinem Spotify-Konto</h3><button class="btn btn-ghost" id="spotify-refresh" ${this.loading?'disabled':''}>Aktualisieren</button></div><div class="playlist-grid">${this.playlists.map(p=>`<a class="playlist-card imported-playlist" href="${esc(p.url)}" target="_blank" rel="noopener">${p.image?`<img src="${esc(p.image)}" alt="" width="64" height="64" loading="lazy">`:'<span class="playlist-symbol">♫</span>'}<span><b>${esc(p.name)}</b><small>${esc(p.owner)}${p.total!==null?' · '+p.total+' Titel':''}</small></span></a>`).join('') || `<p class="section-note">${this.loading?'Playlists werden geladen …':'Keine zugänglichen Playlists vorhanden.'}</p>`}</div>${this.nextOffset!==null?'<button class="btn btn-ghost" id="spotify-more">Weitere Playlists laden</button>':''}`:''}
         ${this.loading?'<p role="status">Verbindung wird geladen …</p>':''}${this.error?`<p class="inline-error" role="alert">${esc(this.error)}</p><button class="btn btn-ghost" id="spotify-retry">Erneut versuchen</button>`:''}`;
+      this.renderLastfm(box);
       box.querySelector('#spotify-link-form').onsubmit=e=>{e.preventDefault();try{biasStore.updateProfile({spotifyProfileUrl:spotifyUrl(box.querySelector('#spotify-profile-url').value,'user')});biasApp.showToast('Spotify-Link gespeichert.');this.render();}catch(err){this.showError(err);}};
       box.querySelector('#playlist-link-form').onsubmit=e=>{e.preventDefault();try{const url=spotifyUrl(box.querySelector('#playlist-url').value,'playlist'),name=box.querySelector('#playlist-name').value.trim();if(!name)throw Error('Bitte einen Namen eingeben.');if(saved.length>=50)throw Error('Du kannst bis zu 50 Playlist-Links speichern.');if(saved.some(p=>p.url===url))throw Error('Diese Playlist ist bereits gespeichert.');biasStore.updateProfile({spotifyPlaylists:[...saved,{name,url}]});biasApp.showToast('Playlist gespeichert.');this.render();}catch(err){this.showError(err);}};
       box.querySelectorAll('[data-remove-playlist]').forEach(button=>button.onclick=()=>{try{biasStore.updateProfile({spotifyPlaylists:saved.filter((_,i)=>i!==Number(button.dataset.removePlaylist))});this.render();}catch(err){this.showError(err);}});
@@ -52,8 +53,36 @@
       box.querySelector('#spotify-more')?.addEventListener('click',()=>this.loadPlaylists(this.nextOffset));
       box.querySelector('#spotify-retry')?.addEventListener('click',()=>this.loadStatus());
     },
+    renderLastfm(box){
+      box.querySelector('#lastfm-connection')?.remove();
+      const status=this.lastfmStatus || {};
+      const state=new URLSearchParams(location.search).get('lastfm') || new URLSearchParams(location.hash.split('?')[1] || '').get('lastfm');
+      let message='';
+      if(state==='connected')message='<p role="status">Dein Last.fm-Konto ist jetzt mit bias.fm verbunden.</p>';
+      if(state==='cancelled')message='<p role="status">Die Last.fm-Anmeldung wurde abgebrochen.</p>';
+      if(state==='conflict')message='<p class="inline-error" role="alert">Dieses Last.fm-Konto ist bereits mit einem anderen bias.fm-Konto verknüpft.</p>';
+      if(state==='failed')message='<p class="inline-error" role="alert">Last.fm konnte die Verbindung nicht abschließen. Bitte versuche es erneut.</p>';
+      let account;
+      if(!status.authenticated){
+        account='<p>Verbinde Last.fm mit deinem zentralen bias.fm-Konto, um deine Hörhistorie eindeutig zuzuordnen.</p><button class="btn btn-accent" type="button" id="lastfm-open-login">Erst bei bias.fm anmelden</button>';
+      }else if(status.connected){
+        account=`<div><span class="connection-dot lastfm-dot"></span> Verbunden als <a href="${esc(status.profile.url)}" target="_blank" rel="noopener">${esc(status.profile.name)}</a></div><button class="btn btn-ghost" type="button" id="lastfm-disconnect">Verbindung trennen</button>`;
+      }else if(status.configured){
+        account='<p>Melde dich bei Last.fm an, um dein Musikprofil mit bias.fm zu verbinden.</p><a class="btn btn-accent" href="'+esc(apiUrl(`api/lastfm/connect?return_to=${encodeURIComponent(location.href)}`))+'">Mit Last.fm verbinden</a>';
+      }else{
+        account='<p class="section-note">Die Last.fm-Kontoverknüpfung ist noch nicht freigeschaltet. Dafür müssen API-Key und API-Secret auf dem bias.fm-Server hinterlegt sein.</p>';
+      }
+      const section=document.createElement('section');
+      section.id='lastfm-connection';section.className='provider-connection lastfm-connection';
+      section.innerHTML=`<div class="connection-heading"><div><span class="pill pill-accent">Hörprofil</span><h2>Last.fm verbinden</h2><p class="section-note">Dein Last.fm-Nutzername bleibt bei Last.fm. bias.fm speichert nur die serverseitige Verbindung für dein Konto.</p></div><span class="provider-mark lastfm-provider-mark">Last.fm ↗</span></div>${message}<div class="connection-account">${account}</div>${this.lastfmError?`<p class="inline-error" role="alert">${esc(this.lastfmError)}</p><button class="btn btn-ghost" type="button" id="lastfm-retry">Erneut versuchen</button>`:''}<p class="section-note">„Verbindung trennen“ löscht die bias.fm-Verknüpfung. Die Last.fm-Berechtigung widerrufst du in deinen Last.fm-Einstellungen.</p>`;
+      box.appendChild(section);
+      section.querySelector('#lastfm-open-login')?.addEventListener('click',()=>root.biasAccount?.openAuth('login'));
+      section.querySelector('#lastfm-disconnect')?.addEventListener('click',async()=>{try{await api('api/lastfm/disconnect',{method:'POST'});this.lastfmStatus={...this.lastfmStatus,connected:false,profile:null};this.lastfmError='';this.render();}catch(error){this.lastfmError=error.message;this.renderLastfm(box);}});
+      section.querySelector('#lastfm-retry')?.addEventListener('click',()=>this.loadLastfmStatus());
+    },
     showError(e){this.error=e.message;const box=document.getElementById('music-connections');if(box){let error=box.querySelector('[role="alert"]');if(!error){error=document.createElement('p');error.className='inline-error';error.setAttribute('role','alert');box.appendChild(error);}error.textContent=e.message;}},
     async loadStatus(){try{this.status=await api('api/spotify/status');this.error='';if(this.status.connected)await this.loadPlaylists();else this.render();}catch(e){this.status={configured:false,connected:false};this.error=e.message;this.render();}},
+    async loadLastfmStatus(){try{this.lastfmStatus=await api('api/lastfm/status');this.lastfmError='';this.render();}catch(e){this.lastfmStatus={configured:false,authenticated:false,connected:false};this.lastfmError=e.message;this.render();}},
     async loadPlaylists(offset=0){if(this.loading)return;this.loading=true;this.error='';this.render();try{const result=await api(`api/spotify/playlists?offset=${offset}`);this.playlists=offset?[...this.playlists,...result.items]:result.items;this.nextOffset=result.nextOffset;}catch(e){this.error=e.message;}finally{this.loading=false;this.render();}}
   };
   root.biasConnections=connections;root.biasApi={request:api,url:apiUrl,spotifyUrl,esc};

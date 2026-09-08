@@ -27,6 +27,10 @@ body { background:var(--bg); }
 .connection-heading { display:flex; align-items:center; justify-content:space-between; gap:20px; margin-bottom:24px; }
 .connection-heading h2 { margin-top:12px;font-size:28px;letter-spacing:-.035em; }
 .provider-mark { color:#1ed760; font-size:20px; font-weight:700; }
+.provider-connection { margin-top:32px; padding-top:28px; border-top:1px solid var(--line); }
+.lastfm-provider-mark { color:#f26b38; }
+.lastfm-dot { background:#f26b38; }
+.lastfm-public-connection { margin-top:24px; margin-bottom:0; }
 .connection-account,.release-source-bar { display:flex; align-items:center; justify-content:space-between; gap:20px; padding:20px; margin-bottom:24px; border:1px solid var(--line); border-radius:14px; background:var(--bg-subtle); }
 .connection-dot { display:inline-block; width:8px;height:8px;border-radius:50%;background:#1ed760;margin-right:8px; }
 .inline-form { display:flex; align-items:center; gap:12px; }
