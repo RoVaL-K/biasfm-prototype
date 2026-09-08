@@ -244,6 +244,13 @@
     if (actions && !document.getElementById('notifications-control')) {
       const holder = document.createElement('div'); holder.id = 'notifications-control'; holder.hidden = true; actions.insertBefore(holder, document.getElementById('mobile-menu-toggle'));
     }
+    if (actions) {
+      const accountControl = document.getElementById('account-control');
+      const themeMenu = document.getElementById('theme-menu');
+      const notifications = document.getElementById('notifications-control');
+      if (accountControl && themeMenu) actions.insertBefore(themeMenu, accountControl);
+      if (accountControl && notifications) actions.insertBefore(notifications, accountControl);
+    }
     document.addEventListener('click', event => {
       const themeChoice = event.target.closest('[data-theme-choice]');
       if (themeChoice) {

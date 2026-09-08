@@ -433,7 +433,7 @@ body { background: var(--bg-gradient); color: var(--fg); }
 .oauth-divider { display: flex; align-items: center; gap: 10px; margin: 8px 0 16px; color: var(--fg-dim); font-size: 11px; }
 .oauth-divider::before, .oauth-divider::after { content: ''; height: 1px; flex: 1; background: var(--line); }
 #notifications-control[hidden] { display: none; }
-.notification-trigger { position: relative; display: grid; place-items: center; width: 40px; height: 40px; border: 1px solid var(--line); border-radius: 50%; background: var(--bg-card); color: var(--seafoam); font-size: 19px; cursor: pointer; }
+.notification-trigger { position: relative; display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid var(--line); border-radius: 50%; background: var(--bg-card); color: var(--seafoam); font-size: 19px; cursor: pointer; }
 .notification-trigger b { position: absolute; top: -4px; right: -4px; display: grid; place-items: center; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 10px; background: var(--coral); color: #fff; font: 700 10px var(--font-sans); }
 
 /* Form language and shape system */
@@ -802,6 +802,7 @@ body { background: var(--bg-gradient); color: var(--fg); }
   .header-right-actions { gap: 6px; }
   .account-menu { max-width: 44px; }
   .header-login { min-width: 0; }
+  .notification-trigger { width: 40px; height: 40px; }
 }
 
 /* Spotlight search — the compact trigger expands into a floating pill. */
