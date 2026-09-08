@@ -1406,6 +1406,14 @@ body.search-is-open .brand-search-cluster .search-trigger-btn:not(.search-input-
   .brand-search-cluster .omnisearch-dialog { transition: none; }
 }
 
+/* Keep the signed-in identity control in the same pill language as the rest of the header. */
+.account-menu > summary {
+  min-height: 44px;
+  padding: 3px 12px 3px 5px;
+  border-radius: var(--radius-full);
+}
+.account-menu > summary .avatar-header { width: 34px; height: 34px; }
+
 
 /* Profile listening activity */
 .profile-listening-card { margin-top: 22px; padding: clamp(20px, 4vw, 30px); }
