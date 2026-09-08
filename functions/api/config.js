@@ -9,6 +9,7 @@ export async function onRequest(context) {
     lastfm: Boolean(env.LASTFM_API_KEY),
     editorial: Boolean(env.EDITORIAL_TOKEN && String(env.EDITORIAL_TOKEN).length >= 24),
     accounts: Boolean(env.DB && env.SESSIONS),
+    oauth: {google: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.SESSIONS), discord: Boolean(env.DISCORD_CLIENT_ID && env.DISCORD_CLIENT_SECRET && env.SESSIONS)},
     operator: {name: env.OPERATOR_NAME || '', address: env.OPERATOR_ADDRESS || '', email: env.OPERATOR_EMAIL || ''},
     runtime: 'cloudflare-pages-functions'
   });

@@ -180,8 +180,11 @@
   }
 
   function avatarMarkup(profile, className = '') {
+    const remote = String(profile?.avatarUrl || '');
+    const safeRemote = /^https:\/\/(?:cdn\.discordapp\.com|media\.discordapp\.net|[^/]+\.googleusercontent\.com)\//i.test(remote) ? remote : '';
     const avatar = /^data:image\/(?:png|jpeg|webp);base64,[a-z0-9+/=]+$/i.test(profile?.avatarData || '')
       ? `<img src="${esc(profile.avatarData)}" alt="" loading="lazy">`
+      : safeRemote ? `<img src="${esc(safeRemote)}" alt="" loading="lazy">`
       : `<span>${esc(String(profile?.username || 'MF').slice(0, 2).toUpperCase())}</span>`;
     return `<span class="avatar-v2 ${className}">${avatar}</span>`;
   }
@@ -253,7 +256,9 @@
 
   function authModal(mode = 'login') {
     const signup = mode === 'signup';
-    const modal = root.biasModals.createModalContainer(`<div class="modal-header"><span class="pill pill-accent">${signup ? 'Neues Konto' : 'Willkommen zurück'}</span><h2>${signup ? 'Dein bias.fm-Konto' : 'Bei bias.fm anmelden'}</h2><p>${signup ? 'Synchronisiere Profil, Follows und Benachrichtigungen über deine Geräte.' : 'Deine lokale Profilkarte bleibt auch ohne Konto nutzbar.'}</p></div><form id="account-auth-form" class="studio-form"><label class="form-label" for="account-email">E-Mail</label><input class="text-input" id="account-email" type="email" autocomplete="email" required><label class="form-label" for="account-password">Passwort</label><input class="text-input" id="account-password" type="password" minlength="10" autocomplete="${signup ? 'new-password' : 'current-password'}" required>${signup ? '<label class="form-label" for="account-username">Username</label><input class="text-input" id="account-username" pattern="[a-z0-9_-]{3,20}" minlength="3" maxlength="20" required><p class="section-note">3–20 Kleinbuchstaben, Zahlen, - oder _.</p>' : ''}<button class="btn btn-accent" type="submit">${signup ? 'Konto erstellen' : 'Anmelden'}</button><p id="account-auth-error" class="inline-error" role="alert" hidden></p></form><div class="auth-switch"><span>${signup ? 'Schon ein Konto?' : 'Noch kein Konto?'}</span><button type="button" class="text-action" id="account-auth-switch">${signup ? 'Anmelden' : 'Konto erstellen'}</button></div><p class="section-note">Du kannst weiterhin alle lokalen Funktionen ohne Konto verwenden. Keine Newsletter und keine automatische Veröffentlichung.</p>`);
+    const modal = root.biasModals.createModalContainer(`<div class="modal-header"><span class="pill pill-accent">${signup ? 'Neues Konto' : 'Willkommen zurück'}</span><h2>${signup ? 'Dein bias.fm-Konto' : 'Bei bias.fm anmelden'}</h2><p>${signup ? 'Synchronisiere Profil, Follows und Benachrichtigungen über deine Geräte.' : 'Deine lokale Profilkarte bleibt auch ohne Konto nutzbar.'}</p></div><div id="account-oauth-options" class="oauth-options" aria-live="polite"></div><div class="oauth-divider"><span>oder mit E-Mail</span></div><form id="account-auth-form" class="studio-form"><label class="form-label" for="account-email">E-Mail</label><input class="text-input" id="account-email" type="email" autocomplete="email" required><label class="form-label" for="account-password">Passwort</label><input class="text-input" id="account-password" type="password" minlength="10" autocomplete="${signup ? 'new-password' : 'current-password'}" required>${signup ? '<label class="form-label" for="account-username">Username</label><input class="text-input" id="account-username" pattern="[a-z0-9_-]{3,20}" minlength="3" maxlength="20" required><p class="section-note">3–20 Kleinbuchstaben, Zahlen, - oder _.</p>' : ''}<button class="btn btn-accent" type="submit">${signup ? 'Konto erstellen' : 'Anmelden'}</button><p id="account-auth-error" class="inline-error" role="alert" hidden></p></form><div class="auth-switch"><span>${signup ? 'Schon ein Konto?' : 'Noch kein Konto?'}</span><button type="button" class="text-action" id="account-auth-switch">${signup ? 'Anmelden' : 'Konto erstellen'}</button></div><p class="section-note">Du kannst weiterhin alle lokalen Funktionen ohne Konto verwenden. Keine Newsletter und keine automatische Veröffentlichung.</p>`);
+    renderOAuthOptions(modal);
+    root.biasAccount?.loadProviders().then(() => renderOAuthOptions(modal));
     modal.querySelector('#account-auth-switch').onclick = () => authModal(signup ? 'login' : 'signup');
     modal.querySelector('#account-auth-form').onsubmit = async event => {
       event.preventDefault();
@@ -271,9 +276,41 @@
     return modal;
   }
 
+  function authReturnUrl() {
+    const url = new URL(location.href);
+    url.searchParams.delete('auth');
+    return url.href;
+  }
+
+  function renderOAuthOptions(modal) {
+    const container = modal?.querySelector('#account-oauth-options');
+    if (!container) return;
+    const providers = root.biasAccount?.providers || {};
+    const entries = [['google', 'Google', 'G'], ['discord', 'Discord', '◈']];
+    container.innerHTML = `${entries.map(([id, label, icon]) => {
+      const ready = providers[id] === true;
+      const href = ready && root.biasApi ? root.biasApi.url(`api/auth/${id}/start?return_to=${encodeURIComponent(authReturnUrl())}`) : '#';
+      return `<a class="oauth-btn ${ready ? '' : 'is-disabled'}" data-oauth-provider="${id}" href="${esc(href)}" aria-disabled="${ready ? 'false' : 'true'}"><span class="oauth-icon">${icon}</span><span>${ready ? `Mit ${label} fortfahren` : `${label} wird noch verbunden`}</span></a>`;
+    }).join('')}<p class="oauth-status">${entries.some(([id]) => providers[id] === true) ? 'Du wirst sicher zum Anbieter weitergeleitet.' : 'Google- und Discord-Login werden nach Hinterlegung der Anbieter-Schlüssel freigeschaltet.'}</p>`;
+    container.querySelectorAll('[data-oauth-provider]').forEach(link => link.addEventListener('click', event => {
+      if (link.getAttribute('aria-disabled') === 'true') { event.preventDefault(); root.biasApp.showToast(`${link.dataset.oauthProvider === 'google' ? 'Google' : 'Discord'}-Login ist noch nicht freigeschaltet.`); }
+    }));
+  }
+
   const account = {
     authenticated: false,
     profile: null,
+    providers: {google: false, discord: false},
+    providersLoaded: false,
+    async loadProviders() {
+      if (this.providersLoaded || !root.biasApi) return this.providers;
+      try {
+        const result = await root.biasApi.request('api/auth/providers');
+        this.providers = {...this.providers, ...(result.providers || {})};
+        this.providersLoaded = true;
+      } catch {}
+      return this.providers;
+    },
     async loadRemoteState() {
       if (!this.authenticated || !root.biasApi) return;
       try {
@@ -297,12 +334,18 @@
     async refresh() {
       if (!root.biasApi || !/pages\.dev|github\.io/.test(location.hostname)) return;
       try {
+        await this.loadProviders();
         const result = await root.biasApi.request('api/auth/me');
         this.authenticated = Boolean(result.authenticated); this.profile = result.profile || null;
         if (this.authenticated && this.profile) syncProfileFromAccount(this.profile);
         if (this.authenticated) await this.loadRemoteState();
       } catch { this.authenticated = false; this.profile = null; }
       renderHeader();
+      const authState = new URL(location.href).searchParams.get('auth');
+      if (authState) {
+        const cleanUrl = new URL(location.href); cleanUrl.searchParams.delete('auth'); history.replaceState(null, '', cleanUrl.href);
+        setTimeout(() => root.biasApp.showToast(authState === 'connected' ? 'Login erfolgreich.' : authState === 'cancelled' ? 'Login abgebrochen.' : 'Login konnte nicht abgeschlossen werden.'), 0);
+      }
     },
     openAuth(mode) { return authModal(mode); },
     async login(payload) {
@@ -348,6 +391,7 @@
         username: remote.username || root.biasStore.profile.username,
         bio: remote.bio || '',
         avatarData: remote.avatarData || '',
+        avatarUrl: remote.avatarUrl || '',
         ultBiasArtist: remote.ultBiasArtist || '',
         ultBiasMember: remote.ultBiasMember || '',
         favoriteArtists: Array.isArray(remote.favoriteArtists) ? remote.favoriteArtists.slice(0, 10) : [],

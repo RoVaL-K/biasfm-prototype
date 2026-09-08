@@ -6,7 +6,7 @@ const SESSION_TTL = 60 * 60 * 24 * 30;
 const schemaReady = new WeakSet();
 
 const PROFILE_DEFAULTS = {
-  bio: '', avatarData: '', ultBiasArtist: '', ultBiasMember: '', biasMemberId: '',
+  bio: '', avatarData: '', avatarUrl: '', ultBiasArtist: '', ultBiasMember: '', biasMemberId: '',
   favoriteArtists: [], biasLine: [], accentColor: '#38bdf8', fandomName: 'Eigener Profil-Akzent'
 };
 const PRIVACY_DEFAULTS = {profile: 'public', stats: 'private', activity: 'private', follows: 'public', favorites: 'public'};
@@ -94,8 +94,19 @@ async function ensureSchema(db) {
       read_at TEXT,
       created_at TEXT NOT NULL
     )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS account_identities (
+      provider TEXT NOT NULL,
+      subject TEXT NOT NULL,
+      account_id TEXT NOT NULL,
+      email TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (provider, subject),
+      UNIQUE (account_id, provider)
+    )`),
     db.prepare('CREATE INDEX IF NOT EXISTS account_notifications_user_created ON account_notifications (user_id, created_at DESC)'),
-    db.prepare('CREATE INDEX IF NOT EXISTS artist_follows_artist ON artist_follows (artist_id)')
+    db.prepare('CREATE INDEX IF NOT EXISTS artist_follows_artist ON artist_follows (artist_id)'),
+    db.prepare('CREATE INDEX IF NOT EXISTS account_identities_account ON account_identities (account_id)')
   ]);
   schemaReady.add(db);
 }
@@ -137,6 +148,14 @@ function cleanProfile(input, existing = {}) {
   if (Object.hasOwn(input || {}, 'username')) profile.username = normalizeUsername(input.username);
   if (Object.hasOwn(input || {}, 'bio')) profile.bio = String(input.bio || '').slice(0, 360);
   if (Object.hasOwn(input || {}, 'avatarData')) profile.avatarData = cleanAvatar(input.avatarData);
+  if (Object.hasOwn(input || {}, 'avatarUrl')) {
+    const value = String(input.avatarUrl || '').trim();
+    try {
+      const url = new URL(value);
+      const allowed = url.protocol === 'https:' && (url.hostname === 'cdn.discordapp.com' || url.hostname === 'media.discordapp.net' || url.hostname.endsWith('.googleusercontent.com'));
+      profile.avatarUrl = allowed ? url.href.slice(0, 1000) : '';
+    } catch { profile.avatarUrl = ''; }
+  }
   for (const key of ['ultBiasArtist', 'ultBiasMember', 'biasMemberId']) {
     if (Object.hasOwn(input || {}, key)) profile[key] = String(input[key] || '').slice(0, 120);
   }
@@ -181,6 +200,7 @@ export function accountProfile(row, includePrivate = true) {
     username: account.username,
     bio: profile.bio || '',
     avatarData: profile.avatarData || '',
+    avatarUrl: profile.avatarUrl || '',
     ultBiasArtist: profile.ultBiasArtist || '',
     ultBiasMember: profile.ultBiasMember || '',
     biasMemberId: profile.biasMemberId || '',
@@ -296,4 +316,4 @@ export async function currentAccount(request, env) {
   return requireAccount(request, env);
 }
 
-export {ACCOUNT_COOKIE, accountCookie, ensureSchema, readSession, requireAccount, SESSION_PREFIX};
+export {ACCOUNT_COOKIE, accountCookie, createSession, ensureSchema, normalizeEmail, readSession, requireAccount, SESSION_PREFIX};

@@ -47,7 +47,7 @@ Offizielle Schnittstellenbeschreibung: [Last.fm user.getTopArtists](https://www.
 - Der übernommene Song-/Künstlerkatalog ist Referenzinhalt. Seine Credits und Aufnahme-IDs sind nicht unabhängig verifiziert. Erfunden wirkende Track-IDs werden nicht als verifizierte Abspielziele verwendet; Streaminglinks öffnen eine passende Titelsuche.
 - Die übernommenen Beispiel-Scrobblezahlen werden nicht als Live-Charts gezeigt. Eine tatsächliche Community-Chart benötigt erst eine belastbare Datenquelle und Aggregation.
 - Unbestätigte Beispiel-Comebacks sind nicht als echte Veröffentlichungsankündigungen sichtbar. Der Radar verwendet persönliche Termine, MusicBrainz und öffentliche Redaktionseinträge.
-- Persönliche Einträge bleiben lokal. Die getrennte öffentliche Redaktion verfügt über dauerhaften Speicher und einen geschützten Zugang; individuelle Nutzerkonten und geräteübergreifende Profilsynchronisation sind nicht enthalten.
+- Persönliche Einträge bleiben lokal. Mit einem bias.fm-Konto werden Profil, Follows und Benachrichtigungen zusätzlich über Geräte synchronisiert; der Server speichert dabei nur die für den Account nötigen Daten.
 - Last.fm benötigt einen Betreiber-API-Schlüssel. Spotify-Profil- und Playlist-Links funktionieren ohne API; die zusätzliche Kontoverknüpfung benötigt eine eigene Spotify-App.
 - Betreiber- und Kontaktangaben sind vor einer Veröffentlichung zu vervollständigen.
 
@@ -105,11 +105,13 @@ Weitere Werte in `.env`:
 
 - `LASTFM_API_KEY`: Betreiber-Schlüssel für Hörstatistik und Charts.
 - `SPOTIFY_CLIENT_ID`: Client-ID der eigenen Spotify-App. Im Spotify-Dashboard muss `<APP_ORIGIN>/api/spotify/callback` als Rücksprungadresse registriert sein. Lokal `http://127.0.0.1:3000/api/spotify/callback`, nicht `localhost`.
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`: OAuth-Client für Google. Als autorisierte Rücksprungadresse `https://biasfm-prototype.pages.dev/api/auth/google/callback` und für den GitHub-Pages-Mirror ebenfalls dieselbe Cloudflare-Adresse verwenden. Der Login fordert nur `openid email profile` an.
+- `DISCORD_CLIENT_ID` / `DISCORD_CLIENT_SECRET`: OAuth-Client für Discord. Als Rücksprungadresse `https://biasfm-prototype.pages.dev/api/auth/discord/callback` eintragen und die Scopes `identify` und `email` erlauben. Discord muss eine bestätigte E-Mail-Adresse liefern, damit ein Account sicher mit einem bestehenden E-Mail-Konto zusammengeführt werden kann.
 - `APP_ORIGIN`: tatsächlicher Ursprung der Website. Produktion: HTTPS; lokal: Loopback-IP. Bei einer anderen lokalen Portnummer beide Angaben entsprechend setzen.
 - `DATA_DIR`: dauerhafter Datenträger für Redaktionseinträge.
 - `OPERATOR_NAME`, `OPERATOR_ADDRESS`, `OPERATOR_EMAIL`: öffentliche Betreiberangaben für die Informationsseite. Ohne diese Angaben gibt es kein fertiges Impressum.
 
-Die Anwendung lädt eine vorhandene `.env` beim Start selbst. Extern gesetzte Umgebungsvariablen haben Vorrang. Keine Anbieterzugänge wurden erfunden; Spotify-OAuth und Last.fm sind implementiert und mit kontrollierten Antworten getestet, aber ohne die erforderlichen Betreiber-Schlüssel noch nicht live freigeschaltet.
+Die Anwendung lädt eine vorhandene `.env` beim Start selbst. Extern gesetzte Umgebungsvariablen haben Vorrang. E-Mail/Passwort-Accounts sind sofort verfügbar. Google- und Discord-Login erscheinen nach dem Setzen der vier OAuth-Werte als aktive Buttons; ohne diese Werte zeigen sie bewusst einen ehrlichen Status.
 
 ### Server-Hosting
 
