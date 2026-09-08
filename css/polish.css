@@ -395,8 +395,17 @@ body { background: var(--bg-gradient); color: var(--fg); }
 .omnisearch-footer span { display: inline-flex; align-items: center; gap: 5px; }
 .omnisearch-footer b { color: var(--fg-mid); font: 700 11px var(--font-mono); }
 #account-control { display: flex; align-items: center; }
-.header-login { min-height: 44px; padding: 0 17px; border: 1px solid var(--seafoam); border-radius: var(--radius-control); background: var(--seafoam); color: #061610; font: 700 14px var(--font-sans); cursor: pointer; }
-.header-login:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.header-login { position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 104px; min-height: 44px; padding: 3px 13px 3px 7px; overflow: hidden; isolation: isolate; border: 1px solid color-mix(in srgb, var(--bias) 48%, var(--line)); border-radius: var(--radius-full); background: color-mix(in srgb, var(--bg-card) 91%, var(--bias) 9%); color: var(--fg-bright); box-shadow: 0 6px 20px rgba(0, 0, 0, .14); font: 700 13px var(--font-sans); cursor: pointer; transition: border-color .22s var(--ease-smooth), background .22s var(--ease-smooth), box-shadow .22s var(--ease-smooth), color .22s var(--ease-smooth), transform .24s var(--ease-spring); animation: header-login-enter .48s var(--ease-spring) .08s both; }
+.header-login::before { position: absolute; z-index: -1; inset: 1px; content: ''; border-radius: inherit; background: linear-gradient(105deg, color-mix(in srgb, var(--bias) 22%, transparent), transparent 62%); opacity: 0; transform: translateX(-12%); transition: opacity .24s var(--ease-smooth), transform .34s var(--ease-spring); }
+.header-login:hover, .header-login:focus-visible { border-color: color-mix(in srgb, var(--bias) 74%, var(--line-light)); background: color-mix(in srgb, var(--bg-card) 84%, var(--bias) 16%); box-shadow: 0 9px 26px rgba(0, 0, 0, .18), 0 0 0 3px color-mix(in srgb, var(--bias) 12%, transparent); color: var(--fg-bright); transform: translateY(-2px); }
+.header-login:hover::before, .header-login:focus-visible::before { opacity: 1; transform: translateX(0); }
+.header-login:active { transform: translateY(0) scale(.97); transition-duration: .1s; }
+.header-login:focus-visible { outline: 2px solid var(--bias); outline-offset: 3px; }
+.header-login-icon { display: grid; place-items: center; flex: 0 0 30px; width: 30px; height: 30px; border: 1px solid color-mix(in srgb, var(--bias) 35%, var(--line)); border-radius: 50%; background: color-mix(in srgb, var(--bg-subtle) 84%, var(--bias) 16%); color: var(--bias); transition: color .22s var(--ease-smooth), background .22s var(--ease-smooth), border-color .22s var(--ease-smooth), transform .3s var(--ease-spring); }
+.header-login-icon .account-icon-svg { width: 16px; height: 16px; }
+.header-login-label { position: relative; z-index: 1; white-space: nowrap; }
+.header-login:hover .header-login-icon, .header-login:focus-visible .header-login-icon { border-color: color-mix(in srgb, var(--bias) 64%, var(--line)); background: color-mix(in srgb, var(--bias) 18%, var(--bg-subtle)); color: var(--fg-bright); transform: scale(1.07) rotate(-4deg); }
+@keyframes header-login-enter { from { opacity: 0; transform: translateY(-6px) scale(.94); } to { opacity: 1; transform: translateY(0) scale(1); } }
 .account-menu { position: relative; font-size: 14px; }
 .account-menu summary { gap: 8px; min-height: 44px; padding: 3px 10px 3px 4px; border-radius: var(--radius-control); border-color: var(--line); background: var(--bg-card); font-weight: 600; }
 .account-name { max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
@@ -1423,6 +1432,16 @@ body.search-is-open .brand-search-cluster .search-trigger-btn:not(.search-input-
 /* Keep the right action group on the same inner edge as the page content on narrow screens. */
 @media (max-width: 800px) {
   .nav-wrap { grid-template-columns: auto minmax(0, 1fr); }
+}
+
+@media (max-width: 480px) {
+  .header-login { width: 40px; min-width: 40px; height: 40px; min-height: 40px; padding: 0; }
+  .header-login-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .header-login-icon { flex-basis: 28px; width: 28px; height: 28px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .header-login, .header-login::before, .header-login-icon { animation: none; transition: none; }
 }
 
 
