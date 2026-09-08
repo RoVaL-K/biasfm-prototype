@@ -1185,3 +1185,41 @@ body.search-is-open .header-right-actions {
   .desktop-nav,
   body.search-is-open .header-right-actions { transition: none; filter: none; }
 }
+
+/* In-place search morph — the trigger becomes the input instead of spawning a second bar. */
+body.search-is-open .brand-search-cluster .search-trigger-btn {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: scale(.88);
+}
+.omnisearch-dialog {
+  top: var(--search-anchor-top, clamp(78px, 14vh, 154px));
+  left: var(--search-anchor-left, 16px);
+  width: var(--search-panel-width, min(720px, calc(100vw - 32px)));
+  margin: 0;
+  transform: translateY(-3px) scale(.92);
+  transform-origin: top left;
+  transition: opacity .2s var(--ease-smooth), transform .46s var(--ease-bounce), width .46s var(--ease-bounce);
+}
+.omnisearch-dialog.is-opening {
+  width: var(--search-start-width, 112px);
+  transform: translateY(0) scale(.92);
+}
+.omnisearch-dialog[open].is-open {
+  width: var(--search-panel-width, min(720px, calc(100vw - 32px)));
+  transform: translateY(0) scale(1);
+}
+.omnisearch-dialog.is-closing {
+  width: var(--search-start-width, 112px);
+  transform: translateY(0) scale(.92);
+}
+
+@media (max-width: 600px) {
+  .omnisearch-dialog { left: var(--search-anchor-left, 10px); width: var(--search-panel-width, calc(100vw - 20px)); }
+  .omnisearch-dialog[open].is-open { width: var(--search-panel-width, calc(100vw - 20px)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .omnisearch-dialog { transition: none; }
+}

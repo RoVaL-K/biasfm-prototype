@@ -192,6 +192,19 @@
       });
     }
 
+    positionOmnisearch(modal, trigger = document.querySelector('[data-action="open-search"]')) {
+      if (!modal || !trigger) return;
+      const rect = trigger.getBoundingClientRect();
+      const viewportPadding = window.innerWidth <= 600 ? 10 : 16;
+      const panelWidth = Math.min(720, Math.max(0, window.innerWidth - (viewportPadding * 2)));
+      const left = Math.max(viewportPadding, Math.min(rect.left, window.innerWidth - panelWidth - viewportPadding));
+      const top = Math.max(viewportPadding, rect.top);
+      modal.style.setProperty('--search-anchor-left', `${Math.round(left)}px`);
+      modal.style.setProperty('--search-anchor-top', `${Math.round(top)}px`);
+      modal.style.setProperty('--search-start-width', `${Math.round(rect.width)}px`);
+      modal.style.setProperty('--search-panel-width', `${Math.round(panelWidth)}px`);
+    }
+
     openOmnisearch() {
       let modal = document.getElementById('omnisearch-dialog');
       if (!modal) {
@@ -264,6 +277,8 @@
         clearTimeout(this.closeTimer);
         this.closeTimer = null;
       }
+      const trigger = document.querySelector('[data-action="open-search"]');
+      this.positionOmnisearch(modal, trigger);
       modal.classList.remove('is-closing');
       modal.classList.add('is-opening');
       this.isModalOpen = true;
@@ -273,10 +288,15 @@
         modal.setAttribute('open', '');
       }
 
-      const trigger = document.querySelector('[data-action="open-search"]');
       trigger?.classList.add('is-active');
       trigger?.setAttribute('aria-expanded', 'true');
       document.body.classList.add('search-is-open');
+      if (!this._resizeBound) {
+        window.addEventListener('resize', () => {
+          if (this.isModalOpen) this.positionOmnisearch(document.getElementById('omnisearch-dialog'));
+        }, {passive: true});
+        this._resizeBound = true;
+      }
       requestAnimationFrame(() => {
         if (modal.open) modal.classList.add('is-open');
       });
@@ -293,18 +313,19 @@
       const trigger = document.querySelector('[data-action="open-search"]');
       trigger?.classList.remove('is-active');
       trigger?.setAttribute('aria-expanded', 'false');
-      document.body.classList.remove('search-is-open');
-      if (!modal) return;
+      if (!modal) { document.body.classList.remove('search-is-open'); return; }
       if (this.closeTimer) clearTimeout(this.closeTimer);
       modal.classList.remove('is-open', 'is-opening');
       if (!modal.open) {
         modal.classList.remove('is-closing');
+        document.body.classList.remove('search-is-open');
         return;
       }
       if (!animate) {
         modal.classList.remove('is-closing', 'has-query', 'has-results');
         if (typeof modal.close === 'function') modal.close();
         else modal.removeAttribute('open');
+        document.body.classList.remove('search-is-open');
         return;
       }
       modal.classList.add('is-closing');
@@ -312,6 +333,7 @@
         modal.classList.remove('is-closing', 'has-query', 'has-results');
         if (typeof modal.close === 'function' && modal.open) modal.close();
         else modal.removeAttribute('open');
+        document.body.classList.remove('search-is-open');
         this.closeTimer = null;
       };
       this.closeTimer = setTimeout(finish, 240);
