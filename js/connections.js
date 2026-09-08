@@ -18,14 +18,66 @@
     if(!(response.headers.get('content-type')||'').includes('application/json')) throw Error('Die Verbindung benötigt den bias.fm-Server.');
     const data=await response.json();if(!response.ok)throw Error(data.error || 'Anfrage fehlgeschlagen.');return data;
   }
-  const connections={status:null,lastfmStatus:null,lastfmError:'',playlists:[],nextOffset:null,error:'',loading:false,
+  const safeImage=value=>/^https:\/\//i.test(String(value||'')) ? String(value) : '';
+  const formatNumber=value=>Number(value||0).toLocaleString('de-DE');
+  const timeAgo=value=>{
+    if(!value)return '';
+    const date=new Date(value);if(Number.isNaN(date.getTime()))return '';
+    const seconds=Math.max(0,Math.floor((Date.now()-date.getTime())/1000));
+    if(seconds<60)return 'gerade eben';
+    const minutes=Math.floor(seconds/60);if(minutes<60)return `vor ${minutes} Min.`;
+    const hours=Math.floor(minutes/60);if(hours<24)return `vor ${hours} Std.`;
+    return `vor ${Math.floor(hours/24)} Tg.`;
+  };
+  const trackMarkup=(track,source)=>{
+    const image=safeImage(track.image);
+    return `<a class="listening-track" href="${esc(track.url||'#')}" target="_blank" rel="noopener"><span class="listening-track-art">${image?`<img src="${esc(image)}" alt="" loading="lazy" width="48" height="48">`:'<span aria-hidden="true">♫</span>'}</span><span class="listening-track-copy"><strong>${esc(track.title)}</strong><small>${esc(track.artist)}${track.album?` · ${esc(track.album)}`:''}</small></span><span class="listening-track-time">${track.playedAt?esc(timeAgo(track.playedAt)):source==='lastfm'?'zuletzt gehört':''}</span></a>`;
+  };
+  const connections={
+    status:null,lastfmStatus:null,lastfmError:'',lastfmActivity:null,spotifyActivity:null,
+    playlists:[],nextOffset:null,error:'',loading:false,activityLoading:false,activityError:'',activityTimer:null,activityRequestId:0,
     mount(container,editable=true){
       this.editable=editable;
-      const section=document.createElement('section');section.id='music-connections';section.className='settings-card connections-section';container.querySelector('.view-profile').appendChild(section);this.render();
+      if(this.activityTimer){clearInterval(this.activityTimer);this.activityTimer=null;}
+      document.getElementById('music-connections')?.remove();
+      const host=container.querySelector('.view-profile') || container;
+      const section=document.createElement('section');section.id='music-connections';section.className='settings-card connections-section';
+      if(!editable){
+        const listening=host.querySelector('#profile-listening');
+        if(listening) listening.after(section);
+        else host.appendChild(section);
+      }else host.appendChild(section);
+      this.render();
       if(typeof fetch==='function'){this.loadStatus();this.loadLastfmStatus();}
+      if(!editable){
+        this.loadActivity();
+        this.activityTimer=setInterval(()=>this.loadActivity(),60000);
+      }
+    },
+    renderListening(){
+      const box=document.getElementById('profile-listening');if(!box || this.editable)return;
+      const lastfm=this.lastfmActivity?.connected?this.lastfmActivity:null;
+      const spotify=this.spotifyActivity?.connected?this.spotifyActivity:null;
+      const source=(lastfm && (lastfm.nowPlaying || lastfm.recentTracks?.length)) ? lastfm : (spotify || lastfm);
+      if(this.activityLoading && !source){
+        box.innerHTML='<div class="listening-empty"><span class="listening-spinner" aria-hidden="true"></span><div><p class="hero-eyebrow">Live Listening</p><h2>Höraktivität wird geladen …</h2><p class="section-note">Wir holen den aktuellen Titel von deiner verknüpften Musikplattform.</p></div></div>';
+        return;
+      }
+      if(!source){
+        const connected=Boolean(this.lastfmStatus?.connected || this.status?.connected);
+        box.innerHTML=`<div class="listening-empty"><span class="listening-empty-icon" aria-hidden="true">♫</span><div><p class="hero-eyebrow">Live Listening</p><h2>Deine Musik, direkt im Profil</h2><p class="section-note">${connected?'Die Höraktivität konnte gerade nicht geladen werden. Bitte versuche es gleich noch einmal.':'Verbinde Last.fm oder Spotify in den Einstellungen, damit dein aktueller und zuletzt gehörter Titel hier erscheinen.'}</p>${this.activityError?`<p class="inline-error" role="alert">${esc(this.activityError)}</p>`:''}<a class="btn btn-ghost" href="#settings">${connected?'Erneut versuchen':'Verbindungen öffnen'} →</a></div></div>`;
+        return;
+      }
+      const provider=source.provider==='lastfm'?'Last.fm':'Spotify';
+      const now=source.nowPlaying;
+      const tracks=Array.isArray(source.recentTracks)?source.recentTracks.filter(track=>track && !track.nowPlaying).slice(0,5):[];
+      const profile=source.profile||{};
+      const image=safeImage(now?.image);
+      const metrics=source.provider==='lastfm' && (profile.playcount||profile.artistCount||profile.trackCount) ? `<div class="listening-metrics"><div><strong>${formatNumber(profile.playcount)}</strong><span>Scrobbles</span></div><div><strong>${formatNumber(profile.artistCount)}</strong><span>Artists</span></div><div><strong>${formatNumber(profile.trackCount)}</strong><span>Tracks</span></div></div>`:'';
+      box.innerHTML=`<div class="listening-heading"><div><p class="hero-eyebrow">Live Listening</p><h2>${now?'Hört gerade':'Zuletzt gehört'}</h2><p class="section-note">Aktualisiert ${esc(timeAgo(source.fetchedAt)||'gerade eben')} · ${esc(provider)}</p></div><span class="listening-source"><span class="listening-live-dot ${now?'is-live':''}"></span>${esc(provider)}</span></div>${now?`<a class="listening-now" href="${esc(now.url||'#')}" target="_blank" rel="noopener"><span class="listening-now-art">${image?`<img src="${esc(image)}" alt="" width="84" height="84">`:'<span aria-hidden="true">♫</span>'}</span><span class="listening-now-copy"><span class="listening-now-label">${now.nowPlaying?'Jetzt läuft':'Zuletzt gespielt'}</span><strong>${esc(now.title)}</strong><small>${esc(now.artist)}${now.album?` · ${esc(now.album)}`:''}</small></span><span class="listening-arrow" aria-hidden="true">↗</span></a>`:''}${tracks.length?`<div class="listening-track-list"><p class="listening-list-label">Zuletzt gehört</p>${tracks.map(track=>trackMarkup(track,source.provider)).join('')}</div>`:!now?'<p class="section-note listening-no-tracks">Noch keine Titel von dieser Verbindung verfügbar.</p>':''}${metrics}`;
     },
     render(){
-      const box=document.getElementById('music-connections');if(!box)return;
+      const box=document.getElementById('music-connections');this.renderListening();if(!box)return;
       const profile=biasStore.profile,status=this.status;
       if(!this.editable){
         const safe=(url,type)=>{try{return spotifyUrl(url || '',type);}catch{return '';}};
@@ -33,12 +85,12 @@
         const lists=[...(Array.isArray(profile.spotifyPlaylists)?profile.spotifyPlaylists:[]),...(status?.connected?this.playlists:[])].filter(p=>safe(p.url,'playlist'));
         box.innerHTML=`<div class="connection-heading"><h2>Deine Playlists</h2><a class="btn btn-ghost" href="#settings">Verbindungen bearbeiten</a></div>${url?`<a href="${esc(url)}" target="_blank" rel="noopener">Spotify-Profil öffnen ↗</a><p class="section-note">${status?.connected?'Mit Spotify verbunden.':'Selbst hinterlegter Profil-Link.'}</p>`:''}<div class="playlist-grid">${lists.map(p=>`<a class="playlist-card" href="${esc(safe(p.url,'playlist'))}" target="_blank" rel="noopener"><span class="playlist-symbol">♫</span><span><strong>${esc(p.name)}</strong><small>Auf Spotify öffnen ↗</small></span></a>`).join('') || '<p class="section-note">Noch keine Playlist hinterlegt. Ergänze deine Verbindungen in den Einstellungen.</p>'}</div>`;return;
       }
-      this.error = this.error || '';
+      this.error=this.error||'';
       const saved=Array.isArray(profile.spotifyPlaylists)?profile.spotifyPlaylists:[];
       const state=new URLSearchParams(location.hash.split('?')[1] || '').get('spotify');
       box.innerHTML=`<div class="connection-heading"><div><span class="pill pill-accent">Deine Musik, verbunden</span><h2>Spotify &amp; deine Playlists</h2><p class="section-note">Deine Sammlung bleibt bei Spotify. Hier findest du den direkten Weg dorthin.</p></div><span class="provider-mark">Spotify ↗</span></div>
         ${state==='cancelled'?'<p role="status">Die Anmeldung wurde abgebrochen. Du kannst es jederzeit erneut versuchen.</p>':state==='failed'?'<p role="alert" class="inline-error">Spotify konnte die Verbindung nicht abschließen. Bitte prüfe die App-Freigabe und versuche es erneut.</p>':''}
-        <div class="connection-account">${status?.connected?`<div><span class="connection-dot"></span> Verbunden als <a href="${esc(status.profile.url)}" target="_blank" rel="noopener">${esc(status.profile.name)}</a></div><button class="btn btn-ghost" id="spotify-disconnect">Verbindung trennen</button>`:status?.configured?'<p>Melde dich bei Spotify an, um deine zugänglichen Playlists zu laden.</p><a class="btn btn-accent" href="'+esc(apiUrl('api/spotify/connect'))+'">Mit Spotify verbinden</a>':`<p class="section-note">${status?'Die automatische Anmeldung ist noch nicht freigeschaltet. Profil- und Playlist-Links kannst du bereits speichern.':'Spotify-Verfügbarkeit wird geprüft …'}</p>`}</div>
+        <div class="connection-account">${status?.connected?`<div><span class="connection-dot"></span> Verbunden als <a href="${esc(status.profile.url)}" target="_blank" rel="noopener">${esc(status.profile.name)}</a></div><button class="btn btn-ghost" id="spotify-disconnect">Verbindung trennen</button>`:status?.configured?'<p>Melde dich bei Spotify an, um deine zugänglichen Playlists und Live Listening zu laden.</p><a class="btn btn-accent" href="'+esc(apiUrl('api/spotify/connect'))+'">Mit Spotify verbinden</a>':`<p class="section-note">${status?'Die automatische Anmeldung ist noch nicht freigeschaltet. Profil- und Playlist-Links kannst du bereits speichern.':'Spotify-Verfügbarkeit wird geprüft …'}</p>`}</div>
         <form id="spotify-link-form" class="studio-form"><label class="form-label" for="spotify-profile-url">Dein Spotify-Profil-Link</label><div class="inline-form"><input type="url" id="spotify-profile-url" class="text-input" placeholder="https://open.spotify.com/user/…" value="${esc(profile.spotifyProfileUrl || '')}"><button class="btn btn-ghost" type="submit">Speichern</button>${profile.spotifyProfileUrl?`<a class="btn btn-ghost" href="${esc(profile.spotifyProfileUrl)}" target="_blank" rel="noopener">Profil öffnen ↗</a>`:''}</div><p class="section-note">Ein hinterlegter Link ist keine bestätigte Kontoverknüpfung.</p></form>
         <h3 class="settings-section-title">Deine Playlist-Links</h3><form id="playlist-link-form" class="inline-form"><input id="playlist-name" aria-label="Playlist-Name" class="text-input" placeholder="Name deiner Playlist" maxlength="100" required><input id="playlist-url" aria-label="Spotify-Playlist-Link" type="url" class="text-input" placeholder="https://open.spotify.com/playlist/…" required><button type="submit" class="btn btn-accent">Hinzufügen</button></form>
         <div class="playlist-grid">${saved.map((p,i)=>`<article class="playlist-card"><span class="playlist-symbol">♫</span><a href="${esc(p.url)}" target="_blank" rel="noopener"><b>${esc(p.name)}</b><span>Auf Spotify öffnen ↗</span></a><button class="btn btn-ghost btn-sm" data-remove-playlist="${i}" aria-label="${esc(p.name)} entfernen">✕</button></article>`).join('') || '<p class="section-note">Speichere Playlists, zu denen du immer wieder zurückkommst.</p>'}</div>
@@ -48,7 +100,7 @@
       box.querySelector('#spotify-link-form').onsubmit=e=>{e.preventDefault();try{biasStore.updateProfile({spotifyProfileUrl:spotifyUrl(box.querySelector('#spotify-profile-url').value,'user')});biasApp.showToast('Spotify-Link gespeichert.');this.render();}catch(err){this.showError(err);}};
       box.querySelector('#playlist-link-form').onsubmit=e=>{e.preventDefault();try{const url=spotifyUrl(box.querySelector('#playlist-url').value,'playlist'),name=box.querySelector('#playlist-name').value.trim();if(!name)throw Error('Bitte einen Namen eingeben.');if(saved.length>=50)throw Error('Du kannst bis zu 50 Playlist-Links speichern.');if(saved.some(p=>p.url===url))throw Error('Diese Playlist ist bereits gespeichert.');biasStore.updateProfile({spotifyPlaylists:[...saved,{name,url}]});biasApp.showToast('Playlist gespeichert.');this.render();}catch(err){this.showError(err);}};
       box.querySelectorAll('[data-remove-playlist]').forEach(button=>button.onclick=()=>{try{biasStore.updateProfile({spotifyPlaylists:saved.filter((_,i)=>i!==Number(button.dataset.removePlaylist))});this.render();}catch(err){this.showError(err);}});
-      box.querySelector('#spotify-disconnect')?.addEventListener('click',async()=>{try{await api('api/spotify/disconnect',{method:'POST'});this.status={...this.status,connected:false,profile:null};this.playlists=[];this.nextOffset=null;this.error='';this.render();}catch(e){this.showError(e);}});
+      box.querySelector('#spotify-disconnect')?.addEventListener('click',async()=>{try{await api('api/spotify/disconnect',{method:'POST'});this.status={...this.status,connected:false,profile:null};this.playlists=[];this.nextOffset=null;this.spotifyActivity=null;this.error='';this.render();}catch(e){this.showError(e);}});
       box.querySelector('#spotify-refresh')?.addEventListener('click',()=>this.loadPlaylists());
       box.querySelector('#spotify-more')?.addEventListener('click',()=>this.loadPlaylists(this.nextOffset));
       box.querySelector('#spotify-retry')?.addEventListener('click',()=>this.loadStatus());
@@ -72,17 +124,45 @@
       }else{
         account='<p class="section-note">Die Last.fm-Kontoverknüpfung ist noch nicht freigeschaltet. Dafür müssen API-Key und API-Secret auf dem bias.fm-Server hinterlegt sein.</p>';
       }
-      const section=document.createElement('section');
-      section.id='lastfm-connection';section.className='provider-connection lastfm-connection';
-      section.innerHTML=`<div class="connection-heading"><div><span class="pill pill-accent">Hörprofil</span><h2>Last.fm verbinden</h2><p class="section-note">Dein Last.fm-Nutzername bleibt bei Last.fm. bias.fm speichert nur die serverseitige Verbindung für dein Konto.</p></div><span class="provider-mark lastfm-provider-mark">Last.fm ↗</span></div>${message}<div class="connection-account">${account}</div>${this.lastfmError?`<p class="inline-error" role="alert">${esc(this.lastfmError)}</p><button class="btn btn-ghost" type="button" id="lastfm-retry">Erneut versuchen</button>`:''}<p class="section-note">„Verbindung trennen“ löscht die bias.fm-Verknüpfung. Die Last.fm-Berechtigung widerrufst du in deinen Last.fm-Einstellungen.</p>`;
+      const section=document.createElement('section');section.id='lastfm-connection';section.className='provider-connection lastfm-connection';
+      section.innerHTML=`<div class="connection-heading"><div><span class="pill pill-accent">Hörprofil</span><h2>Last.fm verbinden</h2><p class="section-note">Dein Last.fm-Nutzername bleibt bei Last.fm. bias.fm speichert nur die serverseitige Verbindung für dein Konto. Live Listening erscheint danach direkt auf deinem Profil.</p></div><span class="provider-mark lastfm-provider-mark">Last.fm ↗</span></div>${message}<div class="connection-account">${account}</div>${this.lastfmError?`<p class="inline-error" role="alert">${esc(this.lastfmError)}</p><button class="btn btn-ghost" type="button" id="lastfm-retry">Erneut versuchen</button>`:''}<p class="section-note">„Verbindung trennen“ löscht die bias.fm-Verknüpfung. Die Last.fm-Berechtigung widerrufst du in deinen Last.fm-Einstellungen.</p>`;
       box.appendChild(section);
       section.querySelector('#lastfm-open-login')?.addEventListener('click',()=>root.biasAccount?.openAuth('login'));
-      section.querySelector('#lastfm-disconnect')?.addEventListener('click',async()=>{try{await api('api/lastfm/disconnect',{method:'POST'});this.lastfmStatus={...this.lastfmStatus,connected:false,profile:null};this.lastfmError='';this.render();}catch(error){this.lastfmError=error.message;this.renderLastfm(box);}});
+      section.querySelector('#lastfm-disconnect')?.addEventListener('click',async()=>{try{await api('api/lastfm/disconnect',{method:'POST'});this.lastfmStatus={...this.lastfmStatus,connected:false,profile:null};this.lastfmActivity=null;this.lastfmError='';this.render();}catch(error){this.lastfmError=error.message;this.renderLastfm(box);}});
       section.querySelector('#lastfm-retry')?.addEventListener('click',()=>this.loadLastfmStatus());
     },
     showError(e){this.error=e.message;const box=document.getElementById('music-connections');if(box){let error=box.querySelector('[role="alert"]');if(!error){error=document.createElement('p');error.className='inline-error';error.setAttribute('role','alert');box.appendChild(error);}error.textContent=e.message;}},
-    async loadStatus(){try{this.status=await api('api/spotify/status');this.error='';if(this.status.connected)await this.loadPlaylists();else this.render();}catch(e){this.status={configured:false,connected:false};this.error=e.message;this.render();}},
-    async loadLastfmStatus(){try{this.lastfmStatus=await api('api/lastfm/status');this.lastfmError='';this.render();}catch(e){this.lastfmStatus={configured:false,authenticated:false,connected:false};this.lastfmError=e.message;this.render();}},
+    async loadStatus(){
+      try{this.status=await api('api/spotify/status');this.error='';if(this.status.connected)await this.loadPlaylists();else{this.spotifyActivity=null;this.render();}if(!this.editable)await this.loadActivity();}
+      catch(e){this.status={configured:false,connected:false};this.error=e.message;this.render();if(!this.editable)await this.loadActivity();}
+    },
+    async loadLastfmStatus(){
+      try{this.lastfmStatus=await api('api/lastfm/status');this.lastfmError='';this.render();if(!this.editable)await this.loadActivity();}
+      catch(e){this.lastfmStatus={configured:false,authenticated:false,connected:false};this.lastfmError=e.message;this.render();if(!this.editable)await this.loadActivity();}
+    },
+    async loadActivity(){
+      if(this.editable || !document.getElementById('profile-listening'))return;
+      const requestId=++this.activityRequestId;
+      const hasLastfm=Boolean(this.lastfmStatus?.connected);
+      const hasSpotify=Boolean(this.status?.connected);
+      if(!hasLastfm)this.lastfmActivity=null;
+      if(!hasSpotify)this.spotifyActivity=null;
+      if(!hasLastfm && !hasSpotify){this.activityLoading=false;this.renderListening();return;}
+      this.activityLoading=true;this.renderListening();
+      const requests=[];
+      if(hasLastfm)requests.push(api('api/lastfm/activity').then(data=>({provider:'lastfm',data})));
+      if(hasSpotify)requests.push(api('api/spotify/activity').then(data=>({provider:'spotify',data})));
+      const results=await Promise.allSettled(requests);
+      if(requestId!==this.activityRequestId)return;
+      let error='';
+      for(const result of results){
+        if(result.status==='fulfilled'){
+          if(result.value.provider==='lastfm')this.lastfmActivity=result.value.data;
+          if(result.value.provider==='spotify')this.spotifyActivity=result.value.data;
+        }else if(!error)error=result.reason?.message || 'Die Höraktivität konnte nicht geladen werden.';
+      }
+      this.activityError=error;this.activityLoading=false;this.renderListening();
+    },
     async loadPlaylists(offset=0){if(this.loading)return;this.loading=true;this.error='';this.render();try{const result=await api(`api/spotify/playlists?offset=${offset}`);this.playlists=offset?[...this.playlists,...result.items]:result.items;this.nextOffset=result.nextOffset;}catch(e){this.error=e.message;}finally{this.loading=false;this.render();}}
   };
   root.biasConnections=connections;root.biasApi={request:api,url:apiUrl,spotifyUrl,esc};

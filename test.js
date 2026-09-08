@@ -145,6 +145,8 @@ test('Spotify PKCE checks state, keeps tokens server-side, pages playlists and d
   const spotify=createSpotify({clientId:'test-client',origin:'http://127.0.0.1:3000',fetcher:async(url,opts)=>{
     if(url.includes('/api/token')){if(opts.body.get('grant_type')==='refresh_token')refreshes++;return {ok:true,json:async()=>({access_token:'private-access',refresh_token:'private-refresh',expires_in:refreshes?3600:0})};}
     if(url.endsWith('/me'))return {ok:true,json:async()=>({id:'tester',display_name:'Tester'})};
+    if(url.endsWith('/me/player'))return {ok:true,status:204,json:async()=>{throw Error('No content')}};
+    if(url.includes('/me/player/recently-played'))return {ok:true,status:200,json:async()=>({items:[{played_at:'2026-09-08T10:00:00.000Z',track:{id:'track-1',name:'Afterglow',artists:[{name:'Tester'}],album:{name:'Night Drive',images:[{url:'https://i.scdn.co/image/cover'}]},duration_ms:180000,external_urls:{spotify:'https://open.spotify.com/track/track-1'}}}]})};
     if(url.includes('/me/playlists'))return {ok:true,json:async()=>({items:[{id:'abc',name:'My playlist',owner:{display_name:'Tester'},items:{total:3},images:[]}],next:'next-page',total:21})};
     throw Error('Unexpected URL');
   }});
@@ -153,11 +155,12 @@ test('Spotify PKCE checks state, keeps tokens server-side, pages playlists and d
     await spotify.handle({method,headers:{cookie,host:'127.0.0.1:3000',origin}},res,new URL(path,'http://127.0.0.1:3000'),(status,text)=>{res.status=status;res.body=JSON.parse(text);});return res;
   }
   const start=await request('/api/spotify/connect');const initialCookie=start.headers['Set-Cookie'].split(';')[0];const auth=new URL(start.headers.Location);
-  assert.equal(auth.searchParams.get('code_challenge_method'),'S256');assert.ok(auth.searchParams.get('code_challenge').length>=43);
+  assert.equal(auth.searchParams.get('code_challenge_method'),'S256');assert.ok(auth.searchParams.get('code_challenge').length>=43);assert.match(auth.searchParams.get('scope'),/user-read-currently-playing/);assert.match(auth.searchParams.get('scope'),/user-read-recently-played/);
   await assert.rejects(request('/api/spotify/callback?code=x&state=wrong',initialCookie),/ungültig/);
   const done=await request('/api/spotify/callback?code=x&state='+auth.searchParams.get('state'),initialCookie);const cookie=done.headers['Set-Cookie'].split(';')[0];assert.notEqual(cookie,initialCookie);
   const status=await request('/api/spotify/status',cookie);assert.equal(status.body.connected,true);assert.ok(!JSON.stringify(status.body).includes('private-'));
   const list=await request('/api/spotify/playlists?offset=20',cookie);assert.equal(list.body.nextOffset,40);assert.equal(list.body.items[0].total,3);assert.equal(refreshes,1);
+  const activity=await request('/api/spotify/activity',cookie);assert.equal(activity.body.connected,true);assert.equal(activity.body.nowPlaying,null);assert.equal(activity.body.recentTracks[0].title,'Afterglow');assert.equal(activity.body.recentTracks[0].artist,'Tester');
   await assert.rejects(request('/api/spotify/disconnect',cookie,'POST','https://evil.test'),/direkt/);
   await request('/api/spotify/disconnect',cookie,'POST');assert.equal((await request('/api/spotify/status',cookie)).body.connected,false);
   await assert.rejects(request('/api/spotify/callback?code=x&state='+auth.searchParams.get('state'),initialCookie),/ungültig/);

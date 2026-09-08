@@ -85,7 +85,8 @@ export async function connect(request, env) {
   const verifier = await randomId(48);
   const returnTo = safeReturnTo(new URL(request.url).searchParams.get('return_to'), new URL('/#settings', requestUrl.origin).href);
   await writeSession(env, sid, {state, verifier, returnTo, expires: Date.now() + 600000}, 600);
-  const params = new URLSearchParams({client_id: env.SPOTIFY_CLIENT_ID, response_type: 'code', redirect_uri: redirectUri, scope: 'playlist-read-private playlist-read-collaborative', state, code_challenge_method: 'S256', code_challenge: await challenge(verifier)});
+  const scope = 'playlist-read-private playlist-read-collaborative user-read-currently-playing user-read-recently-played';
+  const params = new URLSearchParams({client_id: env.SPOTIFY_CLIENT_ID, response_type: 'code', redirect_uri: redirectUri, scope, state, code_challenge_method: 'S256', code_challenge: await challenge(verifier)});
   return {location: `https://accounts.spotify.com/authorize?${params}`, headers: {'Set-Cookie': cookie(SESSION_COOKIE, sid, 600)}};
 }
 
@@ -126,4 +127,48 @@ export async function playlists(request, env) {
   if (!Number.isSafeInteger(offset) || offset < 0 || offset > 100000) throw fail(400, 'Ungültige Playlist-Seite.');
   const data = await spotifyFetch(env, id, session, `/me/playlists?limit=20&offset=${offset}`);
   return {items: (data?.items || []).filter(Boolean).map(playlist => ({id: playlist.id, name: playlist.name, owner: playlist.owner?.display_name || playlist.owner?.id || '', url: `https://open.spotify.com/playlist/${encodeURIComponent(playlist.id)}`, image: playlist.images?.find(image => /^https:\/\/i\.scdn\.co\//.test(image.url))?.url || '', total: playlist.items?.total ?? playlist.tracks?.total ?? null})), nextOffset: data?.next ? offset + 20 : null, total: data?.total};
+}
+
+function mapTrack(item, extra = {}) {
+  const track = item?.track || item?.item || item;
+  if (!track?.name) return null;
+  const url = track.external_urls?.spotify || (track.id ? `https://open.spotify.com/track/${encodeURIComponent(track.id)}` : '');
+  return {
+    title: String(track.name),
+    artist: String(track.artists?.[0]?.name || 'Unbekannter Artist'),
+    album: String(track.album?.name || ''),
+    url,
+    image: String(track.album?.images?.[0]?.url || ''),
+    nowPlaying: Boolean(extra.nowPlaying),
+    progressMs: Number(extra.progressMs || 0),
+    durationMs: Number(track.duration_ms || 0),
+    playedAt: extra.playedAt || null
+  };
+}
+
+export async function activity(request, env) {
+  const {id, session} = await readSession(request, env);
+  if (!id || !session?.accessToken) throw fail(401, 'Bitte verbinde zuerst dein Spotify-Konto.');
+  const [playerResult, recentResult] = await Promise.allSettled([
+    spotifyFetch(env, id, session, '/me/player'),
+    spotifyFetch(env, id, session, '/me/player/recently-played?limit=8')
+  ]);
+  const result = {connected: true, provider: 'spotify', profile: session.profile || null, nowPlaying: null, recentTracks: [], fetchedAt: new Date().toISOString(), partial: false};
+  if (playerResult.status === 'fulfilled') {
+    const player = playerResult.value;
+    if (player?.item && player.is_playing) result.nowPlaying = mapTrack(player.item, {nowPlaying: true, progressMs: player.progress_ms});
+  } else {
+    result.partial = true;
+  }
+  if (recentResult.status === 'fulfilled') {
+    const items = Array.isArray(recentResult.value?.items) ? recentResult.value.items : [];
+    result.recentTracks = items.map(item => mapTrack(item, {playedAt: item.played_at})).filter(Boolean).slice(0, 7);
+  } else {
+    result.partial = true;
+  }
+  if (!result.nowPlaying && !result.recentTracks.length && playerResult.status === 'rejected' && recentResult.status === 'rejected') {
+    const error = playerResult.reason || recentResult.reason;
+    throw error?.status ? error : fail(502, 'Spotify konnte deine Höraktivität gerade nicht laden.');
+  }
+  return result;
 }

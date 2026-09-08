@@ -205,4 +205,78 @@ export async function disconnect(request, env) {
   return {connected: false};
 }
 
+function imageFromLastfm(images = []) {
+  if (!Array.isArray(images)) return '';
+  const preferred = ['extralarge', 'large', 'medium', 'small'];
+  for (const size of preferred) {
+    const image = images.find(item => item?.size === size)?.['#text'];
+    if (typeof image === 'string' && /^https:\/\//i.test(image)) return image;
+  }
+  const fallback = images.find(item => /^https:\/\//i.test(String(item?.['#text'] || '')))?.['#text'];
+  return fallback || '';
+}
+
+function mapRecentTrack(track) {
+  if (!track || typeof track !== 'object') return null;
+  const title = String(track.name || '').trim();
+  const artist = String(track.artist?.name || track.artist?.['#text'] || '').trim();
+  if (!title || !artist) return null;
+  const nowPlaying = track['@attr']?.nowplaying === '1' || track['@attr']?.nowplaying === 1;
+  const timestamp = Number(track.date?.uts || 0);
+  return {
+    title,
+    artist,
+    album: String(track.album?.['#text'] || '').trim(),
+    url: /^https:\/\/www\.last\.fm\//i.test(String(track.url || '')) ? track.url : `https://www.last.fm/music/${encodeURIComponent(artist)}`,
+    image: imageFromLastfm(track.image),
+    nowPlaying,
+    playedAt: timestamp > 0 ? new Date(timestamp * 1000).toISOString() : null
+  };
+}
+
+export async function activity(request, env) {
+  const result = {connected: false, provider: 'lastfm', profile: null, nowPlaying: null, recentTracks: [], fetchedAt: new Date().toISOString(), partial: false};
+  const {row} = await requireAccount(request, env);
+  await ensureSchema(env.DB);
+  const connection = await env.DB.prepare('SELECT username, session_key FROM lastfm_connections WHERE account_id = ?').bind(row.id).first();
+  if (!connection?.username || !connection?.session_key) return result;
+
+  result.connected = true;
+  const params = {sk: connection.session_key};
+  const [recentResult, profileResult] = await Promise.allSettled([
+    apiCall(env, {method: 'user.getRecentTracks', user: connection.username, limit: '8', extended: '1', ...params}),
+    apiCall(env, {method: 'user.getInfo', user: connection.username, ...params})
+  ]);
+
+  if (recentResult.status === 'fulfilled') {
+    const raw = recentResult.value?.recenttracks?.track;
+    const tracks = (Array.isArray(raw) ? raw : raw ? [raw] : []).map(mapRecentTrack).filter(Boolean);
+    result.nowPlaying = tracks.find(track => track.nowPlaying) || null;
+    result.recentTracks = tracks.filter(track => !track.nowPlaying).slice(0, 7);
+  } else {
+    result.partial = true;
+  }
+
+  if (profileResult.status === 'fulfilled') {
+    const profile = profileResult.value?.user || {};
+    result.profile = {
+      name: String(profile.name || connection.username),
+      url: profileUrl(String(profile.name || connection.username)),
+      image: imageFromLastfm(profile.image),
+      playcount: Number(profile.playcount || 0),
+      artistCount: Number(profile.artist_count || 0),
+      trackCount: Number(profile.track_count || 0),
+      albumCount: Number(profile.album_count || 0)
+    };
+  } else {
+    result.partial = true;
+  }
+
+  if (!result.nowPlaying && !result.recentTracks.length && !result.profile) {
+    const error = recentResult.status === 'rejected' ? recentResult.reason : profileResult.reason;
+    throw error?.status ? error : fail(502, 'Last.fm konnte deine Höraktivität gerade nicht laden.');
+  }
+  return result;
+}
+
 export {OAUTH_COOKIE, oauthCookie, md5};
