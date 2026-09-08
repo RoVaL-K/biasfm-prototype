@@ -113,6 +113,8 @@ Weitere Werte in `.env`:
 
 Die Anwendung lädt eine vorhandene `.env` beim Start selbst. Extern gesetzte Umgebungsvariablen haben Vorrang. E-Mail/Passwort-Accounts sind sofort verfügbar. Google- und Discord-Login erscheinen nach dem Setzen der vier OAuth-Werte als aktive Buttons; ohne diese Werte zeigen sie bewusst einen ehrlichen Status.
 
+Bei Cloudflare Pages werden neue Produktions-Secrets beim nächsten Pages-Deployment aktiv. Nach dem Hinterlegen oder Ändern eines Anbieter-Schlüssels deshalb einmal den Produktions-Branch neu deployen und anschließend `/api/config` prüfen.
+
 ### Server-Hosting
 
 Ein `Dockerfile` für Node 22 mit einem unprivilegierten Benutzer, Healthcheck und persistentem Volume liegt bei. `npm run build` prüft JavaScript und erstellt ausschließlich öffentliche statische Dateien unter `dist/`. Der GitHub-Pages-Workflow veröffentlicht nur dieses Verzeichnis und führt zuvor Tests aus. Für die produktiven dynamischen Funktionen wird Cloudflare Pages verwendet; der Node-Server bleibt für lokale Entwicklung und alternative Deployments verfügbar.
