@@ -1420,6 +1420,11 @@ body.search-is-open .brand-search-cluster .search-trigger-btn:not(.search-input-
   .nav-wrap { padding-right: 0; }
 }
 
+/* Keep the right action group on the same inner edge as the page content on narrow screens. */
+@media (max-width: 800px) {
+  .nav-wrap { grid-template-columns: auto minmax(0, 1fr); }
+}
+
 
 /* Profile listening activity */
 .profile-listening-card { margin-top: 22px; padding: clamp(20px, 4vw, 30px); }

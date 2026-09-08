@@ -248,8 +248,10 @@
       const accountControl = document.getElementById('account-control');
       const themeMenu = document.getElementById('theme-menu');
       const notifications = document.getElementById('notifications-control');
+      const mobileToggle = document.getElementById('mobile-menu-toggle');
       if (accountControl && themeMenu) actions.insertBefore(themeMenu, accountControl);
       if (accountControl && notifications) actions.insertBefore(notifications, accountControl);
+      if (accountControl && mobileToggle) actions.insertBefore(mobileToggle, accountControl);
     }
     document.addEventListener('click', event => {
       const themeChoice = event.target.closest('[data-theme-choice]');
