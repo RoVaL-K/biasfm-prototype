@@ -1426,7 +1426,7 @@ body.search-is-open .brand-search-cluster .search-trigger-btn:not(.search-input-
 
 /* The logo and the signed-in control share the same outer header edge on desktop. */
 @media (min-width: 801px) {
-  .nav-wrap { padding-right: 0; }
+  .nav-wrap { padding-left: 0; padding-right: 0; }
 }
 
 /* Keep the right action group on the same inner edge as the page content on narrow screens. */
