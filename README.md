@@ -64,6 +64,7 @@ Das Projekt ist zusätzlich als Cloudflare-Pages-Projekt `biasfm-prototype` ver�
 - `functions/api/listening.js` importiert öffentliche ListenBrainz- und Last.fm-Daten.
 - `functions/api/releases.js` lädt den Live-Radar aus MusicBrainz und ergänzt veröffentlichte Redaktionseinträge.
 - `functions/api/spotify/*` übernimmt PKCE, sichere Sitzungen und Playlist-Abfragen, sobald eine Spotify-Client-ID hinterlegt ist.
+- `functions/api/lastfm/*` übernimmt die Last.fm-Webautorisierung, den signierten Session-Austausch und die Kontoverknüpfung mit einem bias.fm-Konto, sobald API-Key und API-Secret hinterlegt sind.
 - `functions/api/editorial/*` speichert und verwaltet veröffentlichte Einträge in der D1-Datenbank `biasfm-production`.
 - KV `BIASFM_CACHE` hält zeitlich begrenzte Provider-Antworten; KV `BIASFM_SESSIONS` hält die kurzlebigen Spotify-Sitzungen.
 
