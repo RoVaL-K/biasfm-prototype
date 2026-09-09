@@ -155,8 +155,8 @@ body { background:var(--bg); }
 .v3-profile-actions { display:grid; gap:8px; }
 .v3-profile-activity { display:grid; gap:16px; }
 .v3-profile-visual { display:grid; gap:16px; }
-.v3-profile-visual .profile-art-v2 { min-height:180px; display:grid; place-items:center; }
-.v3-profile-visual .profile-art-v2 .artwork { width:140px; height:140px; border-radius:20px; }
+.v3-profile-visual .v3-profile-art { min-height:180px; display:grid; place-items:center; }
+.v3-profile-visual .v3-profile-art .artwork { width:140px; height:140px; border-radius:20px; }
 .v3-xp-optin { display:flex; align-items:flex-start; gap:8px; margin-top:14px; line-height:1.45; }
 .v3-xp-optin input { flex:0 0 auto; margin-top:2px; accent-color:var(--bias); }
 .v3-xp-optin-note { margin-top:6px; }

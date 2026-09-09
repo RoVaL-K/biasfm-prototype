@@ -326,7 +326,7 @@ test('Improvement V3 routes expose discover, community, detail, list, support an
   w.history.pushState(null,'','#song/track-ditto');w.biasApp.navigateTo('song',false);assert.equal(w.document.querySelector('#main-content h1').textContent,'Ditto');assert.ok(w.document.querySelector('[data-v3-item-stats]'));
   w.biasApp.navigateTo('lists');assert.equal(w.document.querySelector('#main-content h1').textContent,'Meine Listen');
   w.biasApp.navigateTo('support');assert.equal(w.document.querySelector('#main-content h1').textContent,'Support bias.fm');
-  w.biasApp.navigateTo('profile');assert.ok(w.document.querySelector('#v3-leaderboard-optin'));
+  w.biasApp.navigateTo('profile');assert.ok(w.document.querySelector('#v3-leaderboard-optin'));assert.ok(w.document.querySelector('.v3-profile-art'));assert.equal(w.document.querySelector('.v3-profile-art').classList.contains('profile-art-v2'),false);
   w.biasApp.navigateTo('settings');assert.ok(w.document.querySelector('[data-v3-security]'));
  }finally{close();}
 });
