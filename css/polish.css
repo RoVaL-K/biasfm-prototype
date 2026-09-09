@@ -986,6 +986,8 @@ body { background: var(--bg-gradient); color: var(--fg); }
   border: 1px solid var(--line);
   background: color-mix(in srgb, var(--bg-card) 94%, var(--bias) 6%);
   box-shadow: 0 6px 20px rgba(0, 0, 0, .12);
+  user-select: none;
+  -webkit-user-select: none;
   transition: border-color .22s var(--ease-smooth), background .22s var(--ease-smooth), box-shadow .22s var(--ease-smooth), transform .22s var(--ease-spring);
 }
 .account-menu > summary::marker { display: none; }
@@ -1024,6 +1026,8 @@ body { background: var(--bg-gradient); color: var(--fg); }
   background: color-mix(in srgb, var(--bg-card) 96%, var(--bias) 4%);
   box-shadow: 0 24px 64px rgba(0, 0, 0, .42), 0 0 0 1px rgba(255, 255, 255, .025) inset;
   transform-origin: top right;
+  user-select: none;
+  -webkit-user-select: none;
   animation: account-dropdown-in .26s var(--ease-spring) both;
 }
 @keyframes account-dropdown-in {
@@ -1057,6 +1061,8 @@ body { background: var(--bg-gradient); color: var(--fg); }
   color: var(--fg);
   background: transparent;
   text-align: left;
+  user-select: none;
+  -webkit-user-select: none;
   font: 600 13px/1.2 var(--font-sans);
   text-decoration: none;
   cursor: pointer;
@@ -1090,6 +1096,18 @@ body { background: var(--bg-gradient); color: var(--fg); }
 .account-menu-item-danger .account-menu-icon { color: currentColor; background: color-mix(in srgb, var(--coral) 9%, var(--bg-subtle)); }
 .account-menu-item-danger:hover,
 .account-menu-item-danger:focus-visible { color: var(--coral); background: color-mix(in srgb, var(--coral) 11%, var(--bg-card-hover)); }
+
+/* Header controls are actions, so clicking them must never paint a text-selection highlight. */
+.main-header .desktop-nav .nav-link,
+.main-header .theme-menu > summary,
+.main-header .theme-choice,
+.main-header .notification-trigger,
+.main-header .header-login,
+.main-header .mobile-toggle,
+.main-header .search-trigger-btn:not(.search-input-shell) {
+  user-select: none;
+  -webkit-user-select: none;
+}
 
 @media (max-width: 480px) {
   .account-dropdown { top: calc(100% + 8px); right: -6px; width: min(296px, calc(100vw - 20px)); }
