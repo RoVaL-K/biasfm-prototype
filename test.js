@@ -203,7 +203,8 @@ test('Profile editing is separate, optional identity and independent theme survi
  const {w,close}=app();let saved;
  try{
   w.biasApp.navigateTo('profile');assert.equal(w.document.querySelector('#prof-username'),null);
-  w.biasApp.navigateTo('settings');
+ w.biasApp.navigateTo('settings');
+  assert.equal(w.document.getElementById('privacy-now-playing').checked,false);
   const productColor=w.document.documentElement.style.getPropertyValue('--bias');
   w.biasProfileView.selectColor('#ff4d6d','Blink Pink');
   assert.equal(w.document.documentElement.style.getPropertyValue('--bias'),productColor);
@@ -313,4 +314,18 @@ test('Public product removes concept page, preserves source labels and accessibl
   w.biasApp.navigateTo('curation');assert.ok(w.document.querySelector('.proposal-gate'));
  }finally{close();}
  const server=createServer();await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));try{assert.equal((await fetch(`http://127.0.0.1:${server.address().port}/konzept.html`)).status,404);}finally{await new Promise(resolve=>server.close(resolve));}
+});
+
+test('Improvement V3 routes expose discover, community, detail, list, support and security surfaces',()=>{
+ const {w,close}=app();
+ try{
+  w.biasApp.navigateTo('catalog');assert.equal(w.document.querySelectorAll('[data-v3-tab]').length,3);assert.ok(w.document.querySelector('#v3-discover-search'));assert.ok(w.document.querySelector('.v3-sort-control'));assert.equal(w.document.querySelector('.v3-filter-row .v3-sort-control'),null);
+  const filterToggle=w.document.querySelector('[data-v3-filter-toggle]');assert.ok(filterToggle);filterToggle.click();assert.equal(w.document.querySelector('.v3-discover-filter-shell').classList.contains('is-open'),true);w.document.querySelector('[data-v3-filter-close]').click();assert.equal(w.document.querySelector('.v3-discover-filter-shell').classList.contains('is-open'),false);
+  w.biasApp.navigateTo('community');assert.equal(w.document.querySelector('#main-content h1').textContent,'Gemeinsam entdecken');assert.ok(w.document.querySelectorAll('.v3-group-card').length>=3);
+  w.history.pushState(null,'','#artist/newjeans');w.biasApp.navigateTo('artist',false);assert.equal(w.document.querySelector('#main-content h1').textContent,'NewJeans');
+  w.history.pushState(null,'','#song/track-ditto');w.biasApp.navigateTo('song',false);assert.equal(w.document.querySelector('#main-content h1').textContent,'Ditto');
+  w.biasApp.navigateTo('lists');assert.equal(w.document.querySelector('#main-content h1').textContent,'Meine Listen');
+  w.biasApp.navigateTo('support');assert.equal(w.document.querySelector('#main-content h1').textContent,'Support bias.fm');
+  w.biasApp.navigateTo('settings');assert.ok(w.document.querySelector('[data-v3-security]'));
+ }finally{close();}
 });

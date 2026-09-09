@@ -16,7 +16,7 @@
   async function api(url,options={}) {
     const response=await fetch(apiUrl(url),{credentials:'include',...options,signal:options.signal || AbortSignal.timeout(20000)});
     if(!(response.headers.get('content-type')||'').includes('application/json')) throw Error('Die Verbindung benötigt den bias.fm-Server.');
-    const data=await response.json();if(!response.ok)throw Error(data.error || 'Anfrage fehlgeschlagen.');return data;
+    const data=await response.json();if(!response.ok){const error=Error(data.error || 'Anfrage fehlgeschlagen.');error.status=response.status;throw error;}return data;
   }
   const safeImage=value=>/^https:\/\//i.test(String(value||'')) ? String(value) : '';
   const formatNumber=value=>Number(value||0).toLocaleString('de-DE');

@@ -13,6 +13,18 @@
     }[c]));
   }
 
+  const LIVE_GENRE_OPTIONS = [
+    ['k-pop', 'K-Pop / Idol Pop'],
+    ['k-rnb', 'K-R&B / Soul'],
+    ['k-hiphop', 'K-Hiphop'],
+    ['k-indie', 'Indie / Rock / Band'],
+    ['k-electronic', 'Electronic / Club'],
+    ['k-ballad', 'Ballad / OST'],
+    ['k-folk', 'Folk / Acoustic'],
+    ['k-jazz', 'Jazz / Experimental'],
+    ['trot', 'Trot / Traditional']
+  ];
+
   class ChartsView {
     constructor() {
       this.activeTag = 'Alle';
@@ -112,7 +124,7 @@
       const select=container.querySelector('#korea-chart-source');if(select){const update=()=>{this.koreaSource=select.value;container.querySelector('#korea-chart-link').href=select.value==='melon'?'https://www.melon.com/chart/index.htm':'https://circlechart.kr/';};select.onchange=update;update();}
     }
     renderLive(container) {
-      container.innerHTML=`<div class="view-charts"><div class="view-header"><div><span class="pill pill-accent">Last.fm · Tag-Charts</span><h1 class="view-title">Last.fm Signals</h1><p class="view-subtitle">Die von Last.fm gelieferten Top-Titel pro Genre-Tag. Kein persönliches Ranking und keine Wochenchart.</p></div></div>${this.sourceTabs()}<div class="charts-toolbar-bar"><label>Genre <select id="live-chart-tag" class="select-input">${['k-pop','k-indie','k-hiphop','k-rnb'].map(tag=>`<option ${tag===this.liveTag?'selected':''}>${tag}</option>`).join('')}</select></label><button id="refresh-live-chart" class="btn btn-ghost" ${this.liveLoading?'disabled':''}>Aktualisieren</button></div>${this.liveLoading?'<div class="stats-empty" role="status"><h2>Charts werden geladen …</h2></div>':this.liveError?`<div class="stats-empty"><h2>Charts gerade nicht verfügbar</h2><p role="alert">${esc(this.liveError)}</p><button class="btn btn-accent" onclick="biasChartsView.loadLive()">Erneut versuchen</button><button class="btn btn-ghost" onclick="biasChartsView.switchSource('catalog')">Katalog entdecken</button></div>`:this.liveResult?`<p class="section-note">Abgerufen ${new Date(this.liveResult.fetchedAt).toLocaleString('de-DE')} · <a href="${esc(this.liveResult.sourceUrl)}" target="_blank" rel="noopener">Quelle: Last.fm ↗</a></p><div class="live-chart-list">${this.liveResult.items.slice(0,this.pageSize).map(song=>`<a class="live-chart-row" href="${esc(song.url)}" target="_blank" rel="noopener"><b class="mono">${song.rank}</b><span><strong>${esc(song.title)}</strong><small>${esc(song.artist)}</small></span><span>Auf Spotify suchen ↗</span></a>`).join('') || '<p>Keine Titel für diesen Tag vorhanden.</p>'}</div>${this.liveResult.items.length>this.pageSize?'<button class="btn btn-ghost" id="load-chart-more">25 weitere laden</button>':''}`:''}</div>`;
+      container.innerHTML=`<div class="view-charts"><div class="view-header"><div><span class="pill pill-accent">Last.fm · Tag-Charts</span><h1 class="view-title">Last.fm Signals</h1><p class="view-subtitle">Die von Last.fm gelieferten Top-Titel pro Genre-Tag. Kein persönliches Ranking und keine Wochenchart.</p></div></div>${this.sourceTabs()}<div class="charts-toolbar-bar"><label>Genre <select id="live-chart-tag" class="select-input">${LIVE_GENRE_OPTIONS.map(([value,label])=>`<option value="${esc(value)}" ${value===this.liveTag?'selected':''}>${esc(label)}</option>`).join('')}</select></label><button id="refresh-live-chart" class="btn btn-ghost" ${this.liveLoading?'disabled':''}>Aktualisieren</button></div>${this.liveLoading?'<div class="stats-empty" role="status"><h2>Charts werden geladen …</h2></div>':this.liveError?`<div class="stats-empty"><h2>Charts gerade nicht verfügbar</h2><p role="alert">${esc(this.liveError)}</p><button class="btn btn-accent" onclick="biasChartsView.loadLive()">Erneut versuchen</button><button class="btn btn-ghost" onclick="biasChartsView.switchSource('catalog')">Katalog entdecken</button></div>`:this.liveResult?`<p class="section-note">Abgerufen ${new Date(this.liveResult.fetchedAt).toLocaleString('de-DE')} · <a href="${esc(this.liveResult.sourceUrl)}" target="_blank" rel="noopener">Quelle: Last.fm ↗</a></p><div class="live-chart-list">${this.liveResult.items.slice(0,this.pageSize).map(song=>`<a class="live-chart-row" href="${esc(song.url)}" target="_blank" rel="noopener"><b class="mono">${song.rank}</b><span class="live-chart-cover-slot" aria-hidden="true"></span><span class="live-chart-copy"><strong>${esc(song.title)}</strong><small class="live-chart-artist">${esc(song.artist)}</small><small class="live-chart-genre">${esc(song.genre || 'Weitere Signale')}</small></span><span>Spotify öffnen ↗</span></a>`).join('') || '<p>Keine Titel für diesen Tag vorhanden.</p>'}</div>${this.liveResult.items.length>this.pageSize?'<button class="btn btn-ghost" id="load-chart-more">25 weitere laden</button>':''}`:''}</div>`;
       container.querySelector('#load-chart-more')?.addEventListener('click',()=>{this.pageSize=Math.min(100,this.pageSize+25);this.renderLive(container);});
       container.querySelector('#live-chart-tag').onchange=e=>{this.liveTag=e.target.value;this.pageSize=25;this.loadLive();};
       container.querySelector('#refresh-live-chart').onclick=()=>this.loadLive();

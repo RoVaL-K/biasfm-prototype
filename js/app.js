@@ -124,7 +124,7 @@
       const mainContainer = document.getElementById('main-content');
       if (mainContainer && this.views[route]) {
         mainContainer.innerHTML = '';
-        document.title = `${({home:'Entdecken',charts:'Charts',kalender:'Comeback Radar',catalog:'Entdecken',settings:'Einstellungen',saved:'Gemerkt',notifications:'Benachrichtigungen',admin:'Redaktion',stats:'Hörstatistik',profile:'Mein Profil',game:'Tagesrätsel',curation:'Meine Sammlung',legal:'Informationen'})[route] || 'bias.fm'} · bias.fm`;
+        document.title = `${({home:'Entdecken',charts:'Charts',kalender:'Comeback Radar',catalog:'Entdecken',entdecken:'Entdecken',settings:'Einstellungen',saved:'Gemerkt',notifications:'Benachrichtigungen',admin:'Redaktion',stats:'Hörstatistik',profile:'Mein Profil',game:'Tagesrätsel',curation:'Meine Sammlung',legal:'Informationen',community:'Community',artist:'Artist',release:'Release',song:'Song',lists:'Meine Listen',support:'Support bias.fm'})[route] || 'bias.fm'} · bias.fm`;
         this.views[route].render(mainContainer);
         // Instant top reset without smooth animation lag
         window.scrollTo(0, 0);

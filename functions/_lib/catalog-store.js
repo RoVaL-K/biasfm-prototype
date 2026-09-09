@@ -234,8 +234,20 @@ export async function resolveCatalog(db, input, {createStubs = false} = {}) {
 
   let artist = await byMbid(db, 'artist', artistMbid);
   if (!artist && rawArtist) artist = await byAlias(db, 'artist', rawArtist);
+  // A title-only alias is not enough to identify a recording: common titles
+  // such as "Home" or "Love" would otherwise attach an unknown artist to the
+  // first matching catalog track. Resolve the artist first, then constrain the
+  // title lookup to that artist. A global track alias is only safe when the
+  // source did not provide an artist at all or supplied a canonical track MBID.
   let track = await byMbid(db, 'track', trackMbid);
-  if (!track && rawTitle) track = await byAlias(db, 'track', rawTitle);
+  if (!track && rawTitle && artist) {
+    track = await db.prepare(`SELECT t.* FROM catalog_tracks t
+      LEFT JOIN catalog_aliases alias ON alias.entity_type = 'track' AND alias.entity_id = t.id
+      WHERE t.artist_id = ? AND (t.normalized_title = ? OR alias.normalized_key = ?)
+      ORDER BY t.is_stub ASC LIMIT 1`).bind(artist.id, normalizeCatalogText(rawTitle), normalizeCatalogText(rawTitle)).first();
+    if (track) track = await followMerge(db, 'catalog_tracks', track);
+  }
+  if (!track && !artist && !rawArtist && rawTitle) track = await byAlias(db, 'track', rawTitle);
   let album = await byMbid(db, 'album', albumMbid);
   if (!album && rawAlbum) album = await byAlias(db, 'album', rawAlbum);
   if (!artist && track?.artist_id) artist = await followMerge(db, 'catalog_artists', await db.prepare('SELECT * FROM catalog_artists WHERE id = ?').bind(track.artist_id).first());
@@ -283,12 +295,46 @@ export async function ingestListens(db, userId, rows, options = {}) {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '{}', ?, ?)
       ON CONFLICT(user_id, source, source_id) DO UPDATE SET played_at = excluded.played_at, raw_artist = excluded.raw_artist, raw_title = excluded.raw_title, raw_album = excluded.raw_album, raw_artist_mbid = excluded.raw_artist_mbid, raw_album_mbid = excluded.raw_album_mbid, raw_track_mbid = excluded.raw_track_mbid, resolved_artist_id = excluded.resolved_artist_id, resolved_album_id = excluded.resolved_album_id, resolved_track_id = excluded.resolved_track_id, resolution_status = excluded.resolution_status, updated_at = excluded.updated_at`)
       .bind(listenId, owner, source, sourceId, playedAt, rawArtist, rawTitle, rawAlbumValue || null, cleanText(input.rawArtistMbid || input.artistMbid || input.artist_mbid, 120) || null, cleanText(input.rawAlbumMbid || input.albumMbid || input.album_mbid, 120) || null, cleanText(input.rawTrackMbid || input.trackMbid || input.track_mbid, 120) || null, resolved.artist?.id || null, resolved.album?.id || null, resolved.track?.id || null, resolved.status, now, now).run();
-    if (existing) counts.duplicates += 1; else if (Number(result?.meta?.changes || result?.changes || 0)) counts.imported += 1;
+    if (existing) counts.duplicates += 1; else if (Number(result?.meta?.changes || result?.changes || 0)) {
+      counts.imported += 1;
+      // Only canonical, non-stub matches earn Artist XP. Provider imports are
+      // still preserved as raw listens when matching is uncertain, but they
+      // cannot be used to farm a public fan level.
+      if (resolved.status === 'matched' && resolved.artist?.id && !resolved.artist.isStub) {
+        await awardArtistListenXp(db, owner, resolved.artist.id, listenId, now);
+      }
+    }
     if (resolved.status === 'stub') counts.stubs += 1; else if (resolved.status === 'matched') counts.matched += 1;
   }
   await db.prepare('INSERT INTO listen_imports (id, user_id, source, external_user, period, row_count, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
     .bind(importId, owner, source, cleanText(options.externalUser, 160) || null, cleanText(options.period, 40) || null, rows.length, now).run();
   return {...counts, importId};
+}
+
+const ARTIST_PLAY_XP_DAILY_CAP = 50;
+
+async function awardArtistListenXp(db, userId, artistId, listenId, now) {
+  const inserted = await db.prepare('INSERT OR IGNORE INTO artist_xp_events (listen_id, user_id, artist_id, created_at) VALUES (?, ?, ?, ?)')
+    .bind(listenId, userId, artistId, now).run();
+  if (!Number(inserted?.meta?.changes || inserted?.changes || 0)) return;
+  const dayKey = `day:${now.slice(0, 10)}`;
+  const dayRow = await db.prepare('SELECT xp FROM artist_xp WHERE user_id = ? AND artist_id = ? AND season_key = ?')
+    .bind(userId, artistId, dayKey).first();
+  const currentDay = Number(dayRow?.xp || 0);
+  if (currentDay >= ARTIST_PLAY_XP_DAILY_CAP) return;
+  const amount = Math.min(1, ARTIST_PLAY_XP_DAILY_CAP - currentDay);
+  await db.batch([
+    db.prepare(`INSERT INTO artist_xp (user_id, artist_id, season_key, xp, updated_at) VALUES (?, ?, 'all-time', ?, ?)
+      ON CONFLICT(user_id, artist_id, season_key) DO UPDATE SET xp = artist_xp.xp + excluded.xp, updated_at = excluded.updated_at`).bind(userId, artistId, amount, now),
+    db.prepare(`INSERT INTO artist_xp (user_id, artist_id, season_key, xp, updated_at) VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(user_id, artist_id, season_key) DO UPDATE SET xp = artist_xp.xp + excluded.xp, updated_at = excluded.updated_at`).bind(userId, artistId, dayKey, amount, now)
+  ]);
+  const account = await db.prepare('SELECT artist_xp_json FROM account_xp WHERE user_id = ?').bind(userId).first();
+  let values = {};
+  try { values = JSON.parse(account?.artist_xp_json || '{}') || {}; } catch {}
+  values[artistId] = Math.max(0, Number(values[artistId] || 0)) + amount;
+  await db.prepare(`INSERT INTO account_xp (user_id, account_xp, leaderboard_opt_in, artist_xp_json, updated_at) VALUES (?, 0, 0, ?, ?)
+    ON CONFLICT(user_id) DO UPDATE SET artist_xp_json = excluded.artist_xp_json, updated_at = excluded.updated_at`).bind(userId, JSON.stringify(values), now).run();
 }
 
 function rawAlbum(input) {
@@ -319,6 +365,12 @@ export async function mergeCatalogEntity(db, entityType, fromId, toId) {
   const target = await db.prepare(`SELECT * FROM ${table} WHERE id = ?`).bind(toId).first();
   if (!source || !target) throw fail(404, 'Katalogeintrag nicht gefunden.');
   const now = new Date().toISOString();
+  // Artist XP is keyed by the same canonical entity IDs as listens. Read the
+  // small JSON projection before the merge so a stub merge cannot strand a
+  // user's progress under the old ID.
+  const xpRows = entityType === 'artist'
+    ? (await db.prepare('SELECT user_id, artist_xp_json FROM account_xp').all()).results || []
+    : [];
   const statements = [
     db.prepare(`INSERT OR IGNORE INTO catalog_aliases (entity_type, entity_id, alias, normalized_key, alias_kind, source, created_at, updated_at) SELECT entity_type, ?, alias, normalized_key, alias_kind, source, created_at, ? FROM catalog_aliases WHERE entity_type = ? AND entity_id = ?`).bind(toId, now, entityType, fromId),
     db.prepare(`UPDATE listens SET resolved_${entityType}_id = ?, updated_at = ? WHERE resolved_${entityType}_id = ?`).bind(toId, now, fromId),
@@ -328,11 +380,28 @@ export async function mergeCatalogEntity(db, entityType, fromId, toId) {
   if (entityType === 'artist') {
     statements.push(
       db.prepare('UPDATE catalog_albums SET artist_id = ?, updated_at = ? WHERE artist_id = ?').bind(toId, now, fromId),
-      db.prepare('UPDATE catalog_tracks SET artist_id = ?, updated_at = ? WHERE artist_id = ?').bind(toId, now, fromId)
+      db.prepare('UPDATE catalog_tracks SET artist_id = ?, updated_at = ? WHERE artist_id = ?').bind(toId, now, fromId),
+      db.prepare(`INSERT INTO artist_xp (user_id, artist_id, season_key, xp, updated_at)
+        SELECT user_id, ?, season_key, SUM(xp), ? FROM artist_xp WHERE artist_id = ?
+        GROUP BY user_id, season_key
+        ON CONFLICT(user_id, artist_id, season_key) DO UPDATE SET xp = artist_xp.xp + excluded.xp, updated_at = excluded.updated_at`).bind(toId, now, fromId),
+      db.prepare('DELETE FROM artist_xp WHERE artist_id = ?').bind(fromId),
+      db.prepare('UPDATE artist_xp_events SET artist_id = ? WHERE artist_id = ?').bind(toId, fromId)
     );
   }
   if (entityType === 'album') statements.push(db.prepare('UPDATE catalog_tracks SET album_id = ?, updated_at = ? WHERE album_id = ?').bind(toId, now, fromId));
   await db.batch(statements);
+  if (entityType === 'artist' && xpRows.length) {
+    const updates = [];
+    for (const row of xpRows) {
+      const values = parseJson(row.artist_xp_json);
+      if (!Object.hasOwn(values, fromId)) continue;
+      values[toId] = Math.max(0, Number(values[toId] || 0)) + Math.max(0, Number(values[fromId] || 0));
+      delete values[fromId];
+      updates.push(db.prepare('UPDATE account_xp SET artist_xp_json = ?, updated_at = ? WHERE user_id = ?').bind(JSON.stringify(values), now, row.user_id));
+    }
+    for (const batch of chunks(updates)) await db.batch(batch);
+  }
   return {fromId, toId, entityType, merged: true};
 }
 

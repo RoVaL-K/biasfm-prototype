@@ -15,6 +15,38 @@ async function readBody(request) {
   try { return await request.json(); } catch { throw fail(400, 'Ungültige JSON-Eingabe.'); }
 }
 
+export async function isAccountFollower(db, followerId, followedId) {
+  if (!followerId || !followedId) return false;
+  if (followerId === followedId) return true;
+  const row = await db.prepare('SELECT 1 FROM account_follows WHERE follower_id = ? AND followed_id = ?').bind(followerId, followedId).first();
+  return Boolean(row);
+}
+
+export async function listAccountFollows(request, env) {
+  const {row} = await requireAccount(request, env);
+  const result = await env.DB.prepare(`SELECT f.followed_id, a.username, f.created_at
+    FROM account_follows f JOIN accounts a ON a.id = f.followed_id
+    WHERE f.follower_id = ? ORDER BY f.created_at DESC`).bind(row.id).all();
+  return {items: (result.results || []).map(item => ({userId: item.followed_id, username: item.username, createdAt: item.created_at}))};
+}
+
+export async function followAccount(request, env, followed = true) {
+  const {row} = await requireAccount(request, env);
+  const input = await readBody(request);
+  const username = String(input.username || '').trim().toLowerCase();
+  if (!/^[a-z0-9_-]{3,20}$/.test(username)) throw fail(400, 'Ungültiger Username.');
+  const target = await env.DB.prepare('SELECT id, username FROM accounts WHERE username = ?').bind(username).first();
+  if (!target) throw fail(404, 'Profil nicht gefunden.');
+  if (target.id === row.id) throw fail(400, 'Du kannst dir nicht selbst folgen.');
+  if (followed) {
+    const now = new Date().toISOString();
+    await env.DB.prepare('INSERT OR IGNORE INTO account_follows (follower_id, followed_id, created_at) VALUES (?, ?, ?)').bind(row.id, target.id, now).run();
+    return {username: target.username, followed: true};
+  }
+  await env.DB.prepare('DELETE FROM account_follows WHERE follower_id = ? AND followed_id = ?').bind(row.id, target.id).run();
+  return {username: target.username, followed: false};
+}
+
 export async function listArtistFollows(request, env) {
   const {row} = await requireAccount(request, env);
   const result = await env.DB.prepare('SELECT artist_id, release_enabled, announcement_enabled, created_at FROM artist_follows WHERE user_id = ? ORDER BY created_at DESC').bind(row.id).all();
@@ -68,16 +100,42 @@ export async function publicProfile(request, env, username) {
   if (!row) throw fail(404, 'Profil nicht gefunden.');
   const profile = accountProfile(row, false);
   const privacy = profile.privacy || {};
-  if (privacy.profile === 'private') throw fail(404, 'Profil nicht gefunden.');
-  if (privacy.profile === 'followers') {
-    const {account: viewer} = await readSession(request, env);
-    if (!viewer?.userId) throw fail(404, 'Profil nicht gefunden.');
-  }
-  if (privacy.favorites !== 'public') profile.favoriteArtists = [];
-  if (privacy.stats !== 'public') delete profile.stats;
   const {account: viewer} = await readSession(request, env);
+  const isOwner = viewer?.userId === row.id;
+  const isFollower = isOwner || await isAccountFollower(env.DB, viewer?.userId, row.id);
+  if (privacy.profile === 'private' && !isOwner) throw fail(404, 'Profil nicht gefunden.');
+  if (privacy.profile === 'followers' && !isFollower) throw fail(404, 'Profil nicht gefunden.');
+  if (!isOwner && privacy.favorites !== 'public' && !(privacy.favorites === 'followers' && isFollower)) profile.favoriteArtists = [];
+  if (!isOwner && privacy.stats !== 'public' && !(privacy.stats === 'followers' && isFollower)) delete profile.stats;
+  // Lists belong to the public profile when their visibility permits it.
+  // Keep this query optional so older databases remain readable until the
+  // V3 collection schema has been created by the lists endpoint.
+  try {
+    const visibleLists = await env.DB.prepare(`SELECT l.id, l.title, l.description, l.visibility, l.share_slug, l.updated_at,
+      COUNT(i.entity_id) AS item_count
+      FROM user_lists l LEFT JOIN user_list_items i ON i.list_id = l.id
+      WHERE l.user_id = ? AND (l.visibility = 'public' OR (l.visibility = 'followers' AND ? = 1) OR (? = 1 AND l.visibility = 'private'))
+      GROUP BY l.id ORDER BY l.updated_at DESC LIMIT 50`).bind(row.id, isFollower ? 1 : 0, isOwner ? 1 : 0).all();
+    const listRows = visibleLists.results || [];
+    const itemRows = listRows.length ? await env.DB.prepare(`SELECT list_id, kind, entity_id, title, artist_name, note, position
+      FROM user_list_items WHERE list_id IN (SELECT id FROM user_lists WHERE user_id = ?)
+      ORDER BY position ASC, created_at ASC`).bind(row.id).all() : {results: []};
+    const itemsByList = (itemRows.results || []).reduce((map, item) => {
+      if (listRows.some(list => list.id === item.list_id)) (map[item.list_id] ||= []).push({
+        kind: item.kind, entityId: item.entity_id, title: item.title, artistName: item.artist_name, note: item.note
+      });
+      return map;
+    }, {});
+    profile.lists = listRows.map(list => ({
+      id: list.id, title: list.title, description: list.description, visibility: list.visibility,
+      shareSlug: list.share_slug, itemCount: Number(list.item_count || 0), items: itemsByList[list.id] || [],
+      updatedAt: list.updated_at
+    }));
+  } catch {
+    profile.lists = [];
+  }
   const activityPolicy = await readActivityPrivacy(env.DB, row.id, privacy);
-  const activityAllowed = activityPolicy.visibility === 'public' || (activityPolicy.visibility === 'followers' && viewer?.userId);
+  const activityAllowed = isOwner || activityPolicy.visibility === 'public' || (activityPolicy.visibility === 'followers' && isFollower);
   profile.activityVisibility = activityPolicy.visibility;
   profile.activityNowPlayingVisible = activityPolicy.showNowPlaying;
   if (activityAllowed) {

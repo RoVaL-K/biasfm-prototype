@@ -6,7 +6,7 @@
   <title>bias.fm — Koreanische Musik, deine Zahlen</title>
   <meta name="description" content="Entdeckungs-, Stats- und Community-Ebene für koreanische Musik aller Genres (Idol, Indie, R&amp;B, Hiphop, Produzenten). Persönliche Hörstatistik, Comeback-Radar und Musik entdecken.">
   <meta property="og:title" content="bias.fm — Koreanische Musik, deine Zahlen">
-  <meta property="og:description" content="Comeback-Radar, persönliche Hörstatistik und Fan-Identity für koreanische Musik aller Genres. Ohne eigenen Player.">
+  <meta property="og:description" content="Comeback-Radar, persönliche Hörstatistik und Profile für koreanische Musik aller Genres. Ohne eigenen Player.">
   <meta property="og:type" content="website">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%2338bdf8'/%3E%3C/svg%3E">
 
@@ -55,6 +55,7 @@
 <a href="#charts" class="nav-link" data-route="charts">Charts</a>
 <a href="#kalender" class="nav-link" data-route="kalender">Radar</a>
 <a href="#game" class="nav-link" data-route="game">Rätsel</a>
+<button type="button" class="nav-link nav-button" data-route="community" onclick="biasApp.navigateTo('community')">Community</button>
 </nav>
 
       <!-- Right Header Actions -->
@@ -86,6 +87,7 @@
 <a href="#charts" class="drawer-link">Charts</a>
 <a href="#kalender" class="drawer-link">Radar</a>
 <a href="#game" class="drawer-link">Rätsel</a>
+<a href="#community" class="drawer-link" data-route="community">Community</a>
 </nav>
   </aside>
 
@@ -119,6 +121,8 @@
             <li><a href="#stats">Dein Korea-Mix</a></li>
             <li><a href="#profile">Mein Profil</a></li>
             <li><a href="#saved">Gemerkt</a></li>
+            <li><a href="#lists">Meine Listen</a></li>
+            <li><a href="#support">Support bias.fm</a></li>
 
           </ul>
         </div>
@@ -162,6 +166,7 @@
   <script src="js/views/legal.js"></script>
   <script src="js/app.js"></script>
   <script src="js/v2.js"></script>
+  <script src="js/v3.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       if (window.biasApp) {

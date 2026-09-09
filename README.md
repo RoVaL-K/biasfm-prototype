@@ -146,7 +146,7 @@ Für Docker einen dauerhaften Datenträger nach `/app/.data` einbinden, `APP_ORI
 
 ### Nachweise und Grenzen
 
-26 automatisierte Tests prüfen die Hauptabläufe, Spotify-PKCE und Session-Isolation, Playlist-Daten, Redaktionsrechte, Speicherung über Serverneustarts, Versionskonflikte, Themes und eindeutige Release-Zuordnung. Der MusicBrainz-Liveabruf lieferte im Test acht passende Einträge. Home, Charts, Radar, Katalog, Daily-Modi, Stats-Connect, Profil, Themes und Curation wurden zusätzlich im Browser geprüft. Die Namenszuordnung in Hörstatistiken nutzt MusicBrainz-IDs, wenn der Dienst sie mitliefert; andernfalls bleibt sie eine offengelegte Schätzung anhand der Namen.
+27 automatisierte Tests prüfen die Hauptabläufe, Spotify-PKCE und Session-Isolation, Playlist-Daten, Redaktionsrechte, Speicherung über Serverneustarts, Versionskonflikte, Themes und eindeutige Release-Zuordnung. Der MusicBrainz-Liveabruf lieferte im Test acht passende Einträge. Home, Charts, Radar, Katalog, Daily-Modi, Stats-Connect, Profil, Themes und Curation wurden zusätzlich im Browser geprüft. Die Namenszuordnung in Hörstatistiken nutzt MusicBrainz-IDs, wenn der Dienst sie mitliefert; andernfalls bleibt sie eine offengelegte Schätzung anhand der Namen.
 
 Verwendete Primärdokumentation: [Spotify PKCE](https://developer.spotify.com/documentation/web-api/tutorials/code-pkce-flow), [Benutzer-Playlists](https://developer.spotify.com/documentation/web-api/reference/get-a-list-of-current-users-playlists), [Spotify-Änderungen 2026](https://developer.spotify.com/documentation/web-api/tutorials/february-2026-migration-guide), [Rücksprungadressen](https://developer.spotify.com/documentation/web-api/concepts/redirect_uri), [MusicBrainz-Suchfelder](https://musicbrainz.org/doc/Indexed_Search_Syntax), [Last.fm-Tag-Charts](https://www.last.fm/api/show/tag.getTopTracks).
 
@@ -157,3 +157,15 @@ Das Feedback unter `docs/improvementV1-feedback.md` ist als priorisierte Produkt
 Öffentliche Navigation: Entdecken, Charts, Radar, Rätsel. Persönliche Bereiche: `#profile`, `#settings`, `#saved`, `#stats`. Redaktion: `#admin` (bestehender serverseitiger Schlüssel erforderlich). Die Player-Leiste ist entfernt; Songdetails enthalten Merken und direkte Anbieterlinks. Drei unabhängige Daily-Modi wechseln gemeinsam um 00:00 KST. Fünf Produkt-Themes bleiben unabhängig vom Profil-Akzent.
 
 Charts unterscheiden Community (noch keine gemeinsamen Hördaten), Korea-Originalquellen und Last.fm-Tag-Signale. Externe Rankings werden nicht kopiert oder aus Katalogdaten erfunden. Original-Referenzen: [Circle Chart](https://circlechart.kr/), [Melon](https://www.melon.com/chart/index.htm). Die Last.fm-Zeitraumauswahl verwendet die [dokumentierten Perioden](https://www.last.fm/api/show/user.getTopArtists), mit gesonderten Cache-Einträgen pro Zeitraum.
+
+## Produktüberarbeitung: Improvement V3
+
+Die V3-Oberflächen und die dafür nötigen serverseitigen Grundlagen sind zusammengeführt:
+
+- **Entdecken und Navigation:** Landing-Slider mit vier kurzen Produktansichten, pausierbare Fortschrittsanzeige, stabile Tabs sowie Artist-, Release- und Songdetail-Routen mit Produzentenrolle, Genre/Scene-Filtern, Sortierung und Seitengrößen.
+- **Community:** moderierte öffentliche, anfragebasierte und private Gruppen mit Pinboard, Beitrittsanfragen, zeitlich begrenzten Einladungslinks, Rollen, Melden/Blockieren/Muten, Moderationslog, Appeals und Rate-Limits. Beispielgruppen sind sichtbar als Produktvorschau gekennzeichnet; globales Chatten bleibt deaktiviert.
+- **Sammlung und Reviews:** unbegrenzte Listen mit vier Sichtbarkeiten, Share-Links und `Meine Listen` im Account-Menü. Reviews sind an Release/Song gebunden, validieren Score und Inhalt, sind markdown-light/sicher verlinkt und fließen nur nach den dokumentierten Qualifikationsregeln in Aggregate ein.
+- **Profile und Fortschritt:** aktuelle/letzte Aktivität mit Privatsphäreprüfung und standardmäßig deaktiviertem Now-Playing, getrennte Account-/Artist-XP, tägliche Anti-Farming-Grenzen und opt-in Artist-Ranglisten ab 20 Teilnehmern. Avatar-Upload, Favoriten, Follows und gespeicherte Einträge werden serverseitig validiert.
+- **Radar, Charts und Support:** Radar-Genre/Release-Typ-Filter, datumsbasierte Navigation, MusicBrainz-Katalogauflösung, Alias-Normalisierung und neutrale Cover-Fallbacks. Support zeigt geprüfte, noch nicht buchbare Stufen; Zahlungs-, Audio-, Fan-Space-, kollaborative Listen- und Monetarisierungsfunktionen bleiben bis zur Provider-/Rechtsprüfung ausdrücklich deaktiviert.
+
+Die V3-APIs legen ihre D1-Tabellen beim ersten Zugriff sicher an. Roh-Scrobbles und der MusicBrainz-Katalog bleiben getrennt; Spotify wird nur als kurzfristige Live-Anreicherung und für Original-Links verwendet. Für lokale Ausfälle gibt es klar markierte Fallbacks, während Auth-, Validierungs- und Berechtigungsfehler nicht als erfolgreiche lokale Aktionen ausgegeben werden.

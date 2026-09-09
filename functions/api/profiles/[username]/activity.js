@@ -2,6 +2,7 @@ import {failure, json, options, fail} from '../../../_lib/http.js';
 import {ensureSchema, readActivityPrivacy, readSession} from '../../../_lib/auth.js';
 import {listListens} from '../../../_lib/catalog-store.js';
 import {publicNowPlaying} from '../../../_lib/lastfm.js';
+import {isAccountFollower} from '../../../_lib/social.js';
 
 export async function onRequest(context) {
   if (context.request.method === 'OPTIONS') return options(context.request);
@@ -18,8 +19,9 @@ export async function onRequest(context) {
     const visibility = activityPolicy.visibility;
     const viewer = await readSession(context.request, context.env);
     const isOwner = viewer.account?.userId === owner.id;
+    const isFollower = isOwner || await isAccountFollower(context.env.DB, viewer.account?.userId, owner.id);
     if (!isOwner && visibility === 'private') throw fail(404, 'Aktivität nicht verfügbar.');
-    if (!isOwner && visibility === 'followers' && !viewer.account?.userId) throw fail(404, 'Aktivität nicht verfügbar.');
+    if (!isOwner && visibility === 'followers' && !isFollower) throw fail(404, 'Aktivität nicht verfügbar.');
     const items = await listListens(context.env.DB, owner.id, new URL(context.request.url).searchParams.get('limit') || '20');
     let nowPlaying = null;
     if (activityPolicy.showNowPlaying) {

@@ -9,7 +9,7 @@ const PROFILE_DEFAULTS = {
   bio: '', avatarData: '', avatarUrl: '', ultBiasArtist: '', ultBiasMember: '', biasMemberId: '',
   favoriteArtists: [], biasLine: [], accentColor: '#38bdf8', fandomName: 'Eigener Profil-Akzent'
 };
-const PRIVACY_DEFAULTS = {profile: 'public', stats: 'private', activity: 'private', follows: 'public', favorites: 'public', showNowPlaying: true};
+const PRIVACY_DEFAULTS = {profile: 'public', stats: 'private', activity: 'private', follows: 'public', favorites: 'public', showNowPlaying: false};
 const NOTIFICATION_DEFAULTS = {release: true, announcement: false, reminder: true, social: false, product: true};
 const PRIVACY_VALUES = new Set(['public', 'followers', 'private']);
 
@@ -84,6 +84,13 @@ async function ensureSchema(db) {
       updated_at TEXT NOT NULL,
       PRIMARY KEY (user_id, artist_id)
     )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS account_follows (
+      follower_id TEXT NOT NULL,
+      followed_id TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (follower_id, followed_id),
+      CHECK (follower_id <> followed_id)
+    )`),
     db.prepare(`CREATE TABLE IF NOT EXISTS account_notifications (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL,
@@ -116,8 +123,16 @@ async function ensureSchema(db) {
     db.prepare(`CREATE TABLE IF NOT EXISTS account_activity_privacy (
       account_id TEXT PRIMARY KEY,
       visibility TEXT NOT NULL DEFAULT 'private' CHECK (visibility IN ('public', 'followers', 'private')),
-      show_now_playing INTEGER NOT NULL DEFAULT 1,
+      show_now_playing INTEGER NOT NULL DEFAULT 0,
       updated_at TEXT NOT NULL
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS account_email_verifications (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      token_hash TEXT NOT NULL UNIQUE,
+      expires_at TEXT NOT NULL,
+      verified_at TEXT,
+      created_at TEXT NOT NULL
     )`),
     db.prepare(`CREATE TABLE IF NOT EXISTS catalog_meta (
       key TEXT PRIMARY KEY,
@@ -206,8 +221,26 @@ async function ensureSchema(db) {
       row_count INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL
     )`),
+    // V3 XP is kept separate from account/profile data so a play can never
+    // change the public account leaderboard. The event table makes imports
+    // idempotent even when a provider sends the same scrobble again.
+    db.prepare(`CREATE TABLE IF NOT EXISTS account_xp (
+      user_id TEXT PRIMARY KEY, account_xp INTEGER NOT NULL DEFAULT 0,
+      leaderboard_opt_in INTEGER NOT NULL DEFAULT 0,
+      artist_xp_json TEXT NOT NULL DEFAULT '{}', updated_at TEXT NOT NULL
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS artist_xp (
+      user_id TEXT NOT NULL, artist_id TEXT NOT NULL,
+      season_key TEXT NOT NULL DEFAULT 'all-time', xp INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL, PRIMARY KEY (user_id, artist_id, season_key)
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS artist_xp_events (
+      listen_id TEXT PRIMARY KEY, user_id TEXT NOT NULL, artist_id TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )`),
     db.prepare('CREATE INDEX IF NOT EXISTS account_notifications_user_created ON account_notifications (user_id, created_at DESC)'),
     db.prepare('CREATE INDEX IF NOT EXISTS artist_follows_artist ON artist_follows (artist_id)'),
+    db.prepare('CREATE INDEX IF NOT EXISTS account_follows_followed ON account_follows (followed_id, created_at DESC)'),
     db.prepare('CREATE INDEX IF NOT EXISTS account_identities_account ON account_identities (account_id)'),
     db.prepare('CREATE INDEX IF NOT EXISTS lastfm_connections_account ON lastfm_connections (account_id)'),
     db.prepare('CREATE INDEX IF NOT EXISTS catalog_aliases_lookup ON catalog_aliases (entity_type, normalized_key)'),
@@ -216,14 +249,17 @@ async function ensureSchema(db) {
     db.prepare('CREATE INDEX IF NOT EXISTS listens_user_played ON listens (user_id, played_at DESC)'),
     db.prepare('CREATE INDEX IF NOT EXISTS listens_resolution ON listens (resolution_status, updated_at DESC)'),
     db.prepare('CREATE INDEX IF NOT EXISTS listens_source ON listens (source, source_id)'),
-    db.prepare('CREATE INDEX IF NOT EXISTS account_activity_privacy_visibility ON account_activity_privacy (visibility)')
+    db.prepare('CREATE INDEX IF NOT EXISTS account_activity_privacy_visibility ON account_activity_privacy (visibility)'),
+    db.prepare('CREATE INDEX IF NOT EXISTS account_email_verifications_user ON account_email_verifications (user_id, verified_at DESC)'),
+    db.prepare('CREATE INDEX IF NOT EXISTS artist_xp_artist ON artist_xp (artist_id, season_key, xp DESC)'),
+    db.prepare('CREATE INDEX IF NOT EXISTS artist_xp_events_user_date ON artist_xp_events (user_id, created_at DESC)')
   ]);
   // Backfill the explicit activity policy for accounts created before the
   // two-layer listening model. The legacy JSON remains a migration fallback.
   const existingAccounts = await db.prepare('SELECT id, privacy_json, updated_at FROM accounts').all();
   const privacyRows = (existingAccounts.results || []).map(account => {
     let visibility = 'private';
-    let showNowPlaying = 1;
+    let showNowPlaying = 0;
     try {
       const stored = JSON.parse(account.privacy_json || '{}') || {};
       if (['public', 'followers', 'private'].includes(stored.activity)) visibility = stored.activity;
@@ -252,6 +288,8 @@ function normalizeEmail(value) {
 function normalizeUsername(value) {
   const username = String(value || '').trim().toLowerCase();
   if (!/^[a-z0-9_-]{3,20}$/.test(username)) throw fail(400, 'Der Username muss 3–20 Kleinbuchstaben, Zahlen, - oder _ enthalten.');
+  const reserved = new Set(['admin','administrator','root','support','moderator','mod','staff','biasfm','bias-fm','official','system','api','null','undefined','owner']);
+  if (reserved.has(username)) throw fail(409, 'Dieser Username ist für System- und Moderationsfunktionen reserviert.');
   return username;
 }
 
@@ -264,7 +302,17 @@ function validatePassword(value) {
 function cleanAvatar(value) {
   const avatarData = String(value || '');
   if (!avatarData) return '';
-  if (!/^data:image\/(?:png|jpeg|webp);base64,[a-z0-9+/=]+$/i.test(avatarData) || avatarData.length > 3_000_000) throw fail(400, 'Das Profilbild muss als JPG, PNG oder WebP bis 2 MB vorliegen.');
+  if (!/^data:image\/(?:png|jpeg|webp);base64,[a-z0-9+/=]+$/i.test(avatarData) || avatarData.length > 14_000_000) throw fail(400, 'Das Profilbild muss als JPG, PNG oder WebP bis 10 MB vorliegen.');
+  try {
+    const binary = atob(avatarData.split(',')[1]);
+    const bytes = Uint8Array.from(binary, character => character.charCodeAt(0));
+    if (bytes.byteLength > 10 * 1024 * 1024) throw fail(400, 'Das Profilbild muss als JPG, PNG oder WebP bis 10 MB vorliegen.');
+    let width = 0, height = 0;
+    if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) { width = new DataView(bytes.buffer).getUint32(16); height = new DataView(bytes.buffer).getUint32(20); }
+    else if (bytes[0] === 0xff && bytes[1] === 0xd8) { for (let i = 2; i + 9 < bytes.length;) { if (bytes[i] !== 0xff) { i += 1; continue; } const marker = bytes[i + 1]; const length = (bytes[i + 2] << 8) + bytes[i + 3]; if ((marker >= 0xc0 && marker <= 0xc3) || (marker >= 0xc5 && marker <= 0xc7) || (marker >= 0xc9 && marker <= 0xcb) || (marker >= 0xcd && marker <= 0xcf)) { height = (bytes[i + 5] << 8) + bytes[i + 6]; width = (bytes[i + 7] << 8) + bytes[i + 8]; break; } i += 2 + length; } }
+    else if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) { if (bytes[12] === 0x56 && bytes[13] === 0x50 && bytes[14] === 0x38 && bytes[15] === 0x58) { width = 1 + bytes[24] + (bytes[25] << 8) + (bytes[26] << 16); height = 1 + bytes[27] + (bytes[28] << 8) + (bytes[29] << 16); } }
+    if ((width && width > 3000) || (height && height > 3000)) throw fail(400, 'Das Profilbild darf höchstens 3000 × 3000 Pixel groß sein.');
+  } catch (error) { if (error?.status) throw error; throw fail(400, 'Das Profilbild konnte nicht geprüft werden.'); }
   return avatarData;
 }
 
@@ -451,7 +499,7 @@ export async function readActivityPrivacy(db, accountId, fallback = {}) {
   const visibility = ['public', 'followers', 'private'].includes(row?.visibility)
     ? row.visibility
     : (['public', 'followers', 'private'].includes(fallback.activity) ? fallback.activity : 'private');
-  return {visibility, showNowPlaying: row ? Boolean(row.show_now_playing) : fallback.showNowPlaying !== false};
+  return {visibility, showNowPlaying: row ? Boolean(row.show_now_playing) : fallback.showNowPlaying === true};
 }
 
 export async function currentAccount(request, env) {
