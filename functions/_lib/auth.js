@@ -9,7 +9,7 @@ const PROFILE_DEFAULTS = {
   bio: '', avatarData: '', avatarUrl: '', ultBiasArtist: '', ultBiasMember: '', biasMemberId: '',
   favoriteArtists: [], biasLine: [], accentColor: '#38bdf8', fandomName: 'Eigener Profil-Akzent'
 };
-const PRIVACY_DEFAULTS = {profile: 'public', stats: 'private', activity: 'private', follows: 'public', favorites: 'public'};
+const PRIVACY_DEFAULTS = {profile: 'public', stats: 'private', activity: 'private', follows: 'public', favorites: 'public', showNowPlaying: true};
 const NOTIFICATION_DEFAULTS = {release: true, announcement: false, reminder: true, social: false, product: true};
 const PRIVACY_VALUES = new Set(['public', 'followers', 'private']);
 
@@ -113,11 +113,126 @@ async function ensureSchema(db) {
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS account_activity_privacy (
+      account_id TEXT PRIMARY KEY,
+      visibility TEXT NOT NULL DEFAULT 'private' CHECK (visibility IN ('public', 'followers', 'private')),
+      show_now_playing INTEGER NOT NULL DEFAULT 1,
+      updated_at TEXT NOT NULL
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS catalog_meta (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS catalog_artists (
+      id TEXT PRIMARY KEY,
+      mbid TEXT UNIQUE,
+      source_id TEXT UNIQUE,
+      canonical_name TEXT NOT NULL,
+      hangul_name TEXT NOT NULL DEFAULT '',
+      romanized_name TEXT NOT NULL DEFAULT '',
+      artist_type TEXT NOT NULL DEFAULT 'artist',
+      metadata_json TEXT NOT NULL DEFAULT '{}',
+      is_stub INTEGER NOT NULL DEFAULT 0,
+      merged_into_id TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS catalog_albums (
+      id TEXT PRIMARY KEY,
+      mbid TEXT UNIQUE,
+      source_id TEXT UNIQUE,
+      artist_id TEXT NOT NULL,
+      canonical_title TEXT NOT NULL,
+      normalized_title TEXT NOT NULL,
+      metadata_json TEXT NOT NULL DEFAULT '{}',
+      is_stub INTEGER NOT NULL DEFAULT 0,
+      merged_into_id TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS catalog_tracks (
+      id TEXT PRIMARY KEY,
+      mbid TEXT UNIQUE,
+      source_id TEXT UNIQUE,
+      artist_id TEXT NOT NULL,
+      album_id TEXT,
+      canonical_title TEXT NOT NULL,
+      normalized_title TEXT NOT NULL,
+      metadata_json TEXT NOT NULL DEFAULT '{}',
+      is_stub INTEGER NOT NULL DEFAULT 0,
+      merged_into_id TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS catalog_aliases (
+      entity_type TEXT NOT NULL CHECK (entity_type IN ('artist', 'album', 'track')),
+      entity_id TEXT NOT NULL,
+      alias TEXT NOT NULL,
+      normalized_key TEXT NOT NULL,
+      alias_kind TEXT NOT NULL DEFAULT 'alias',
+      source TEXT NOT NULL DEFAULT 'editorial',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (entity_type, entity_id, normalized_key)
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS listens (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      source TEXT NOT NULL CHECK (source IN ('lastfm', 'listenbrainz', 'manual')),
+      source_id TEXT NOT NULL,
+      played_at TEXT,
+      raw_artist TEXT NOT NULL,
+      raw_title TEXT NOT NULL,
+      raw_album TEXT,
+      raw_artist_mbid TEXT,
+      raw_album_mbid TEXT,
+      raw_track_mbid TEXT,
+      resolved_artist_id TEXT,
+      resolved_album_id TEXT,
+      resolved_track_id TEXT,
+      resolution_status TEXT NOT NULL DEFAULT 'unresolved' CHECK (resolution_status IN ('matched', 'stub', 'artist_matched', 'unresolved')),
+      enrichment_json TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      UNIQUE (user_id, source, source_id)
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS listen_imports (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      source TEXT NOT NULL,
+      external_user TEXT,
+      period TEXT,
+      row_count INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL
+    )`),
     db.prepare('CREATE INDEX IF NOT EXISTS account_notifications_user_created ON account_notifications (user_id, created_at DESC)'),
     db.prepare('CREATE INDEX IF NOT EXISTS artist_follows_artist ON artist_follows (artist_id)'),
     db.prepare('CREATE INDEX IF NOT EXISTS account_identities_account ON account_identities (account_id)'),
-    db.prepare('CREATE INDEX IF NOT EXISTS lastfm_connections_account ON lastfm_connections (account_id)')
+    db.prepare('CREATE INDEX IF NOT EXISTS lastfm_connections_account ON lastfm_connections (account_id)'),
+    db.prepare('CREATE INDEX IF NOT EXISTS catalog_aliases_lookup ON catalog_aliases (entity_type, normalized_key)'),
+    db.prepare('CREATE INDEX IF NOT EXISTS catalog_tracks_artist_title ON catalog_tracks (artist_id, normalized_title)'),
+    db.prepare('CREATE INDEX IF NOT EXISTS catalog_albums_artist_title ON catalog_albums (artist_id, normalized_title)'),
+    db.prepare('CREATE INDEX IF NOT EXISTS listens_user_played ON listens (user_id, played_at DESC)'),
+    db.prepare('CREATE INDEX IF NOT EXISTS listens_resolution ON listens (resolution_status, updated_at DESC)'),
+    db.prepare('CREATE INDEX IF NOT EXISTS listens_source ON listens (source, source_id)'),
+    db.prepare('CREATE INDEX IF NOT EXISTS account_activity_privacy_visibility ON account_activity_privacy (visibility)')
   ]);
+  // Backfill the explicit activity policy for accounts created before the
+  // two-layer listening model. The legacy JSON remains a migration fallback.
+  const existingAccounts = await db.prepare('SELECT id, privacy_json, updated_at FROM accounts').all();
+  const privacyRows = (existingAccounts.results || []).map(account => {
+    let visibility = 'private';
+    let showNowPlaying = 1;
+    try {
+      const stored = JSON.parse(account.privacy_json || '{}') || {};
+      if (['public', 'followers', 'private'].includes(stored.activity)) visibility = stored.activity;
+      if (stored.showNowPlaying === false) showNowPlaying = 0;
+    } catch {}
+    return db.prepare('INSERT OR IGNORE INTO account_activity_privacy (account_id, visibility, show_now_playing, updated_at) VALUES (?, ?, ?, ?)')
+      .bind(account.id, visibility, showNowPlaying, account.updated_at || new Date().toISOString());
+  });
+  for (let index = 0; index < privacyRows.length; index += 80) await db.batch(privacyRows.slice(index, index + 80));
   schemaReady.add(db);
 }
 
@@ -181,7 +296,11 @@ function cleanProfile(input, existing = {}) {
 
 function cleanPrivacy(input, existing = {}) {
   const next = {...PRIVACY_DEFAULTS, ...existing};
-  for (const key of Object.keys(PRIVACY_DEFAULTS)) if (Object.hasOwn(input || {}, key) && PRIVACY_VALUES.has(input[key])) next[key] = input[key];
+  for (const key of Object.keys(PRIVACY_DEFAULTS)) {
+    if (key === 'showNowPlaying') {
+      if (Object.hasOwn(input || {}, key) && typeof input[key] === 'boolean') next[key] = input[key];
+    } else if (Object.hasOwn(input || {}, key) && PRIVACY_VALUES.has(input[key])) next[key] = input[key];
+  }
   return next;
 }
 
@@ -276,8 +395,10 @@ export async function signup(request, env) {
   const now = new Date().toISOString();
   const profile = cleanProfile({username, bio: ''});
   try {
-    await env.DB.prepare(`INSERT INTO accounts (id, email, username, password_hash, profile_json, privacy_json, notification_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-      .bind(id, email, username, passwordHash, JSON.stringify(profile), JSON.stringify(PRIVACY_DEFAULTS), JSON.stringify(NOTIFICATION_DEFAULTS), now, now).run();
+    await env.DB.prepare(`INSERT INTO accounts (id, email, username, password_hash, profile_json, privacy_json, notification_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(id, email, username, passwordHash, JSON.stringify(profile), JSON.stringify(PRIVACY_DEFAULTS), JSON.stringify(NOTIFICATION_DEFAULTS), now, now).run();
+    await env.DB.prepare(`INSERT INTO account_activity_privacy (account_id, visibility, show_now_playing, updated_at) VALUES (?, ?, ?, ?)
+      ON CONFLICT(account_id) DO UPDATE SET visibility = excluded.visibility, show_now_playing = excluded.show_now_playing, updated_at = excluded.updated_at`)
+      .bind(id, PRIVACY_DEFAULTS.activity, PRIVACY_DEFAULTS.showNowPlaying ? 1 : 0, now).run();
   } catch (error) {
     if (/unique|constraint/i.test(error?.message || '')) throw fail(409, 'E-Mail oder Username ist bereits vergeben.');
     throw error;
@@ -318,8 +439,19 @@ export async function updateProfile(request, env) {
   const now = new Date().toISOString();
   await env.DB.prepare('UPDATE accounts SET username = ?, profile_json = ?, privacy_json = ?, notification_json = ?, updated_at = ? WHERE id = ?')
     .bind(profile.username, JSON.stringify(profile), JSON.stringify(privacy), JSON.stringify(notificationPrefs), now, row.id).run();
+  await env.DB.prepare(`INSERT INTO account_activity_privacy (account_id, visibility, show_now_playing, updated_at) VALUES (?, ?, ?, ?)
+    ON CONFLICT(account_id) DO UPDATE SET visibility = excluded.visibility, show_now_playing = excluded.show_now_playing, updated_at = excluded.updated_at`)
+    .bind(row.id, privacy.activity, privacy.showNowPlaying === false ? 0 : 1, now).run();
   const next = await env.DB.prepare('SELECT * FROM accounts WHERE id = ?').bind(row.id).first();
   return {profile: accountProfile(next, true)};
+}
+
+export async function readActivityPrivacy(db, accountId, fallback = {}) {
+  const row = await db.prepare('SELECT visibility, show_now_playing FROM account_activity_privacy WHERE account_id = ?').bind(accountId).first();
+  const visibility = ['public', 'followers', 'private'].includes(row?.visibility)
+    ? row.visibility
+    : (['public', 'followers', 'private'].includes(fallback.activity) ? fallback.activity : 'private');
+  return {visibility, showNowPlaying: row ? Boolean(row.show_now_playing) : fallback.showNowPlaying !== false};
 }
 
 export async function currentAccount(request, env) {

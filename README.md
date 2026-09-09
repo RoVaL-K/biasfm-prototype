@@ -72,6 +72,9 @@ Das Projekt ist zusätzlich als Cloudflare-Pages-Projekt `biasfm-prototype` ver�
 - `functions/api/spotify/*` übernimmt PKCE, sichere Sitzungen und Playlist-Abfragen, sobald eine Spotify-Client-ID hinterlegt ist.
 - `functions/api/lastfm/*` übernimmt die Last.fm-Webautorisierung, den signierten Session-Austausch und die Kontoverknüpfung mit einem bias.fm-Konto, sobald API-Key und API-Secret hinterlegt sind.
 - `functions/api/editorial/*` speichert und verwaltet veröffentlichte Einträge in der D1-Datenbank `biasfm-production`.
+- `functions/api/catalog/resolve` löst MBIDs, Hangul, Romanisierungen und Aliase auf; `functions/api/catalog/merge` führt geprüfte Stubs mit einem kanonischen Eintrag zusammen.
+- `functions/api/listens` speichert authentifizierte Last.fm-/ListenBrainz-Rohscrobbles getrennt vom Katalog. Unbekannte Artists, Alben und Tracks bleiben als Stubs erhalten und können später ohne Datenverlust gemerged werden.
+- `functions/api/profiles/:username/activity` gibt Live-/Höraktivität nur entsprechend der gespeicherten Aktivitätssichtbarkeit aus. `public`, `followers` und `private` werden serverseitig geprüft.
 - KV `BIASFM_CACHE` hält zeitlich begrenzte Provider-Antworten; KV `BIASFM_SESSIONS` hält die kurzlebigen Spotify-Sitzungen.
 
 Die Bindings sind in [wrangler.jsonc](wrangler.jsonc) dokumentiert. Anbieter- und Redaktionsschlüssel werden ausschließlich als Cloudflare-Umgebungsvariablen gesetzt und nie in Git committed. Ohne `LASTFM_API_KEY`, `SPOTIFY_CLIENT_ID` und `EDITORIAL_TOKEN` bleiben die jeweiligen optionalen Funktionen abgeschaltet, während Gesundheitstest, MusicBrainz-Radar und das statische Frontend weiter funktionieren.
@@ -122,6 +125,18 @@ Weitere Werte in `.env`:
 Die Anwendung lädt eine vorhandene `.env` beim Start selbst. Extern gesetzte Umgebungsvariablen haben Vorrang. E-Mail/Passwort-Accounts sind sofort verfügbar. Google- und Discord-Login erscheinen nach dem Setzen der vier OAuth-Werte als aktive Buttons; ohne diese Werte zeigen sie bewusst einen ehrlichen Status.
 
 Bei Cloudflare Pages werden neue Produktions-Secrets beim nächsten Pages-Deployment aktiv. Nach dem Hinterlegen oder Ändern eines Anbieter-Schlüssels deshalb einmal den Produktions-Branch neu deployen und anschließend `/api/config` prüfen.
+
+### Zwei Schichten für Katalog und Hördaten
+
+Die D1-Persistenz trennt bewusst die kanonischen Katalogdaten von den Rohdaten der Nutzer:
+
+- `catalog_artists`, `catalog_albums` und `catalog_tracks` verwenden MusicBrainz-IDs, wenn sie vorhanden sind. `catalog_aliases` enthält Hangul, Romanisierungen und provider-spezifische Schreibweisen.
+- `listens` bewahrt `raw_artist`, `raw_title`, `raw_album`, Provider, Zeitpunkt und übermittelte MBIDs. Zusätzlich zeigt `resolved_*_id`, wie der Datensatz beim Import aufgelöst wurde. Ein unbekannter Eintrag wird als Stub gespeichert, statt verworfen zu werden.
+- `catalog/merge` verschiebt die Referenzen eines Stubs auf das geprüfte Ziel und lässt die ursprünglichen Rohwerte unangetastet.
+- Spotify bleibt eine Live-Enrichment-Quelle. Die Spotify-Track-ID wird nur im laufenden Request für den Anbieterlink verwendet und nicht in `listens` oder dem kanonischen Katalog gespeichert.
+- `account_activity_privacy` spiegelt die Aktivitätseinstellung aus dem Konto serverseitig. Die öffentliche Aktivitätsroute liefert keine Daten, wenn die Einstellung `private` ist; `followers` benötigt mindestens eine eingeloggte Sitzung. Der aktuelle Last.fm-Titel wird nur mit dem zusätzlichen Schalter `showNowPlaying` und höchstens 30 Sekunden aus dem KV-Cache ausgegeben.
+
+Die Tabellen werden beim ersten D1-Zugriff sicher angelegt und können zusätzlich mit [migrations/0002_catalog_listens.sql](migrations/0002_catalog_listens.sql) als nachvollziehbare Migration eingespielt werden.
 
 ### Server-Hosting
 

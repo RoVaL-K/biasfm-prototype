@@ -187,7 +187,9 @@ async function accountForIdentity(env, provider, identity) {
   const profile = {bio: '', avatarData: '', avatarUrl: identity.avatarUrl || '', ultBiasArtist: '', ultBiasMember: '', biasMemberId: '', favoriteArtists: [], biasLine: [], accentColor: '#38bdf8', fandomName: 'Eigener Profil-Akzent'};
   try {
     await env.DB.prepare(`INSERT INTO accounts (id, email, username, password_hash, profile_json, privacy_json, notification_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-      .bind(id, identity.email, username, `oauth$${provider}$${await randomId(24)}`, JSON.stringify(profile), JSON.stringify({profile: 'public', stats: 'private', activity: 'private', follows: 'public', favorites: 'public'}), JSON.stringify({release: true, announcement: false, reminder: true, social: false, product: true}), now, now).run();
+      .bind(id, identity.email, username, `oauth$${provider}$${await randomId(24)}`, JSON.stringify(profile), JSON.stringify({profile: 'public', stats: 'private', activity: 'private', follows: 'public', favorites: 'public', showNowPlaying: true}), JSON.stringify({release: true, announcement: false, reminder: true, social: false, product: true}), now, now).run();
+    await env.DB.prepare(`INSERT INTO account_activity_privacy (account_id, visibility, show_now_playing, updated_at) VALUES (?, 'private', 1, ?)`)
+      .bind(id, now).run();
   } catch (error) {
     if (!/unique|constraint/i.test(error?.message || '')) throw error;
     const retry = await env.DB.prepare('SELECT * FROM accounts WHERE email = ?').bind(identity.email).first();

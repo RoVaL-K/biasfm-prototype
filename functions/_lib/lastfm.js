@@ -1,5 +1,6 @@
 import {fail, fetchJson, readCookie, safeReturnTo} from './http.js';
 import {ensureSchema, readSession, requireAccount} from './auth.js';
+import {ingestListens} from './catalog-store.js';
 
 const OAUTH_COOKIE = 'biasfm_lastfm_oauth';
 const OAUTH_PREFIX = 'lastfm:oauth:';
@@ -227,6 +228,9 @@ function mapRecentTrack(track) {
     title,
     artist,
     album: String(track.album?.['#text'] || '').trim(),
+    artistMbid: String(track.artist?.mbid || '').trim(),
+    albumMbid: String(track.album?.mbid || '').trim(),
+    trackMbid: String(track.mbid || '').trim(),
     url: /^https:\/\/www\.last\.fm\//i.test(String(track.url || '')) ? track.url : `https://www.last.fm/music/${encodeURIComponent(artist)}`,
     image: imageFromLastfm(track.image),
     nowPlaying,
@@ -253,6 +257,24 @@ export async function activity(request, env) {
     const tracks = (Array.isArray(raw) ? raw : raw ? [raw] : []).map(mapRecentTrack).filter(Boolean);
     result.nowPlaying = tracks.find(track => track.nowPlaying) || null;
     result.recentTracks = tracks.filter(track => !track.nowPlaying).slice(0, 7);
+    try {
+      // Last.fm is the source of the raw scrobble. The resolver stores the
+      // original names and IDs, then attaches the listen to our catalog. No
+      // provider token or Spotify identifier enters the listens table.
+      result.persisted = await ingestListens(env.DB, row.id, tracks.filter(track => !track.nowPlaying).map(track => ({
+        sourceId: `${connection.username}:${track.playedAt || 'now'}:${track.artist}:${track.title}`,
+        playedAt: track.playedAt,
+        rawArtist: track.artist,
+        rawTitle: track.title,
+        rawAlbum: track.album,
+        rawArtistMbid: track.artistMbid,
+        rawAlbumMbid: track.albumMbid,
+        rawTrackMbid: track.trackMbid
+      })), {source: 'lastfm', externalUser: connection.username, period: 'recent'});
+    } catch {
+      result.partial = true;
+      result.persistenceWarning = true;
+    }
   } else {
     result.partial = true;
   }
@@ -277,6 +299,22 @@ export async function activity(request, env) {
     throw error?.status ? error : fail(502, 'Last.fm konnte deine Höraktivität gerade nicht laden.');
   }
   return result;
+}
+
+export async function publicNowPlaying(env, username) {
+  const normalized = String(username || '').trim();
+  if (!normalized) return null;
+  const cacheKey = `biasfm:public-now-playing:${normalized.toLowerCase()}`;
+  if (env.CACHE) {
+    const cached = await env.CACHE.get(cacheKey, 'json');
+    if (cached) return cached;
+  }
+  const body = await apiCall(env, {method: 'user.getRecentTracks', user: normalized, limit: '1', extended: '1'});
+  const raw = body?.recenttracks?.track;
+  const first = (Array.isArray(raw) ? raw : raw ? [raw] : []).map(mapRecentTrack).find(Boolean);
+  const current = first?.nowPlaying ? first : null;
+  if (env.CACHE) await env.CACHE.put(cacheKey, JSON.stringify(current), {expirationTtl: 30});
+  return current;
 }
 
 export {OAUTH_COOKIE, oauthCookie, md5};

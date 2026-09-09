@@ -1,4 +1,6 @@
 import {cookie, fail, fetchJson, readCookie, safeReturnTo} from './http.js';
+import {ensureSchema} from './auth.js';
+import {resolveCatalog} from './catalog-store.js';
 
 const SESSION_COOKIE = 'biasfm_spotify';
 const sessionKey = id => `spotify:${id}`;
@@ -165,6 +167,18 @@ export async function activity(request, env) {
     result.recentTracks = items.map(item => mapTrack(item, {playedAt: item.played_at})).filter(Boolean).slice(0, 7);
   } else {
     result.partial = true;
+  }
+  if (env.DB) {
+    await ensureSchema(env.DB);
+    // Spotify is a live enrichment source only. Its track ID is used by the
+    // provider request and link in this response, never written to listens.
+    const tracks = [result.nowPlaying, ...result.recentTracks].filter(Boolean);
+    await Promise.all(tracks.map(async track => {
+      try {
+        const canonical = await resolveCatalog(env.DB, {rawArtist: track.artist, rawTitle: track.title, rawAlbum: track.album}, {createStubs: false});
+        if (canonical.artist || canonical.track) track.catalog = canonical;
+      } catch {}
+    }));
   }
   if (!result.nowPlaying && !result.recentTracks.length && playerResult.status === 'rejected' && recentResult.status === 'rejected') {
     const error = playerResult.reason || recentResult.reason;

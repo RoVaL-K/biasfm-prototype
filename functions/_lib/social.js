@@ -1,6 +1,8 @@
 import {fail} from './http.js';
 import {ARTISTS} from './catalog.js';
-import {accountProfile, ensureSchema, readSession, requireAccount} from './auth.js';
+import {accountProfile, ensureSchema, readActivityPrivacy, readSession, requireAccount} from './auth.js';
+import {listListens} from './catalog-store.js';
+import {publicNowPlaying} from './lastfm.js';
 
 function artist(artistId) {
   const value = String(artistId || '').trim();
@@ -73,5 +75,22 @@ export async function publicProfile(request, env, username) {
   }
   if (privacy.favorites !== 'public') profile.favoriteArtists = [];
   if (privacy.stats !== 'public') delete profile.stats;
+  const {account: viewer} = await readSession(request, env);
+  const activityPolicy = await readActivityPrivacy(env.DB, row.id, privacy);
+  const activityAllowed = activityPolicy.visibility === 'public' || (activityPolicy.visibility === 'followers' && viewer?.userId);
+  profile.activityVisibility = activityPolicy.visibility;
+  profile.activityNowPlayingVisible = activityPolicy.showNowPlaying;
+  if (activityAllowed) {
+    profile.activity = await listListens(env.DB, row.id, 8);
+    if (activityPolicy.showNowPlaying) {
+      try {
+        const connection = await env.DB.prepare('SELECT username FROM lastfm_connections WHERE account_id = ?').bind(row.id).first();
+        if (connection?.username) {
+          const nowPlaying = await publicNowPlaying(env, connection.username);
+          if (nowPlaying) profile.nowPlaying = {...nowPlaying, source: 'lastfm'};
+        }
+      } catch {}
+    }
+  }
   return {profile};
 }
