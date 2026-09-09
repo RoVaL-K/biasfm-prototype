@@ -321,11 +321,12 @@ test('Improvement V3 routes expose discover, community, detail, list, support an
  try{
   w.biasApp.navigateTo('catalog');assert.equal(w.document.querySelectorAll('[data-v3-tab]').length,3);assert.ok(w.document.querySelector('#v3-discover-search'));assert.ok(w.document.querySelector('.v3-sort-control'));assert.equal(w.document.querySelector('.v3-filter-row .v3-sort-control'),null);
   const filterToggle=w.document.querySelector('[data-v3-filter-toggle]');assert.ok(filterToggle);filterToggle.click();assert.equal(w.document.querySelector('.v3-discover-filter-shell').classList.contains('is-open'),true);w.document.querySelector('[data-v3-filter-close]').click();assert.equal(w.document.querySelector('.v3-discover-filter-shell').classList.contains('is-open'),false);
-  w.biasApp.navigateTo('community');assert.equal(w.document.querySelector('#main-content h1').textContent,'Gemeinsam entdecken');assert.ok(w.document.querySelectorAll('.v3-group-card').length>=3);
+  w.biasApp.navigateTo('community');assert.equal(w.document.querySelector('#main-content h1').textContent,'Gemeinsam entdecken');assert.ok(w.document.querySelectorAll('.v3-group-card').length>=3);assert.ok(w.document.querySelector('[data-v3-discover]'));assert.ok(w.document.querySelector('[data-v3-mine]'));
   w.history.pushState(null,'','#artist/newjeans');w.biasApp.navigateTo('artist',false);assert.equal(w.document.querySelector('#main-content h1').textContent,'NewJeans');
-  w.history.pushState(null,'','#song/track-ditto');w.biasApp.navigateTo('song',false);assert.equal(w.document.querySelector('#main-content h1').textContent,'Ditto');
+  w.history.pushState(null,'','#song/track-ditto');w.biasApp.navigateTo('song',false);assert.equal(w.document.querySelector('#main-content h1').textContent,'Ditto');assert.ok(w.document.querySelector('[data-v3-item-stats]'));
   w.biasApp.navigateTo('lists');assert.equal(w.document.querySelector('#main-content h1').textContent,'Meine Listen');
   w.biasApp.navigateTo('support');assert.equal(w.document.querySelector('#main-content h1').textContent,'Support bias.fm');
+  w.biasApp.navigateTo('profile');assert.ok(w.document.querySelector('#v3-leaderboard-optin'));
   w.biasApp.navigateTo('settings');assert.ok(w.document.querySelector('[data-v3-security]'));
  }finally{close();}
 });

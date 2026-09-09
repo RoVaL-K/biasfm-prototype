@@ -199,8 +199,24 @@ export async function communityDirectory(request, env) {
     const posts = canViewPosts ? await env.DB.prepare(`SELECT p.*, a.username FROM community_posts p LEFT JOIN accounts a ON a.id = p.user_id WHERE p.group_id = ? AND p.deleted_at IS NULL AND NOT EXISTS (SELECT 1 FROM moderation_blocks b WHERE (b.blocker_id = ? AND b.blocked_id = p.user_id) OR (b.blocker_id = p.user_id AND b.blocked_id = ?)) AND NOT EXISTS (SELECT 1 FROM community_mutes m WHERE m.group_id = p.group_id AND m.user_id = p.user_id AND (m.expires_at IS NULL OR m.expires_at > ?)) ORDER BY p.pinned DESC, p.created_at DESC LIMIT 50`).bind(group.id, userId, userId, new Date().toISOString()).all() : {results: []};
     const requests = userId && await groupModerator(env.DB, group.id, userId) ? await env.DB.prepare(`SELECT r.id, r.user_id, r.message, r.status, r.created_at, a.username FROM community_join_requests r JOIN accounts a ON a.id = r.user_id WHERE r.group_id = ? AND r.status = 'pending' ORDER BY r.created_at ASC LIMIT 100`).bind(group.id).all() : {results: []};
     const modlog = userId && await groupModerator(env.DB, group.id, userId) ? await env.DB.prepare('SELECT action, target_type, target_id, reason, created_at FROM community_moderation_log WHERE group_id = ? ORDER BY created_at DESC LIMIT 100').bind(group.id).all() : {results: []};
+    const members = canViewPosts ? await env.DB.prepare(`SELECT m.user_id, m.role,
+      CASE WHEN m.status = 'active' AND EXISTS (SELECT 1 FROM community_mutes mute WHERE mute.group_id = m.group_id AND mute.user_id = m.user_id AND (mute.expires_at IS NULL OR mute.expires_at > ?)) THEN 'muted' ELSE m.status END AS status,
+      a.username, a.profile_json, a.privacy_json
+      FROM community_members m JOIN accounts a ON a.id = m.user_id
+      WHERE m.group_id = ? AND m.status IN ('active', 'muted', 'removed', 'banned')
+      ORDER BY CASE m.role WHEN 'owner' THEN 0 WHEN 'moderator' THEN 1 ELSE 2 END, a.username ASC LIMIT 500`).bind(new Date().toISOString(), group.id).all() : {results: []};
     const count = await env.DB.prepare("SELECT COUNT(*) AS member_count FROM community_members WHERE group_id = ? AND status = 'active'").bind(group.id).first();
-    return {group: publicGroup(group, count?.member_count), membership: member ? {role: member.role, status: member.status} : null, inviteValid: Boolean(invite), canViewPosts, posts: (posts.results || []).map(post => ({id: post.id, userId: post.user_id, body: post.body, linkUrl: post.link_url, linkType: post.link_type, pinned: Boolean(post.pinned), createdAt: post.created_at, author: post.username || 'Mitglied'})), joinRequests: (requests.results || []).map(requestRow => ({id: requestRow.id, userId: requestRow.user_id, username: requestRow.username, message: requestRow.message, createdAt: requestRow.created_at})), moderationLog: modlog.results || []};
+    return {group: publicGroup(group, count?.member_count), membership: member ? {role: member.role, status: member.status} : null, inviteValid: Boolean(invite), canViewPosts, posts: (posts.results || []).map(post => ({id: post.id, userId: post.user_id, body: post.body, linkUrl: post.link_url, linkType: post.link_type, pinned: Boolean(post.pinned), createdAt: post.created_at, author: post.username || 'Mitglied'})), members: (members.results || []).map(item => { const privacy = json(item.privacy_json); const profile = json(item.profile_json); const canShowAvatar = item.user_id === userId || privacy.profile === 'public'; return {userId: item.user_id, username: item.username, role: item.role, status: item.status, avatarUrl: canShowAvatar ? safeUrl(profile.avatarUrl) : '', profilePrivate: privacy.profile !== 'public'}; }), joinRequests: (requests.results || []).map(requestRow => ({id: requestRow.id, userId: requestRow.user_id, username: requestRow.username, message: requestRow.message, createdAt: requestRow.created_at})), moderationLog: modlog.results || []};
+  }
+  const mine = url.searchParams.get('mine') === '1';
+  if (mine) {
+    if (!userId) return {groups: [], me: null};
+    const rows = await env.DB.prepare(`SELECT g.*, COUNT(members.user_id) AS member_count
+      FROM community_groups g
+      JOIN community_members mine_member ON mine_member.group_id = g.id AND mine_member.user_id = ? AND mine_member.status = 'active'
+      LEFT JOIN community_members members ON members.group_id = g.id AND members.status = 'active'
+      GROUP BY g.id ORDER BY g.updated_at DESC LIMIT 100`).bind(userId).all();
+    return {groups: (rows.results || []).map(group => publicGroup(group, group.member_count)), me: userId};
   }
   const rows = await env.DB.prepare(`SELECT g.*, COUNT(m.user_id) AS member_count FROM community_groups g LEFT JOIN community_members m ON m.group_id = g.id AND m.status = 'active' WHERE g.visibility = 'public' GROUP BY g.id ORDER BY g.updated_at DESC LIMIT 100`).all();
   const groups = (rows.results || []).filter(group => !query || `${group.name} ${group.description}`.toLowerCase().includes(query)).map(group => publicGroup(group, group.member_count));
@@ -245,6 +261,7 @@ export async function communityWrite(request, env) {
     const invite = await validInvite(env.DB, group.id, token, now);
     if (!invite) throw fail(410, 'Diese Einladung ist abgelaufen oder wurde bereits verwendet.');
     const existing = await env.DB.prepare('SELECT status FROM community_members WHERE group_id = ? AND user_id = ?').bind(group.id, row.id).first();
+    if (existing?.status === 'banned') throw fail(403, 'Du bist aus dieser Gruppe gesperrt.');
     if (existing?.status === 'active') return {status: 'active'};
     const updated = await env.DB.prepare('UPDATE community_invites SET use_count = use_count + 1 WHERE id = ? AND expires_at > ? AND use_count < max_uses').bind(invite.id, now).run();
     if (!Number(updated?.meta?.changes || updated?.changes || 0)) throw fail(410, 'Diese Einladung ist abgelaufen oder wurde bereits verwendet.');
@@ -256,6 +273,7 @@ export async function communityWrite(request, env) {
     const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     if (await recentCount(env.DB, 'community_join_requests', 'user_id', row.id, cutoff) >= 10) throw fail(429, 'Du kannst höchstens zehn Beitrittsanfragen pro Tag senden.');
     const existing = await env.DB.prepare('SELECT status FROM community_members WHERE group_id = ? AND user_id = ?').bind(group.id, row.id).first();
+    if (existing?.status === 'banned') throw fail(403, 'Du bist aus dieser Gruppe gesperrt.');
     if (existing?.status === 'active') return {status: 'active'};
     if (group.join_mode === 'open') { await env.DB.prepare("INSERT INTO community_members (group_id, user_id, role, status, created_at, updated_at) VALUES (?, ?, 'member', 'active', ?, ?) ON CONFLICT(group_id,user_id) DO UPDATE SET status='active', updated_at=excluded.updated_at").bind(group.id, row.id, now, now).run(); return {status: 'active'}; }
     await env.DB.prepare('INSERT INTO community_join_requests (id, group_id, user_id, message, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(group_id,user_id) DO UPDATE SET message=excluded.message, status=\'pending\', updated_at=excluded.updated_at').bind(id('join'), group.id, row.id, text(input.message, 300), 'pending', now, now).run();
@@ -264,6 +282,8 @@ export async function communityWrite(request, env) {
   if (action === 'post') {
     const membership = await env.DB.prepare("SELECT role FROM community_members WHERE group_id = ? AND user_id = ? AND status = 'active'").bind(group.id, row.id).first();
     if (!membership) throw fail(403, 'Du musst der Gruppe beitreten, um zu posten.');
+    const muted = await env.DB.prepare('SELECT 1 FROM community_mutes WHERE group_id = ? AND user_id = ? AND (expires_at IS NULL OR expires_at > ?)').bind(group.id, row.id, now).first();
+    if (muted) throw fail(403, 'Du bist in dieser Gruppe vorübergehend stummgeschaltet.');
     if (!await isEmailVerified(env.DB, row.id)) throw fail(403, 'Bestätige zuerst deine E-Mail-Adresse, bevor du in Gruppen postest.');
     const memberCount = await env.DB.prepare("SELECT COUNT(*) AS count FROM community_members WHERE group_id = ? AND status = 'active'").bind(group.id).first();
     if (Number(memberCount?.count || 0) >= 500) {
@@ -288,6 +308,8 @@ export async function communityWrite(request, env) {
     const requestId = text(input.requestId, 120); const decision = input.decision === 'approve' ? 'approve' : input.decision === 'reject' ? 'reject' : '';
     if (!requestId || !decision) throw fail(400, 'Ungültige Moderationsentscheidung.');
     const joinRequest = await env.DB.prepare('SELECT user_id FROM community_join_requests WHERE id = ? AND group_id = ?').bind(requestId, group.id).first(); if (!joinRequest) throw fail(404, 'Beitrittsanfrage nicht gefunden.');
+    const existingMember = await env.DB.prepare('SELECT status FROM community_members WHERE group_id = ? AND user_id = ?').bind(group.id, joinRequest.user_id).first();
+    if (decision === 'approve' && existingMember?.status === 'banned') throw fail(403, 'Dieses Mitglied ist aus der Gruppe gesperrt.');
     await env.DB.prepare('UPDATE community_join_requests SET status = ?, updated_at = ? WHERE id = ?').bind(decision === 'approve' ? 'approved' : 'rejected', now, requestId).run();
     if (decision === 'approve') await env.DB.prepare("INSERT INTO community_members (group_id, user_id, role, status, created_at, updated_at) VALUES (?, ?, 'member', 'active', ?, ?) ON CONFLICT(group_id,user_id) DO UPDATE SET status='active', updated_at=excluded.updated_at").bind(group.id, joinRequest.user_id, now, now).run();
     return {status: decision === 'approve' ? 'active' : 'rejected'};
@@ -307,9 +329,14 @@ export async function communityWrite(request, env) {
     return {updated: true, decision};
   }
   if (action === 'moderate-member') {
-    if (!await groupModerator(env.DB, group.id, row.id)) throw fail(403, 'Nur Owner und Moderatoren können Mitglieder moderieren.');
+    const moderator = await env.DB.prepare("SELECT role FROM community_members WHERE group_id = ? AND user_id = ? AND status = 'active' AND role IN ('owner','moderator')").bind(group.id, row.id).first();
+    if (!moderator) throw fail(403, 'Nur Owner und Moderatoren können Mitglieder moderieren.');
     const target = text(input.userId, 120); const decision = ['mute', 'remove', 'ban', 'unban'].includes(input.decision) ? input.decision : '';
     if (!target || target === row.id || !decision) throw fail(400, 'Ungültige Mitgliederentscheidung.');
+    const targetMember = await env.DB.prepare('SELECT role, status FROM community_members WHERE group_id = ? AND user_id = ?').bind(group.id, target).first();
+    if (!targetMember) throw fail(404, 'Mitglied nicht gefunden.');
+    if (targetMember.role === 'owner') throw fail(403, 'Der Owner kann nicht moderiert werden.');
+    if (targetMember.role === 'moderator' && moderator.role !== 'owner') throw fail(403, 'Moderatoren können nur vom Owner verwaltet werden.');
     if (decision === 'mute') {
       const hours = Math.max(1, Math.min(168, Number(input.hours) || 24)); const expires = new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();
       await env.DB.prepare('INSERT INTO community_mutes (group_id, moderator_id, user_id, expires_at, reason, created_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(group_id,user_id) DO UPDATE SET moderator_id=excluded.moderator_id, expires_at=excluded.expires_at, reason=excluded.reason').bind(group.id, row.id, target, expires, text(input.reason, 500), now).run();
@@ -333,6 +360,27 @@ export async function listCollections(request, env) {
     if (!list || !['public', 'unlisted'].includes(list.visibility)) throw fail(404, 'Diese Liste ist nicht öffentlich verfügbar.');
     const rows = await env.DB.prepare('SELECT kind, entity_id, title, artist_name, note, position FROM user_list_items WHERE list_id = ? ORDER BY position ASC, created_at ASC').bind(list.id).all();
     return {list: {id: list.id, title: list.title, description: list.description, visibility: list.visibility, shareSlug: list.share_slug, updatedAt: list.updated_at, items: (rows.results || []).map(item => ({kind: item.kind, entityId: item.entity_id, title: item.title, artistName: item.artist_name, note: item.note}))}};
+  }
+  const itemKey = text(url.searchParams.get('item_key'), 180);
+  const itemType = text(url.searchParams.get('item_type'), 40);
+  if (itemKey && ['artist', 'release', 'song'].includes(itemType)) {
+    // Counts are intentionally anonymised. Only accounts that explicitly
+    // expose their favourites contribute to the public favourite count;
+    // private and follower-only favourites never leak through this endpoint.
+    const favoriteRows = await env.DB.prepare(`SELECT a.privacy_json
+      FROM saved_items s JOIN accounts a ON a.id = s.user_id
+      WHERE s.item_key = ? AND s.item_type = ? AND s.kind = 'favorite'`).bind(itemKey, itemType).all();
+    const favoriteCount = (favoriteRows.results || []).filter(item => json(item.privacy_json).favorites === 'public').length;
+    const listCount = await env.DB.prepare(`SELECT COUNT(DISTINCT l.id) AS count
+      FROM user_lists l JOIN user_list_items i ON i.list_id = l.id
+      WHERE l.visibility = 'public' AND i.entity_id = ? AND i.kind = ?`).bind(itemKey, itemType).first();
+    const {account: viewer} = await readSession(request, env);
+    let viewerSaved = false; let viewerFavorite = false;
+    if (viewer?.userId) {
+      const saved = await env.DB.prepare('SELECT kind FROM saved_items WHERE user_id = ? AND item_key = ? AND item_type = ?').bind(viewer.userId, itemKey, itemType).all();
+      for (const row of saved.results || []) { if (row.kind === 'saved') viewerSaved = true; if (row.kind === 'favorite') viewerFavorite = true; }
+    }
+    return {itemKey, itemType, favoriteCount, listCount: Number(listCount?.count || 0), viewer: {saved: viewerSaved, favorite: viewerFavorite}};
   }
   const {row} = await requireAccount(request, env);
   const lists = await env.DB.prepare('SELECT l.*, COUNT(i.entity_id) AS item_count FROM user_lists l LEFT JOIN user_list_items i ON i.list_id = l.id WHERE l.user_id = ? GROUP BY l.id ORDER BY l.updated_at DESC').bind(row.id).all();
@@ -387,7 +435,7 @@ export async function reviews(request, env) {
     const allValues = (rows.results || []).map(item => Number(item.score));
     const values = (rows.results || []).filter(item => Number(item.qualified) === 1).map(item => Number(item.score));
     const avg = values.length ? Math.round(values.reduce((a, b) => a + b, 0) / values.length * 10) / 10 : null;
-    return {count: allValues.length, qualifiedCount: values.length, average: values.length >= 5 ? avg : null, pending: allValues.length > 0 && allValues.length < 5, histogram: values.reduce((map, score) => { const bucket = Math.floor(score); map[bucket] = (map[bucket] || 0) + 1; return map; }, {}), items: (rows.results || []).map(item => ({id: item.id, score: Number(item.score), body: item.body, spoiler: Boolean(item.spoiler), edited: item.updated_at !== item.created_at, createdAt: item.created_at, username: item.username}))};
+    return {count: allValues.length, qualifiedCount: values.length, average: values.length >= 5 ? avg : null, pending: allValues.length > 0 && values.length < 5, histogram: values.reduce((map, score) => { const bucket = Math.floor(score); map[bucket] = (map[bucket] || 0) + 1; return map; }, {}), items: (rows.results || []).map(item => ({id: item.id, score: Number(item.score), body: item.body, spoiler: Boolean(item.spoiler), edited: item.updated_at !== item.created_at, createdAt: item.created_at, username: item.username}))};
   }
   const {row} = await requireAccount(request, env); const input = await body(request); const score = Number(input.score); if (!Number.isFinite(score) || score < 0 || score > 10 || Math.round(score * 10) !== score * 10) throw fail(400, 'Bewertungen sind von 0,0 bis 10,0 in 0,1-Schritten möglich.');
   const entityType = text(input.entityType, 30), entityId = text(input.entityId, 180); if (!entityType || !entityId) throw fail(400, 'Bewertungsobjekt fehlt.');
