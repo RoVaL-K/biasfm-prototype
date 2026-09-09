@@ -1516,7 +1516,8 @@ body.search-is-open .brand-search-cluster .search-trigger-btn:not(.search-input-
 .oauth-btn.is-disabled::after { display: none; }
 .oauth-icon { position: relative; z-index: 1; display: grid; place-items: center; flex: 0 0 32px; width: 32px; height: 32px; border: 1px solid color-mix(in srgb, var(--bias) 32%, var(--line)); border-radius: 50%; background: color-mix(in srgb, var(--bg-subtle) 78%, var(--bias) 22%); color: var(--fg-bright); font: 800 14px var(--font-sans); }
 .oauth-icon-google { color: #75a7ff; }
-.oauth-icon-discord { color: #9aafff; }
+.oauth-icon-discord { color: #5865f2; }
+.oauth-icon svg { display: block; width: 17px; height: 17px; fill: currentColor; }
 .oauth-btn-copy { position: relative; z-index: 1; display: grid; min-width: 0; gap: 1px; }
 .oauth-btn-copy strong { overflow: hidden; color: var(--fg-bright); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 .oauth-btn-copy small { color: var(--fg-dim); font-size: 11px; }
