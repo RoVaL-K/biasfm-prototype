@@ -208,10 +208,24 @@
       if (!cluster) return;
       const rect = anchor.getBoundingClientRect();
       const clusterRect = cluster.getBoundingClientRect();
-      const viewportPadding = window.innerWidth <= 600 ? 10 : 16;
-      const panelWidth = Math.min(720, Math.max(rect.width, window.innerWidth - rect.left - viewportPadding));
-      const left = Math.max(0, Math.round(rect.left - clusterRect.left));
-      const startWidth = Math.max(1, Math.round(rect.width || 112));
+      // On mobile the browser's visual viewport can be narrower than the
+      // layout viewport (especially while the keyboard is open). Measure from
+      // the actual viewport edge and calculate the available width from the
+      // absolute anchor position. The previous calculation could use the
+      // trigger width as a fallback and let the in-place surface run past the
+      // right edge on narrow devices.
+      const visualViewportWidth = Number(window.visualViewport?.width) || 0;
+      const layoutViewportWidth = Number(document.documentElement?.clientWidth) || Number(window.innerWidth) || 0;
+      const viewportWidth = Math.max(1, Math.round(visualViewportWidth || layoutViewportWidth));
+      const viewportPadding = 16;
+      const rawLeft = Math.round(rect.left - clusterRect.left);
+      const triggerWidth = Math.max(1, Math.round(rect.width || 112));
+      const maxLeft = Math.max(0, Math.floor(viewportWidth - clusterRect.left - viewportPadding - Math.min(triggerWidth, viewportWidth)));
+      const left = Math.max(0, Math.min(rawLeft, maxLeft));
+      const absoluteLeft = clusterRect.left + left;
+      const availableWidth = Math.max(1, Math.floor(viewportWidth - absoluteLeft - viewportPadding));
+      const panelWidth = Math.min(720, availableWidth);
+      const startWidth = Math.min(triggerWidth, panelWidth);
       const height = Math.max(40, Math.round(rect.height || 44));
       const widthValue = `${Math.round(panelWidth)}px`;
       const leftValue = `${left}px`;
@@ -221,11 +235,13 @@
       this.searchShell?.style.setProperty('--search-start-width', startValue);
       this.searchShell?.style.setProperty('--search-panel-width', widthValue);
       this.searchShell?.style.setProperty('--search-surface-width', widthValue);
+      this.searchShell?.style.setProperty('--search-available-width', widthValue);
       this.searchShell?.style.setProperty('--search-shell-height', heightValue);
       panel.style.setProperty('--search-shell-left', leftValue);
       panel.style.setProperty('--search-start-width', startValue);
       panel.style.setProperty('--search-panel-width', widthValue);
       panel.style.setProperty('--search-surface-width', widthValue);
+      panel.style.setProperty('--search-available-width', widthValue);
       panel.style.setProperty('--search-shell-height', heightValue);
     }
 
@@ -383,9 +399,13 @@
       panel.setAttribute('aria-hidden', 'false');
       document.body.classList.add('search-is-open');
       if (!this._resizeBound) {
-        window.addEventListener('resize', () => {
+        this._refreshSearchPosition = () => {
           if (this.isModalOpen) this.positionOmnisearch(this.searchPanel, this.searchPlaceholder || this.searchShell);
-        }, { passive: true });
+        };
+        window.addEventListener('resize', this._refreshSearchPosition, { passive: true });
+        // visualViewport resize fires when the mobile keyboard changes the
+        // usable viewport without changing window.innerWidth.
+        window.visualViewport?.addEventListener('resize', this._refreshSearchPosition, { passive: true });
         this._resizeBound = true;
       }
       requestAnimationFrame(() => {

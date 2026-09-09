@@ -1463,6 +1463,43 @@ body.search-is-open .brand-search-cluster .search-trigger-btn:not(.search-input-
   .header-login, .header-login::before, .header-login-icon { animation: none; transition: none; }
 }
 
+/* Mobile search bounds: keep the in-place morph inside the visual viewport.
+   The shell and its suggestions share one measured width, so neither can
+   create a horizontal overflow when the keyboard or a narrow device reduces
+   the available space. */
+@media (max-width: 680px) {
+  .main-header,
+  .nav-wrap,
+  .brand-search-cluster { min-width: 0; max-width: 100%; }
+
+  .brand-search-cluster .search-input-shell,
+  .brand-search-cluster .omnisearch-dialog {
+    min-width: 0;
+    max-width: var(--search-available-width, calc(100vw - 16px));
+    box-sizing: border-box;
+  }
+
+  .brand-search-cluster .search-input-shell.is-expanded,
+  .brand-search-cluster .search-input-shell.is-open,
+  .brand-search-cluster .omnisearch-dialog,
+  .brand-search-cluster .omnisearch-dialog.is-open {
+    width: var(--search-available-width, calc(100vw - 16px));
+  }
+
+  .brand-search-cluster .search-input-shell #omnisearch-input {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .brand-search-cluster .omnisearch-body {
+    width: 100%;
+    max-width: 100%;
+    max-height: min(62dvh, calc(100dvh - 76px));
+  }
+}
+
 /* Account access — the same pill, glow and spring language as the top bar. */
 .auth-modal-backdrop {
   align-items: center;
