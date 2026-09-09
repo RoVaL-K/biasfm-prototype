@@ -197,10 +197,6 @@ button:focus-visible,a:focus-visible,summary:focus-visible,select:focus-visible,
 .daily-answer { font-size:28px;color:var(--bias);margin:20px 0; }
 .stats-provider-choices { display:flex;gap:12px;margin:20px 0;flex-wrap:wrap; }
 .stats-provider-choices button[aria-pressed="true"] { border-color:var(--bias); }
-.history-file-import { margin-top:20px;padding-top:20px;border-top:1px solid var(--line); }
-.history-file-import h3 { margin-bottom:8px; }
-.history-file-import input[type="file"] { min-height:44px; }
-.history-import-progress { display:block;width:100%;height:8px;margin-top:14px;accent-color:var(--bias); }
 .sr-only { position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0; }
 .custom-accent-row { margin-top:20px;padding-top:20px;border-top:1px solid var(--line); }
 .custom-accent-row .inline-error { color:var(--error,#ff7b72); }

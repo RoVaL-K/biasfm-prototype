@@ -30,7 +30,7 @@ Ohne Last.fm-Schlüssel funktioniert der öffentliche ListenBrainz-Import; Last.
 - Suchaliase bleiben nach einem Neuladen wirksam.
 - Tagesrätsel wechselt um Mitternacht in Korea. Antworten müssen einen vollständigen hinterlegten Titel treffen. Zusätzliche Hinweise nach dem ersten und dritten Versuch ersetzen das vorherige unechte Cover-Rätsel.
 - Echter Import öffentlicher Hördaten mit Lade-, Abbruch-, Leer- und Fehlerzuständen. Ergebnisse bleiben nur für die Sitzung verfügbar; der Server hält Antworten höchstens fünf Minuten im Arbeitsspeicher vor.
-- Spotify Extended History kann als JSON oder ZIP lokal eingelesen werden. Duplikate, fehlende Abspielwerte und nicht zugeordnete Artists werden transparent behandelt; die Dateien verlassen den Browser nicht.
+- Spotify-Hördaten werden nicht als Statistikquelle importiert. Die Spotify-Verbindung ist auf freiwillige Live-Anzeige, Profil-/Playlist-Links und den direkten Weg zurück zu Spotify begrenzt.
 - Statistik als PNG herunterladen oder als Text kopieren.
 - Verbesserte Tastaturaktionen, Dialogfokus, reduzierte Bewegung und sichere Anzeige von Nutzereingaben.
 
@@ -41,6 +41,12 @@ ListenBrainz liefert bis zu 1.000 zuletzt übermittelte Plays. Last.fm liefert K
 Der Abgleich verwendet Namen und im Katalog hinterlegte Aliase. Nicht zugeordnete Plays können weitere koreanische Musik enthalten. Der angezeigte Wert ist daher eine katalogbasierte Schätzung innerhalb der geladenen Daten, kein vollständig ermittelter Korea-Gesamtanteil. Nutzerdefinierte Suchaliase sind nur Teil der persönlichen Suche, nicht des serverseitigen Statistik-Abgleichs.
 
 Offizielle Schnittstellenbeschreibung: [Last.fm user.getTopArtists](https://www.last.fm/api/show/user.getTopArtists) und [ListenBrainz listens](https://listenbrainz.readthedocs.io/en/latest/users/api/core.html).
+
+### Provider-sichere Hördaten
+
+Der Katalog und persönliche Hördaten bleiben getrennt. Der Katalog verwendet MusicBrainz-IDs, wenn sie vorhanden sind; ein Listen-Ereignis darf zunächst die rohen Artist-/Titelangaben behalten und später auf einen Katalogeintrag zeigen. Nicht auflösbare Angaben dürfen als Stub erhalten bleiben und später zusammengeführt werden. Spotify ist dabei nur eine freiwillige Live-Anreicherung nach OAuth: aktueller Titel, kurze zuletzt-gehört-Anzeige und ein Link zurück zu Spotify. Spotify wird nicht als dauerhafte Statistik-, Ranking- oder Community-Chartquelle verwendet und nicht nach Artists oder Tracks gecrawlt. Diese Trennung folgt den [Spotify Developer Terms](https://developer.spotify.com/terms) und der [Spotify Developer Policy](https://developer.spotify.com/policy), insbesondere den Vorgaben gegen Scraping, dauerhafte Kopien und abgeleitete Hörmetriken.
+
+Für eine spätere eigene MusicBrainz-Kopie ist nur `mbdump.tar.bz2` (Kerndaten) unter [CC0](https://musicbrainz.org/doc/About/Data_License) unkritisch. `mbdump-derived.tar.bz2` und weitere Zusatz-Dumps stehen unter [CC BY-NC-SA 3.0](https://musicbrainz.org/doc/MusicBrainz_Database/Download); sie benötigen Namensnennung, dürfen nicht ohne passende Erlaubnis kommerziell genutzt werden und müssen bei abgeleiteten Daten unter derselben Lizenz bleiben. Cover-Art ist nicht Bestandteil des MusicBrainz-Kerndumps und wird separat lizenziert.
 
 ## Daten und offene Voraussetzungen
 
@@ -87,7 +93,7 @@ Die Tests verwenden den echten HTTP-Handler und die tatsächlichen Oberflächenm
 Die Funktionen aus `improvementV1.md` wurden weiter umgesetzt:
 
 - **Spotify-Profil und Playlist-Links:** geprüfte `open.spotify.com`-URLs, persistente Sammlung, Duplikatprüfung und Entfernen.
-- **Spotify-Anmeldung:** Authorization Code mit PKCE, einmaliger State, HttpOnly-/SameSite-Cookie, serverseitige Tokens, Token-Erneuerung, aktuelle Benutzer-Playlists mit Seitennavigation, Fehlermeldungen bei fehlender Freigabe sowie Verbindung trennen. Keine Anforderung von E-Mail, Wiedergabe- oder Schreibrechten. Sitzungen liegen im Arbeitsspeicher und enden spätestens nach sieben Tagen oder bei einem Serverneustart.
+- **Spotify-Anmeldung:** Authorization Code mit PKCE, einmaliger State, HttpOnly-/SameSite-Cookie, serverseitige Tokens, Token-Erneuerung, aktuelle Benutzer-Playlists mit Seitennavigation, freiwillige Live-Anzeige, Fehlermeldungen bei fehlender Freigabe sowie Verbindung trennen. Keine Anforderung von E-Mail-, Wiedergabe- oder Schreibrechten. Sitzungen liegen im Arbeitsspeicher und enden spätestens nach sieben Tagen oder bei einem Serverneustart; Live-Antworten werden nicht im Provider-Cache abgelegt.
 - **Live-Radar:** MusicBrainz-Veröffentlichungen im Zeitraum von 90 Tagen vor bis 90 Tagen nach dem Abruf. Alle 14 Katalog-Künstler sind mit geprüften MusicBrainz-IDs zugeordnet; namensgleiche ausländische Künstler werden nicht übernommen. Jeder Release verweist auf die Quelle. Unvollständige Datumsangaben werden ausgelassen. MusicBrainz-Inhalte sind gemeinschaftlich gepflegte Metadaten, keine Zusage einer vollständigen Comeback-Liste.
 - **Last.fm-Tag-Charts:** Top-Titel für k-pop, k-indie, k-hiphop und k-rnb, mit Quelle und Abrufdatum. Es handelt sich nicht um eine Wochenchart oder eine eigene bias.fm-Community-Aggregation. Benötigt Last.fm-Schlüssel.
 - **Öffentliche Redaktion:** Entwurf/Veröffentlichung, Quellenpflicht, Release-Phasen, Bearbeiten und Löschen. Speicherung als atomar aktualisierte JSON-Datei unter `DATA_DIR`; Versionen verhindern das Überschreiben fremder zwischenzeitlicher Änderungen. Ein gemeinsamer Redaktionsschlüssel schützt Schreibzugriffe; dies ist keine individuelle Mitarbeiterkontenverwaltung.
@@ -106,7 +112,7 @@ Weitere Werte in `.env`:
 
 - `LASTFM_API_KEY`: Betreiber-Schlüssel für Hörstatistik und Charts.
 - `LASTFM_API_SECRET`: Server-seitiger Last.fm-Secret für die optionale Konto-Verknüpfung. Die Last.fm-Callback-URL lautet `https://biasfm-prototype.pages.dev/api/lastfm/callback`.
-- `SPOTIFY_CLIENT_ID`: Client-ID der eigenen Spotify-App. Im Spotify-Dashboard muss `<APP_ORIGIN>/api/spotify/callback` als Rücksprungadresse registriert sein. Lokal `http://127.0.0.1:3000/api/spotify/callback`, nicht `localhost`.
+- `SPOTIFY_CLIENT_ID`: Client-ID der eigenen Spotify-App. Im Spotify-Dashboard muss `<APP_ORIGIN>/api/spotify/callback` als Rücksprungadresse registriert sein. Lokal `http://127.0.0.1:3000/api/spotify/callback`, nicht `localhost`. Die API-Verbindung fragt nur die für Live-Anzeige und Playlists nötigen Daten ab; Hördaten werden nicht dauerhaft in der bias.fm-Statistik gespeichert.
 - `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`: OAuth-Client für Google. Als autorisierte Rücksprungadresse `https://biasfm-prototype.pages.dev/api/auth/google/callback` und für den GitHub-Pages-Mirror ebenfalls dieselbe Cloudflare-Adresse verwenden. Der Login fordert nur `openid email profile` an.
 - `DISCORD_CLIENT_ID` / `DISCORD_CLIENT_SECRET`: OAuth-Client für Discord. Als Rücksprungadresse `https://biasfm-prototype.pages.dev/api/auth/discord/callback` eintragen und die Scopes `identify` und `email` erlauben. Discord muss eine bestätigte E-Mail-Adresse liefern, damit ein Account sicher mit einem bestehenden E-Mail-Konto zusammengeführt werden kann.
 - `APP_ORIGIN`: tatsächlicher Ursprung der Website. Produktion: HTTPS; lokal: Loopback-IP. Bei einer anderen lokalen Portnummer beide Angaben entsprechend setzen.
@@ -125,7 +131,7 @@ Für Docker einen dauerhaften Datenträger nach `/app/.data` einbinden, `APP_ORI
 
 ### Nachweise und Grenzen
 
-26 automatisierte Tests prüfen die Hauptabläufe, Spotify-PKCE und Session-Isolation, Playlist-Daten, Redaktionsrechte, Speicherung über Serverneustarts, Versionskonflikte, Themes, lokalen Spotify-Import und eindeutige Release-Zuordnung. Der MusicBrainz-Liveabruf lieferte im Test acht passende Einträge. Home, Charts, Radar, Katalog, Daily-Modi, Stats-Connect/Import, Profil, Themes und Curation wurden zusätzlich im Browser geprüft. Die Namenszuordnung in Hörstatistiken nutzt MusicBrainz-IDs, wenn der Dienst sie mitliefert; andernfalls bleibt sie eine offengelegte Schätzung anhand der Namen.
+26 automatisierte Tests prüfen die Hauptabläufe, Spotify-PKCE und Session-Isolation, Playlist-Daten, Redaktionsrechte, Speicherung über Serverneustarts, Versionskonflikte, Themes und eindeutige Release-Zuordnung. Der MusicBrainz-Liveabruf lieferte im Test acht passende Einträge. Home, Charts, Radar, Katalog, Daily-Modi, Stats-Connect, Profil, Themes und Curation wurden zusätzlich im Browser geprüft. Die Namenszuordnung in Hörstatistiken nutzt MusicBrainz-IDs, wenn der Dienst sie mitliefert; andernfalls bleibt sie eine offengelegte Schätzung anhand der Namen.
 
 Verwendete Primärdokumentation: [Spotify PKCE](https://developer.spotify.com/documentation/web-api/tutorials/code-pkce-flow), [Benutzer-Playlists](https://developer.spotify.com/documentation/web-api/reference/get-a-list-of-current-users-playlists), [Spotify-Änderungen 2026](https://developer.spotify.com/documentation/web-api/tutorials/february-2026-migration-guide), [Rücksprungadressen](https://developer.spotify.com/documentation/web-api/concepts/redirect_uri), [MusicBrainz-Suchfelder](https://musicbrainz.org/doc/Indexed_Search_Syntax), [Last.fm-Tag-Charts](https://www.last.fm/api/show/tag.getTopTracks).
 

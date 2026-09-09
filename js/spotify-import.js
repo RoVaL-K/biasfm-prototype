@@ -1,5 +1,7 @@
-// js/spotify-import.js — local Spotify Extended History (.json / .zip) reader
-// Files stay in the browser. Nothing from this flow is uploaded to bias.fm.
+// js/spotify-import.js — legacy parser kept for migration tests only.
+// It is intentionally not loaded by index.html: Spotify-derived listening
+// metrics are not a supported production flow. Nothing from this fixture is
+// uploaded to bias.fm.
 (function (root) {
   const decoder = new TextDecoder();
 

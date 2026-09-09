@@ -14,6 +14,9 @@ function app(saved={}) {
   w.scrollTo=()=>{};w.HTMLElement.prototype.scrollIntoView=()=>{};w.TextEncoder=TextEncoder;w.AbortController=AbortController;
   for(const [key,value] of Object.entries(saved)) w.localStorage.setItem(key,value);
   for(const match of html.matchAll(/<script src="([^"]+)"/g)) {const script=w.document.createElement('script');script.textContent=fs.readFileSync(match[1],'utf8');new (require('node:vm').Script)(script.textContent);w.document.body.appendChild(script);}
+  // Keep the parser covered as a migration fixture without shipping a
+  // Spotify-history import flow in the production page.
+  const spotifyImport=w.document.createElement('script');spotifyImport.textContent=fs.readFileSync('js/spotify-import.js','utf8');w.document.body.appendChild(spotifyImport);
   w.biasApp.init();
   return {w,close:()=>w.close()};
 }

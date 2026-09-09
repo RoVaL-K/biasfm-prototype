@@ -12,7 +12,7 @@
           ${this.provider==='lastfm'?`<div class="form-group"><label for="listening-period">Zeitraum</label><select id="listening-period" class="select-input">${[['7day','7 Tage'],['1month','1 Monat'],['3month','3 Monate'],['12month','1 Jahr'],['overall','Gesamter Verlauf']].map(([id,label])=>`<option value="${id}" ${this.period===id?'selected':''}>${label}</option>`).join('')}</select></div>`:''}<div class="import-actions"><button class="btn btn-accent" type="submit" ${this.loading ? 'disabled' : ''}>${this.loading ? 'Hörhistorie wird geladen …' : r ? 'Daten aktualisieren' : 'Öffentliche Historie ansehen'}</button>${this.loading ? '<button type="button" class="btn btn-ghost" id="cancel-import">Abbrechen</button>' : ''}${r ? '<button type="button" class="btn btn-ghost" id="clear-stats">Ergebnis entfernen</button>' : ''}</div>
           <p role="status" class="section-note">${this.loading ? 'Deine Daten werden beim ausgewählten Dienst abgefragt. Das kann einen Moment dauern.' : 'Das Ergebnis bleibt nur für diese Sitzung geöffnet. Deine Zugangsdaten werden nicht benötigt.'}</p>
           ${this.error ? `<div role="alert" class="inline-error">${esc(this.error)}</div>` : ''}
-        </form><details class="section-note"><summary>Warum kein Spotify-Pflichtlogin?</summary><p>Eine Spotify-Anmeldung liefert nicht automatisch deinen vollständigen Hörverlauf. Für die Statistik nutzen wir öffentliche Scrobbles von Last.fm oder ListenBrainz. Die Spotify-Verbindung in deinen Einstellungen ist für Profil und Playlists gedacht.</p></details><section class="history-file-import" aria-labelledby="history-import-title"><h3 id="history-import-title">Spotify-Hörhistorie importieren</h3><p class="section-note">Wähle JSON-Dateien oder ein ZIP aus dem Spotify-Privacy-Export. Die Datei wird nur lokal verarbeitet und nicht hochgeladen.</p><div class="inline-form"><input type="file" id="history-file" accept=".json,.zip,application/json,application/zip" class="text-input"><button type="button" class="btn btn-ghost" id="history-import-btn">Datei auswerten</button></div><progress id="history-import-progress" class="history-import-progress" max="1" hidden aria-label="Spotify-Datei wird ausgewertet"></progress><p id="history-import-status" class="section-note" role="status">Unterstützt Spotify Extended History mit <code>master_metadata_…</code>-Feldern.</p></section></div>
+        </form><details class="section-note"><summary>Warum kein Spotify-Pflichtlogin?</summary><p>Eine Spotify-Anmeldung liefert nicht automatisch deinen vollständigen Hörverlauf. Für die Statistik nutzen wir öffentliche Scrobbles von Last.fm oder ListenBrainz. Die Spotify-Verbindung in deinen Einstellungen ist ausschließlich für freiwillige Live-Anzeige, Profil und Playlists gedacht; Spotify-Hördaten werden nicht in bias.fm-Statistiken importiert.</p></details></div>
         ${r ? this.renderResult(r) : `<div class="stats-empty"><span class="stats-empty-icon">◌</span><h2>Dein Hörprofil wartet auf dich.</h2><p>Nach dem Import siehst du erkannte koreanische Künstler, ihre Plays und die Genre-Verteilung.</p><a class="btn btn-ghost" href="#catalog">Den Katalog entdecken →</a></div>`}
       </div>`;
       container.querySelector('#listening-form').addEventListener('submit', e => this.handleConnect(e));
@@ -23,7 +23,6 @@
       container.querySelector('#share-stats')?.addEventListener('click', () => this.openShareCard());
       container.querySelector('#clear-stats')?.addEventListener('click', () => {this.result = null; this.error = ''; this.render(container);});
       container.querySelector('#cancel-import')?.addEventListener('click', () => this.controller?.abort());
-      container.querySelector('#history-import-btn')?.addEventListener('click', () => this.handleFileImport(container));
     }
     renderResult(r) {
       if (!r.totalScrobbles) return '<div class="stats-empty"><h2>Noch keine Plays vorhanden.</h2><p>Für dieses Profil liefert der Dienst im ausgewählten Zeitraum keine Hörhistorie.</p></div>';
@@ -46,21 +45,6 @@
         this.result = await biasApi.request(`api/listening?${new URLSearchParams({provider:this.provider,username:this.username,period:this.period})}`,{signal:this.controller.signal});
       } catch(err) { this.error = err.name === 'AbortError' ? 'Import abgebrochen. Du kannst ihn jederzeit neu starten.' : err.message; }
       finally {clearTimeout(timeout);this.loading = false;if (biasApp.currentRoute === 'stats') this.render(container);}
-    }
-    async handleFileImport(container) {
-      const input=container.querySelector('#history-file'),status=container.querySelector('#history-import-status'),button=container.querySelector('#history-import-btn'),progress=container.querySelector('#history-import-progress');
-      const file=input?.files?.[0];
-      if(!file){status.textContent='Bitte zuerst eine .json- oder .zip-Datei auswählen.';status.classList.add('inline-error');return;}
-      button.disabled=true;progress.hidden=false;progress.removeAttribute('value');status.classList.remove('inline-error');status.textContent='Datei wird lokal gelesen …';
-      try {
-        const parsed=await biasSpotifyImport.read(file);
-        const result=biasCore.summarizeListening(parsed.rows,{provider:'spotify-import',username:'Lokaler Spotify-Import',periodLabel:'Spotify Extended History',sample:false,importedFile:file.name,importedRows:parsed.rows.length,skippedRows:parsed.skipped});
-        if(!result.totalScrobbles)throw new Error('In der Datei wurden keine abspielbaren Titel gefunden.');
-        this.result=result;this.error='';this.username='';
-        biasApp.showToast(`${parsed.rows.length.toLocaleString('de-DE')} Spotify-Einträge lokal ausgewertet.`);
-        this.render(container);
-      } catch(error) {status.textContent=error.message;status.classList.add('inline-error');}
-      finally {button.disabled=false;if(progress?.isConnected)progress.hidden=true;}
     }
     openShareCard() {if(this.result?.totalScrobbles) biasModals.openShareCardModal(this.result);}
   }
