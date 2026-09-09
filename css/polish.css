@@ -1100,9 +1100,17 @@ body { background: var(--bg-gradient); color: var(--fg); }
 .main-header .notification-trigger,
 .main-header .header-login,
 .main-header .mobile-toggle,
-.main-header .search-trigger-btn:not(.search-input-shell) {
+.main-header .search-trigger-btn:not(.search-input-shell),
+.main-header .account-menu > summary,
+.main-header .account-menu-item,
+.mobile-drawer .drawer-link,
+.mobile-drawer button,
+.listen-menu summary,
+.listen-menu a {
   user-select: none;
   -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 @media (max-width: 480px) {
