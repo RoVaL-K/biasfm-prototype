@@ -280,21 +280,60 @@
 
   function authModal(mode = 'login') {
     const signup = mode === 'signup';
-    const modal = root.biasModals.createModalContainer(`<div class="modal-header"><span class="pill pill-accent">${signup ? 'Neues Konto' : 'Willkommen zurück'}</span><h2>${signup ? 'Dein bias.fm-Konto' : 'Bei bias.fm anmelden'}</h2><p>${signup ? 'Synchronisiere Profil, Follows und Benachrichtigungen über deine Geräte.' : 'Deine lokale Profilkarte bleibt auch ohne Konto nutzbar.'}</p></div><div id="account-oauth-options" class="oauth-options" aria-live="polite"></div><div class="oauth-divider"><span>oder mit E-Mail</span></div><form id="account-auth-form" class="studio-form"><label class="form-label" for="account-email">E-Mail</label><input class="text-input" id="account-email" type="email" autocomplete="email" required><label class="form-label" for="account-password">Passwort</label><input class="text-input" id="account-password" type="password" minlength="10" autocomplete="${signup ? 'new-password' : 'current-password'}" required>${signup ? '<label class="form-label" for="account-username">Username</label><input class="text-input" id="account-username" pattern="[a-z0-9_-]{3,20}" minlength="3" maxlength="20" required><p class="section-note">3–20 Kleinbuchstaben, Zahlen, - oder _.</p>' : ''}<button class="btn btn-accent" type="submit">${signup ? 'Konto erstellen' : 'Anmelden'}</button><p id="account-auth-error" class="inline-error" role="alert" hidden></p></form><div class="auth-switch"><span>${signup ? 'Schon ein Konto?' : 'Noch kein Konto?'}</span><button type="button" class="text-action" id="account-auth-switch">${signup ? 'Anmelden' : 'Konto erstellen'}</button></div><p class="section-note">Du kannst weiterhin alle lokalen Funktionen ohne Konto verwenden. Keine Newsletter und keine automatische Veröffentlichung.</p>`);
+    const modal = root.biasModals.createModalContainer(`<div class="auth-modal-content">
+      <div class="auth-modal-brand" aria-label="bias.fm Account"><span class="auth-brand-dot" aria-hidden="true"></span><strong>bias.fm</strong><span class="auth-brand-label">ACCOUNT</span></div>
+      <header class="auth-modal-header">
+        <span class="pill pill-accent auth-modal-kicker">${signup ? 'Neues Konto' : 'Willkommen zurück'}</span>
+        <h2 class="auth-modal-title">${signup ? 'Dein bias.fm-Konto' : 'Bei bias.fm anmelden'}</h2>
+        <p class="auth-modal-subtitle">${signup ? 'Profil, Follows und Benachrichtigungen geräteübergreifend synchronisieren.' : 'Deine lokale Profilkarte bleibt auch ohne Konto nutzbar.'}</p>
+      </header>
+      <div class="auth-mode-switch" role="tablist" aria-label="Konto-Zugang">
+        <button type="button" role="tab" id="account-auth-login" aria-selected="${signup ? 'false' : 'true'}" class="auth-mode-tab ${signup ? '' : 'is-active'}">Einloggen</button>
+        <button type="button" role="tab" id="account-auth-signup" aria-selected="${signup ? 'true' : 'false'}" class="auth-mode-tab ${signup ? 'is-active' : ''}">Registrieren</button>
+      </div>
+      <section class="auth-social-section" aria-labelledby="auth-social-title">
+        <div class="auth-section-heading"><span id="auth-social-title">Schnell anmelden</span><span>Optional</span></div>
+        <div id="account-oauth-options" class="oauth-options" aria-live="polite"></div>
+      </section>
+      <div class="oauth-divider"><span>oder mit E-Mail</span></div>
+      <form id="account-auth-form" class="studio-form auth-form">
+        <div class="auth-field"><label class="form-label" for="account-email">E-Mail-Adresse</label><div class="auth-input-wrap"><span class="auth-field-icon" aria-hidden="true">@</span><input class="text-input" id="account-email" type="email" autocomplete="email" placeholder="du@beispiel.de" required></div></div>
+        <div class="auth-field"><div class="auth-label-row"><label class="form-label" for="account-password">Passwort</label>${signup ? '<span class="auth-field-hint">Mindestens 10 Zeichen</span>' : ''}</div><div class="auth-input-wrap"><span class="auth-field-icon auth-lock-icon" aria-hidden="true">⌁</span><input class="text-input" id="account-password" type="password" minlength="10" autocomplete="${signup ? 'new-password' : 'current-password'}" placeholder="Dein Passwort" required><button type="button" class="auth-password-toggle" data-toggle-password aria-label="Passwort anzeigen">Anzeigen</button></div></div>
+        ${signup ? '<div class="auth-field"><label class="form-label" for="account-username">Username</label><div class="auth-input-wrap"><span class="auth-field-icon" aria-hidden="true">#</span><input class="text-input" id="account-username" pattern="[a-z0-9_-]{3,20}" minlength="3" maxlength="20" autocomplete="username" placeholder="dein_username" required></div><span class="auth-field-hint auth-field-hint-block">3–20 Kleinbuchstaben, Zahlen, - oder _.</span></div>' : ''}
+        <button class="btn btn-accent auth-submit" type="submit"><span class="auth-submit-label">${signup ? 'Konto erstellen' : 'Anmelden'}</span><span class="auth-submit-arrow" aria-hidden="true">↗</span></button>
+        <p id="account-auth-error" class="inline-error auth-error" role="alert" hidden></p>
+      </form>
+      <div class="auth-switch"><span>${signup ? 'Schon ein Konto?' : 'Noch kein Konto?'}</span><button type="button" class="text-action" id="account-auth-switch">${signup ? 'Anmelden' : 'Konto erstellen'}</button></div>
+      <p class="auth-footnote"><span class="auth-footnote-dot" aria-hidden="true"></span> Ohne Konto bleiben lokale Entdecken- und Rätsel-Funktionen verfügbar.</p>
+    </div>`);
+    modal.classList.add('auth-modal-backdrop');
+    modal.querySelector('.modal-card')?.classList.add('auth-modal-card');
     renderOAuthOptions(modal);
     root.biasAccount?.loadProviders().then(() => renderOAuthOptions(modal));
+    modal.querySelector('#account-auth-login').onclick = () => { if (signup) authModal('login'); };
+    modal.querySelector('#account-auth-signup').onclick = () => { if (!signup) authModal('signup'); };
     modal.querySelector('#account-auth-switch').onclick = () => authModal(signup ? 'login' : 'signup');
+    modal.querySelector('[data-toggle-password]').onclick = event => {
+      const input = modal.querySelector('#account-password');
+      const visible = input.type === 'text';
+      input.type = visible ? 'password' : 'text';
+      event.currentTarget.textContent = visible ? 'Anzeigen' : 'Verbergen';
+      event.currentTarget.setAttribute('aria-label', visible ? 'Passwort anzeigen' : 'Passwort verbergen');
+    };
     modal.querySelector('#account-auth-form').onsubmit = async event => {
       event.preventDefault();
       const error = modal.querySelector('#account-auth-error');
-      const button = modal.querySelector('button[type="submit"]'); button.disabled = true; error.hidden = true;
+      const button = modal.querySelector('button[type="submit"]');
+      const label = button.querySelector('.auth-submit-label');
+      button.disabled = true; error.hidden = true; button.classList.add('is-loading');
+      label.textContent = signup ? 'Konto wird erstellt …' : 'Anmeldung läuft …';
       try {
         const payload = {email: modal.querySelector('#account-email').value.trim(), password: modal.querySelector('#account-password').value};
         if (signup) payload.username = modal.querySelector('#account-username').value.trim();
         const result = signup ? await root.biasAccount.signup(payload) : await root.biasAccount.login(payload);
         if (result) { root.biasModals.closeCurrentModal(); root.biasApp.showToast(signup ? 'Konto erstellt.' : 'Willkommen zurück.'); root.biasApp.navigateTo('profile'); }
       } catch (err) { error.textContent = err.message; error.hidden = false; }
-      finally { button.disabled = false; }
+      finally { button.disabled = false; button.classList.remove('is-loading'); label.textContent = signup ? 'Konto erstellen' : 'Anmelden'; }
     };
     modal.querySelector('#account-email').focus();
     return modal;
@@ -314,7 +353,7 @@
     container.innerHTML = `${entries.map(([id, label, icon]) => {
       const ready = providers[id] === true;
       const href = ready && root.biasApi ? root.biasApi.url(`api/auth/${id}/start?return_to=${encodeURIComponent(authReturnUrl())}`) : '#';
-      return `<a class="oauth-btn ${ready ? '' : 'is-disabled'}" data-oauth-provider="${id}" href="${esc(href)}" aria-disabled="${ready ? 'false' : 'true'}"><span class="oauth-icon">${icon}</span><span>${ready ? `Mit ${label} fortfahren` : `${label} wird noch verbunden`}</span></a>`;
+      return `<a class="oauth-btn ${ready ? '' : 'is-disabled'}" data-oauth-provider="${id}" href="${esc(href)}" aria-disabled="${ready ? 'false' : 'true'}"><span class="oauth-icon oauth-icon-${id}">${icon}</span><span class="oauth-btn-copy"><strong>${ready ? `Mit ${label}` : label}</strong><small>${ready ? 'fortfahren' : 'wird verbunden'}</small></span><span class="oauth-btn-arrow" aria-hidden="true">↗</span></a>`;
     }).join('')}<p class="oauth-status">${entries.some(([id]) => providers[id] === true) ? 'Du wirst sicher zum Anbieter weitergeleitet.' : 'Google- und Discord-Login werden nach Hinterlegung der Anbieter-Schlüssel freigeschaltet.'}</p>`;
     container.querySelectorAll('[data-oauth-provider]').forEach(link => link.addEventListener('click', event => {
       if (link.getAttribute('aria-disabled') === 'true') { event.preventDefault(); root.biasApp.showToast(`${link.dataset.oauthProvider === 'google' ? 'Google' : 'Discord'}-Login ist noch nicht freigeschaltet.`); }
