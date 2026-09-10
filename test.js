@@ -317,7 +317,7 @@ test('Public product removes concept page, preserves source labels and accessibl
 });
 
 test('Improvement V3 routes expose discover, community, detail, list, support and security surfaces',()=>{
- const {w,close}=app();
+ const {w,close}=app({biasfm_v3_lists:JSON.stringify([{id:'local-list-night',title:'Songs für nachts',description:'Ruhige Tracks für späte Stunden.',visibility:'private',items:[{kind:'song',entityId:'track-ditto',title:'Ditto',artistName:'NewJeans'}]}])});
  try{
   w.biasApp.navigateTo('catalog');assert.equal(w.document.querySelectorAll('[data-v3-tab]').length,3);assert.ok(w.document.querySelector('#v3-discover-search'));assert.ok(w.document.querySelector('.v3-sort-control'));assert.equal(w.document.querySelector('.v3-filter-row .v3-sort-control'),null);
   const filterToggle=w.document.querySelector('[data-v3-filter-toggle]');assert.ok(filterToggle);filterToggle.click();assert.equal(w.document.querySelector('.v3-discover-filter-shell').classList.contains('is-open'),true);w.document.querySelector('[data-v3-filter-close]').click();assert.equal(w.document.querySelector('.v3-discover-filter-shell').classList.contains('is-open'),false);
@@ -326,7 +326,7 @@ test('Improvement V3 routes expose discover, community, detail, list, support an
   w.history.pushState(null,'','#song/track-ditto');w.biasApp.navigateTo('song',false);assert.equal(w.document.querySelector('#main-content h1').textContent,'Ditto');assert.ok(w.document.querySelector('[data-v3-item-stats]'));
   w.biasApp.navigateTo('lists');assert.equal(w.document.querySelector('#main-content h1').textContent,'Meine Listen');
   w.biasApp.navigateTo('support');assert.equal(w.document.querySelector('#main-content h1').textContent,'Support bias.fm');
-  w.biasApp.navigateTo('profile');assert.ok(w.document.querySelector('#v3-leaderboard-optin'));assert.ok(w.document.querySelector('.v3-profile-art'));assert.equal(w.document.querySelector('.v3-profile-art').classList.contains('profile-art-v2'),false);
+  w.biasApp.navigateTo('profile');assert.ok(w.document.querySelector('#v3-leaderboard-optin'));assert.ok(w.document.querySelector('.v3-profile-art'));assert.equal(w.document.querySelector('.v3-profile-art').classList.contains('profile-art-v2'),false);assert.equal(w.document.querySelector('#v3-profile-lists h3').textContent,'Songs für nachts');assert.equal(w.document.querySelector('#v3-profile-lists .v3-profile-list-preview-row strong').textContent,'Ditto');assert.ok(w.document.querySelector('#v3-profile-lists a[href="#lists"]'));
   w.biasApp.navigateTo('settings');assert.ok(w.document.querySelector('[data-v3-security]'));
  }finally{close();}
 });

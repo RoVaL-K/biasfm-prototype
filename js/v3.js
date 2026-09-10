@@ -436,15 +436,74 @@
     api(`api/lists?share=${encodeURIComponent(shareSlug)}`).then(result => paint(result.list)).catch(() => { if (!local) paint(null); });
   }
 
+  function normalizeUserList(item) {
+    if (!item || typeof item !== 'object') return null;
+    const items = Array.isArray(item.items) ? item.items : [];
+    const rawCount = item.itemCount ?? item.item_count;
+    const parsedCount = Number(rawCount);
+    const itemCount = Number.isFinite(parsedCount) ? Math.max(0, parsedCount, items.length) : items.length;
+    return {...item, shareSlug: item.shareSlug || item.share_slug || '', itemCount, items};
+  }
+
+  function mergeUserLists(remote, local) {
+    const merged = [];
+    const indexByIdentity = new Map();
+    const add = raw => {
+      const item = normalizeUserList(raw);
+      if (!item) return;
+      const identity = item.id ? `id:${item.id}` : item.shareSlug ? `share:${item.shareSlug}` : '';
+      const existingIndex = identity ? indexByIdentity.get(identity) : undefined;
+      if (existingIndex === undefined) {
+        const copy = {...item, items: [...item.items]};
+        merged.push(copy);
+        if (identity) indexByIdentity.set(identity, merged.length - 1);
+        return;
+      }
+      const existing = merged[existingIndex];
+      const seen = new Set(existing.items.map(entry => `${entry?.kind || 'song'}:${entry?.entityId || ''}`));
+      existing.items.push(...item.items.filter(entry => {
+        const key = `${entry?.kind || 'song'}:${entry?.entityId || ''}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      }));
+      existing.itemCount = Math.max(existing.itemCount, item.itemCount, existing.items.length);
+      if (!existing.description && item.description) existing.description = item.description;
+      if (!existing.shareSlug && item.shareSlug) existing.shareSlug = item.shareSlug;
+    };
+    (Array.isArray(remote) ? remote : []).forEach(add);
+    (Array.isArray(local) ? local : []).forEach(add);
+    return merged;
+  }
+
+  function profileListsMarkup(lists) {
+    const items = mergeUserLists(lists, []);
+    if (!items.length) return `<div class="v3-profile-list-empty"><span class="v3-profile-list-empty-icon" aria-hidden="true">☷</span><div><h3>Deine Sammlung wartet</h3><p>Erstelle Listen mit Songs und Releases, die du behalten oder mit anderen teilen möchtest.</p></div><a class="btn btn-ghost btn-sm" href="#lists">Liste erstellen ${icon('arrow')}</a></div>`;
+    return items.map(item => {
+      const visibility = item.visibility || 'private';
+      const visibilityLabel = {public:'öffentlich', followers:'nur Follower', private:'privat', unlisted:'unlisted'}[visibility] || visibility;
+      const count = Number(item.itemCount ?? item.items.length ?? 0);
+      const preview = item.items.slice(0, 3).map((entry, index) => { const safeEntry = entry && typeof entry === 'object' ? entry : {}; return `<div class="v3-profile-list-preview-row"><span>${String(index + 1).padStart(2, '0')}</span><div><strong>${esc(safeEntry.title || safeEntry.entityId || 'Eintrag')}</strong><small>${esc(safeEntry.artistName || (safeEntry.kind === 'release' ? 'Release' : 'Song'))}</small></div></div>`; }).join('') || '<p class="section-note">Noch keine Einträge. Füge Songs oder Releases von ihren Detailseiten hinzu.</p>';
+      const shareSlug = item.shareSlug;
+      const action = shareSlug && ['public', 'unlisted'].includes(visibility) ? `<a class="btn btn-ghost btn-sm" href="#lists/${encodeURIComponent(shareSlug)}">Liste öffnen ${icon('arrow')}</a>` : `<a class="btn btn-ghost btn-sm" href="#lists">Liste bearbeiten ${icon('arrow')}</a>`;
+      return `<article class="v3-profile-list-card"><div class="v3-profile-list-meta"><span class="hero-eyebrow">${esc(visibilityLabel)}</span><span>${count.toLocaleString('de-DE')} ${count === 1 ? 'Eintrag' : 'Einträge'}</span></div><h3>${esc(item.title || 'Unbenannte Liste')}</h3><p>${esc(item.description || 'Eine kuratierte Sammlung aus deiner bias.fm-Sammlung.')}</p><div class="v3-profile-list-preview">${preview}</div><div class="v3-profile-list-actions">${action}</div></article>`;
+    }).join('');
+  }
+
+  function profileListCountLabel(count) {
+    const value = Math.max(0, Number(count) || 0);
+    return `${value} ${value === 1 ? 'Liste' : 'Listen'}`;
+  }
+
   function renderLists(container) {
     const state = root.biasV3.lists; const shareSlug = decodeURIComponent(root.document.location.hash.split('/')[1] || ''); if (shareSlug) return renderSharedList(container, shareSlug);
-    const local = read('biasfm_v3_lists', []); const pending = state.pending;
+    const localData = read('biasfm_v3_lists', []); const local = (Array.isArray(localData) ? localData : []).map(normalizeUserList).filter(Boolean); const pending = state.pending;
     const paint = lists => { const items = lists || []; container.innerHTML = `<div class="v3-lists-view"><div class="view-header v3-view-header"><div><p class="hero-eyebrow">PROFIL · SAMMLUNG</p><h1 class="view-title">Meine Listen</h1><p class="view-subtitle">Jahreslisten, nächtliche Songs, K-R&amp;B-Einstiege — unbegrenzt viele private oder geteilte Listen.</p></div><button class="btn btn-accent" id="v3-new-list">＋ Liste erstellen</button></div>${pending ? `<div class="v3-community-notice" id="v3-pending-list-item"><strong>${icon('plus')} ${esc(pending.title)}</strong><p>${esc(pending.artistName)} · Wähle eine Liste, in der dieser Eintrag gespeichert werden soll.</p></div>` : ''}<div class="v3-community-notice"><strong>Vier Sichtbarkeiten</strong><p>Öffentlich, nur Follower, privat oder unlisted mit Share-Link. Kollaborative Listen kommen erst mit klaren Editrechten.</p></div><div class="v3-list-grid">${items.map(item => `<article class="v3-list-card" data-list-id="${esc(item.id || '')}"><p class="hero-eyebrow">${esc(item.visibility || 'private')}</p><h2>${esc(item.title)}</h2><p>${esc(item.description || 'Noch keine Beschreibung.')}</p><span>${Number(item.itemCount ?? item.items?.length ?? 0)} Einträge</span><div class="v3-list-actions">${pending ? `<button type="button" class="btn btn-accent btn-sm" data-v3-add-list="${esc(item.id || '')}">Hier speichern</button>` : ''}${item.shareSlug && ['public','unlisted'].includes(item.visibility) ? `<a class="btn btn-ghost btn-sm" href="#lists/${encodeURIComponent(item.shareSlug)}">Teilen ${icon('arrow')}</a>` : ''}</div></article>`).join('') || '<div class="v3-empty-view"><h2>Deine erste Liste wartet</h2><p>Speichere Releases und Songs aus ihren Detailseiten.</p></div>'}</div><div id="v3-list-form" hidden></div></div>`;
       container.querySelector('#v3-new-list').onclick = () => { if (!root.biasAccount?.authenticated) return root.biasAccount?.openAuth('login'); const host = container.querySelector('#v3-list-form'); host.hidden = false; host.innerHTML = `<form class="v3-create-form settings-card"><h2>Neue Liste</h2><label>Titel<input name="title" class="text-input" maxlength="120" required placeholder="Songs für nachts"></label><label>Beschreibung<textarea name="description" class="text-input" maxlength="500"></textarea></label><label>Sichtbarkeit<select name="visibility" class="select-input"><option value="private">Privat</option><option value="public">Öffentlich</option><option value="followers">Nur Follower</option><option value="unlisted">Unlisted</option></select></label><button class="btn btn-accent">Liste speichern</button></form>`; host.querySelector('form').onsubmit = async event => { event.preventDefault(); const form = new FormData(event.target); const list = {id:`local-list-${Date.now()}`,title:String(form.get('title') || ''),description:String(form.get('description') || ''),visibility:String(form.get('visibility') || 'private'),items:[],itemCount:0,shareSlug:`${slugForShare(listTitle(form.get('title')))}-${Math.random().toString(36).slice(2, 7)}`}; let remote = true; try { const result = await api('api/lists',{method:'POST',headers:formHeaders,body:JSON.stringify({action:'create-list',title:list.title,description:list.description,visibility:list.visibility})}); Object.assign(list, result.list || {}); } catch (error) { if (error?.status && error.status < 500) { root.biasApp.showToast(error.message || 'Die Liste konnte nicht erstellt werden.'); return; } remote = false; } const lists = read('biasfm_v3_lists', []); lists.unshift(list); write('biasfm_v3_lists', lists); renderLists(container); root.biasApp.showToast(`Liste ${remote ? 'erstellt' : 'lokal gespeichert; Server nicht erreichbar'}.`); }; };
       container.querySelectorAll('[data-v3-add-list]').forEach(button => button.onclick = async () => { const list = items.find(item => String(item.id) === button.dataset.v3AddList); if (!list || !pending) return; let remote = true; try { await api('api/lists',{method:'POST',headers:formHeaders,body:JSON.stringify({action:'add-item',listId:list.id,kind:pending.kind || 'song',entityId:pending.entityId,title:pending.title,artistName:pending.artistName})}); } catch (error) { if (error?.status && error.status < 500) { root.biasApp.showToast(error.message || 'Der Eintrag konnte nicht gespeichert werden.'); return; } remote = false; } const stored = read('biasfm_v3_lists', []); const target = stored.find(item => String(item.id) === String(list.id)); if (target) { target.items = target.items || []; if (!target.items.some(item => item.entityId === pending.entityId)) target.items.push({...pending}); target.itemCount = target.items.length; write('biasfm_v3_lists', stored); } state.pending = null; renderLists(container); root.biasApp.showToast(`Zur Liste hinzugefügt${remote ? '.' : ' (lokal; Server nicht erreichbar).'}`); });
     };
     paint(local);
-    if (root.biasAccount?.authenticated) api('api/lists').then(result => { const remote = (result.lists || []).map(item => ({...item, itemCount: item.itemCount || 0})); if (!remote.length) return; const merged = [...remote, ...local].filter((item, index, all) => all.findIndex(other => other.id === item.id) === index); paint(merged); }).catch(() => {});
+    if (root.biasAccount?.authenticated) api('api/lists').then(result => { const remote = (result.lists || []).map(normalizeUserList).filter(Boolean); if (!remote.length) return; paint(mergeUserLists(remote, local)); }).catch(() => {});
   }
 
   function listTitle(value) { return String(value || 'liste').slice(0, 120); }
@@ -458,9 +517,10 @@
   function renderProfileV3(container) {
     const profile = root.biasStore.profile || {}; const ult = entity(profile.ultBiasArtist); const favorites = (profile.favoriteArtists || profile.biasLine || []).map(entity).filter(Boolean).slice(0, 10); const privacy = root.biasStore.privacySettings || profile.privacy || {};
     const savedTracks = [...(root.biasApp?.likedSongs || [])].map(id => song(id)).filter(Boolean);
+    const localListData = read('biasfm_v3_lists', []); const localLists = (Array.isArray(localListData) ? localListData : []).map(normalizeUserList).filter(Boolean);
     const favoriteMarkup = favorites.map((item, index) => `<a class="favorite-artist-card${index >= 5 ? ' v3-favorite-extra' : ''}"${index >= 5 ? ' hidden' : ''} href="#artist/${encodeURIComponent(item.id)}">${cover(item.name, item.name)}<span>${esc(item.name)}</span><small>${esc((item.genres || []).slice(0,2).join(' · '))}</small></a>`).join('');
     const favoriteMore = favorites.length > 5 ? '<button type="button" class="btn btn-ghost v3-profile-favorites-more" data-v3-favorites-more aria-expanded="false">Mehr anzeigen</button>' : '';
-    container.innerHTML = `<div class="view-profile v3-profile"><div class="view-header v3-view-header"><div><p class="hero-eyebrow">PROFIL · DEIN MUSIKGESCHMACK</p><h1 class="view-title">Mein Profil</h1><p class="view-subtitle">Eine ruhige Karte für Identität, Live Listening und Favoriten.</p></div><div class="header-actions"><a class="btn btn-accent" href="#settings">Profil bearbeiten ✎</a><a class="btn btn-ghost" href="#lists">Meine Listen</a></div></div><div class="v3-profile-grid"><section class="v3-profile-identity profile-display"><div class="profile-identity-row">${avatarMarkupV3(profile)}<div><h2>${esc(profile.username || 'musikfan')}</h2><p class="profile-handle-note">${root.biasAccount?.authenticated ? 'Zentrales Konto' : 'Lokal auf diesem Gerät'}</p></div></div><p class="profile-bio-v2">${esc(profile.bio || 'Musik, die bleibt. Dein Geschmack hat hier Platz.')}</p><dl class="profile-facts-v2"><div><dt>Favourite Artist</dt><dd>${esc(ult?.name || favorites[0]?.name || 'Noch offen')}</dd></div><div><dt>Privacy</dt><dd>${privacy.activity === 'public' ? 'Live Activity öffentlich' : 'Live Activity privat'}</dd></div></dl><div class="v3-profile-actions"><a class="btn btn-ghost" href="#stats">Stats ansehen ${icon('arrow')}</a><a class="btn btn-ghost" href="#saved">Gemerkt ${icon('arrow')}</a></div></section><section class="v3-profile-activity"><section id="profile-listening" class="settings-card profile-listening-card" aria-live="polite"></section><section class="settings-card v3-xp-card"><div class="section-heading-row"><div><p class="hero-eyebrow">ACCOUNT XP</p><h2>Level 1</h2></div><span class="v3-xp-value">0 XP</span></div><div class="v3-progress"><span style="width:12%"></span></div><p class="section-note">XP entsteht durch Rätsel, hilfreiche Reviews und bestätigte Vorschläge — nicht durch Geld oder Follow-Spam.</p><label class="v3-check v3-xp-optin"><input type="checkbox" id="v3-leaderboard-optin" ${root.biasAccount?.authenticated ? '' : 'disabled'}> Artist-Leaderboards freiwillig freigeben</label><p class="section-note v3-xp-optin-note">Nur dein Username und dein Artist-XP werden gezeigt; mindestens 20 Teilnehmer sind nötig.</p></section></section><section class="v3-profile-visual"><section class="settings-card v3-profile-art">${cover(ult?.name || profile.username || 'bias.fm', ult?.name || 'bias.fm', true)}</section><section class="settings-card"><div class="section-heading-row"><div><p class="hero-eyebrow">DEINE AUSWAHL</p><h2>Favourite Artists</h2></div><span class="pill pill-muted">${favorites.length} / 10</span></div><div class="favorite-artist-grid">${favoriteMarkup || '<p class="section-note">Wähle bis zu zehn Artists in deiner Profilbearbeitung.</p>'}</div>${favoriteMore}</section></section></div>${savedTracks.length ? `<section class="settings-card v3-saved-tracks"><div class="section-heading-row"><div><p class="hero-eyebrow">PRIVATE SAMMLUNG</p><h2>Gemerkt</h2></div><span class="pill pill-muted">${savedTracks.length}</span></div>${savedTracks.map(track => `<div class="v3-saved-track"><span>${esc(track.title)} · ${esc(track.artistName)}</span><button class="btn btn-ghost btn-sm" data-favorite-remove="${esc(track.id)}">Entfernen</button></div>`).join('')}</section>` : ''}<section id="v3-remote-saved" class="settings-card v3-saved-tracks" hidden></section><section class="settings-card v3-privacy-summary"><strong>Privatsphäre respektiert</strong><p>${privacy.showNowPlaying === false ? 'Dein aktueller Titel wird nicht angezeigt.' : privacy.activity === 'public' ? 'Live Listening ist für andere sichtbar.' : 'Live Listening bleibt nur für dich sichtbar.'} Ändere das jederzeit in den Profileinstellungen.</p></section></div>`;
+    container.innerHTML = `<div class="view-profile v3-profile"><div class="view-header v3-view-header"><div><p class="hero-eyebrow">PROFIL · DEIN MUSIKGESCHMACK</p><h1 class="view-title">Mein Profil</h1><p class="view-subtitle">Eine ruhige Karte für Identität, Live Listening und Favoriten.</p></div><div class="header-actions"><a class="btn btn-accent" href="#settings">Profil bearbeiten ✎</a><a class="btn btn-ghost" href="#lists">Meine Listen</a></div></div><div class="v3-profile-grid"><section class="v3-profile-identity profile-display"><div class="profile-identity-row">${avatarMarkupV3(profile)}<div><h2>${esc(profile.username || 'musikfan')}</h2><p class="profile-handle-note">${root.biasAccount?.authenticated ? 'Zentrales Konto' : 'Lokal auf diesem Gerät'}</p></div></div><p class="profile-bio-v2">${esc(profile.bio || 'Musik, die bleibt. Dein Geschmack hat hier Platz.')}</p><dl class="profile-facts-v2"><div><dt>Favourite Artist</dt><dd>${esc(ult?.name || favorites[0]?.name || 'Noch offen')}</dd></div><div><dt>Privacy</dt><dd>${privacy.activity === 'public' ? 'Live Activity öffentlich' : 'Live Activity privat'}</dd></div></dl><div class="v3-profile-actions"><a class="btn btn-ghost" href="#stats">Stats ansehen ${icon('arrow')}</a><a class="btn btn-ghost" href="#saved">Gemerkt ${icon('arrow')}</a></div></section><section class="v3-profile-activity"><section id="profile-listening" class="settings-card profile-listening-card" aria-live="polite"></section><section class="settings-card v3-xp-card"><div class="section-heading-row"><div><p class="hero-eyebrow">ACCOUNT XP</p><h2>Level 1</h2></div><span class="v3-xp-value">0 XP</span></div><div class="v3-progress"><span style="width:12%"></span></div><p class="section-note">XP entsteht durch Rätsel, hilfreiche Reviews und bestätigte Vorschläge — nicht durch Geld oder Follow-Spam.</p><label class="v3-check v3-xp-optin"><input type="checkbox" id="v3-leaderboard-optin" ${root.biasAccount?.authenticated ? '' : 'disabled'}> Artist-Leaderboards freiwillig freigeben</label><p class="section-note v3-xp-optin-note">Nur dein Username und dein Artist-XP werden gezeigt; mindestens 20 Teilnehmer sind nötig.</p></section></section><section class="v3-profile-visual"><section class="settings-card v3-profile-art">${cover(ult?.name || profile.username || 'bias.fm', ult?.name || 'bias.fm', true)}</section><section class="settings-card"><div class="section-heading-row"><div><p class="hero-eyebrow">DEINE AUSWAHL</p><h2>Favourite Artists</h2></div><span class="pill pill-muted">${favorites.length} / 10</span></div><div class="favorite-artist-grid">${favoriteMarkup || '<p class="section-note">Wähle bis zu zehn Artists in deiner Profilbearbeitung.</p>'}</div>${favoriteMore}</section></section></div><section id="v3-profile-lists" class="settings-card v3-profile-lists"><div class="section-heading-row"><div><p class="hero-eyebrow">PROFIL · SAMMLUNG</p><h2>Meine Listen</h2><p class="section-note">Songs und Releases, die du gesammelt hast — privat, für Follower oder mit der Community geteilt.</p></div><div class="v3-profile-list-heading-actions"><span class="pill pill-muted" data-v3-profile-list-count>${profileListCountLabel(localLists.length)}</span><a class="btn btn-ghost btn-sm" href="#lists">Alle Listen ${icon('arrow')}</a></div></div><div class="v3-profile-list-grid" data-v3-profile-lists>${profileListsMarkup(localLists)}</div></section>${savedTracks.length ? `<section class="settings-card v3-saved-tracks"><div class="section-heading-row"><div><p class="hero-eyebrow">PRIVATE SAMMLUNG</p><h2>Gemerkt</h2></div><span class="pill pill-muted">${savedTracks.length}</span></div>${savedTracks.map(track => `<div class="v3-saved-track"><span>${esc(track.title)} · ${esc(track.artistName)}</span><button class="btn btn-ghost btn-sm" data-favorite-remove="${esc(track.id)}">Entfernen</button></div>`).join('')}</section>` : ''}<section id="v3-remote-saved" class="settings-card v3-saved-tracks" hidden></section><section class="settings-card v3-privacy-summary"><strong>Privatsphäre respektiert</strong><p>${privacy.showNowPlaying === false ? 'Dein aktueller Titel wird nicht angezeigt.' : privacy.activity === 'public' ? 'Live Listening ist für andere sichtbar.' : 'Live Listening bleibt nur für dich sichtbar.'} Ändere das jederzeit in den Profileinstellungen.</p></section></div>`;
     const favoritesMore = container.querySelector('[data-v3-favorites-more]');
     favoritesMore?.addEventListener('click', () => {
       const expanded = favoritesMore.getAttribute('aria-expanded') === 'true';
@@ -468,6 +528,15 @@
       favoritesMore.setAttribute('aria-expanded', String(!expanded));
       favoritesMore.textContent = expanded ? 'Mehr anzeigen' : 'Weniger anzeigen';
     });
+    const profileListsCard = container.querySelector('#v3-profile-lists');
+    const profileListsHost = profileListsCard?.querySelector('[data-v3-profile-lists]');
+    const profileListCount = profileListsCard?.querySelector('[data-v3-profile-list-count]');
+    const paintProfileLists = remoteLists => {
+      const lists = mergeUserLists(remoteLists, localLists);
+      if (profileListsHost) profileListsHost.innerHTML = profileListsMarkup(lists);
+      if (profileListCount) profileListCount.textContent = profileListCountLabel(lists.length);
+    };
+    paintProfileLists(localLists);
     const reviewsCard = root.document.createElement('section');
     reviewsCard.className = 'settings-card v3-profile-reviews';
     reviewsCard.innerHTML = `<div class="section-heading-row"><div><p class="hero-eyebrow">PROFIL · REVIEWS</p><h2>Meine Reviews</h2></div><span class="section-note">Nur für dich</span></div><div class="v3-profile-review-list"><p class="section-note">Deine Reviews werden geladen …</p></div>`;
@@ -475,6 +544,7 @@
     if (root.biasAccount?.authenticated) api('api/reviews?mine=1').then(result => { const list = reviewsCard.querySelector('.v3-profile-review-list'); if (!list) return; list.innerHTML = (result.items || []).map(item => `<article class="v3-profile-review"><div><strong>${Number(item.score).toFixed(1)} / 10</strong><small>${esc(item.entityType)} · ${esc(item.entityId)}</small></div>${ratingSegments(item.score)}${reviewBodyMarkup(item)}<a class="text-action" href="#${item.entityType === 'release' ? 'release' : 'song'}/${encodeURIComponent(item.entityId)}">Öffnen ${icon('arrow')}</a></article>`).join('') || '<p class="section-note">Du hast noch keine Review geschrieben.</p>'; }).catch(() => { const list = reviewsCard.querySelector('.v3-profile-review-list'); if (list) list.innerHTML = '<p class="section-note">Deine Reviews sind momentan nicht verfügbar.</p>'; });
     const remoteSavedCard = container.querySelector('#v3-remote-saved');
     if (root.biasAccount?.authenticated && remoteSavedCard) api('api/lists').then(result => {
+      paintProfileLists(result.lists || []);
       const localKeys = new Set(savedTracks.map(item => `saved:${item.id}`));
       const items = (result.saved || []).map(item => ({itemKey: item.item_key, itemType: item.item_type, title: item.title, artistName: item.artist_name, kind: item.kind, createdAt: item.created_at})).filter(item => !localKeys.has(`${item.kind}:${item.itemKey}`));
       if (!items.length) return;
