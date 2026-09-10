@@ -145,18 +145,25 @@ body { background:var(--bg); }
 .v3-support-card.is-featured { border-color:var(--bias); box-shadow:0 0 0 1px rgba(var(--bias-rgb),.2); }
 .v3-support-card strong { color:var(--fg); }
 .v3-support-wall { margin-top:18px; }
-.v3-profile-grid { display:grid; grid-template-columns:minmax(240px,.82fr) minmax(0,1.25fr) minmax(240px,.95fr); gap:16px; align-items:start; }
+.v3-profile-grid { display:grid; grid-template-columns:minmax(260px,.72fr) minmax(0,1.7fr); gap:16px; align-items:stretch; }
 .v3-profile-identity, .v3-profile-activity, .v3-profile-visual { min-width:0; }
-.v3-profile-identity { padding:24px; border:1px solid var(--line); border-radius:var(--radius-card); background:var(--bg-card); }
+.v3-profile-identity { grid-column:1; grid-row:1 / span 2; align-self:start; padding:24px; border:1px solid var(--line); border-radius:var(--radius-card); background:var(--bg-card); }
 .v3-profile-identity .profile-identity-row { align-items:center; }
 .v3-profile-identity .profile-avatar-v2 { width:74px; height:74px; }
 .v3-profile-identity h2 { margin:0; font-size:26px; }
 .v3-profile-identity .profile-bio-v2 { margin:20px 0; }
 .v3-profile-actions { display:grid; gap:8px; }
-.v3-profile-activity { display:grid; gap:16px; }
-.v3-profile-visual { display:grid; gap:16px; }
-.v3-profile-visual .v3-profile-art { min-height:180px; display:grid; place-items:center; }
-.v3-profile-visual .v3-profile-art .artwork { width:140px; height:140px; border-radius:20px; }
+.v3-profile-activity { grid-column:2; grid-row:1; display:grid; grid-template-columns:minmax(0,1.4fr) minmax(240px,.8fr); gap:16px; align-items:start; }
+.v3-profile-activity #profile-listening, .v3-profile-activity #music-connections { min-width:0; margin:0; }
+.v3-profile-activity #profile-listening, .v3-profile-activity #music-connections { grid-column:1; }
+.v3-profile-activity .v3-xp-card { grid-column:2; grid-row:1 / span 2; min-width:0; align-self:stretch; }
+.v3-profile-visual { grid-column:2; grid-row:2; display:grid; grid-template-columns:minmax(220px,.75fr) minmax(0,1.25fr); gap:16px; align-items:stretch; }
+.v3-profile-visual > .settings-card { min-width:0; }
+.v3-profile-visual .v3-profile-art { min-height:220px; display:grid; place-items:center; padding:20px; }
+.v3-profile-visual .v3-profile-art .artwork { width:min(100%,180px); height:auto; aspect-ratio:1; border-radius:20px; }
+.v3-profile-visual > .settings-card:not(.v3-profile-art) { min-height:220px; }
+.v3-profile-visual .favorite-artist-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.v3-profile-visual .favorite-artist-grid > .section-note { grid-column:1 / -1; max-width:34ch; margin:0; }
 .v3-xp-optin { display:flex; align-items:flex-start; gap:8px; margin-top:14px; line-height:1.45; }
 .v3-xp-optin input { flex:0 0 auto; margin-top:2px; accent-color:var(--bias); }
 .v3-xp-optin-note { margin-top:6px; }
@@ -1944,4 +1951,29 @@ body.search-is-open .brand-search-cluster .search-trigger-btn:not(.search-input-
   .v3-sort-control .select-input { width:100%; margin-left:0; }
   .v3-join-request { flex-direction:column; }
   .v3-moderation-actions { width:100%; }
+}
+
+/* V3 profile dashboard: keep the identity card as the anchor while the
+   listening, collection and XP surfaces form one readable content column. */
+.v3-profile-activity #profile-listening.profile-listening-card,
+.v3-profile-activity #music-connections.connections-section { margin-top:0; }
+.v3-profile-visual .favorite-artist-grid > .section-note { width:100%; }
+
+@media (max-width:1100px) {
+  .v3-profile-grid { grid-template-columns:minmax(240px,.82fr) minmax(0,1.18fr); }
+  .v3-profile-activity { grid-column:2; grid-row:1; grid-template-columns:minmax(0,1.2fr) minmax(220px,.8fr); }
+  .v3-profile-visual { grid-column:2; grid-row:2; grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+
+@media (max-width:900px) {
+  .v3-profile-activity { grid-template-columns:1fr; }
+  .v3-profile-activity .v3-xp-card { grid-column:1; grid-row:auto; }
+  .v3-profile-visual { grid-template-columns:1fr; }
+}
+
+@media (max-width:720px) {
+  .v3-profile-grid { grid-template-columns:1fr; align-items:start; }
+  .v3-profile-identity, .v3-profile-activity, .v3-profile-visual { grid-column:1; grid-row:auto; }
+  .v3-profile-identity { align-self:start; }
+  .v3-profile-activity, .v3-profile-visual { grid-template-columns:1fr; }
 }
