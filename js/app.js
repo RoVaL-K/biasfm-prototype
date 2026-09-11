@@ -94,7 +94,7 @@
           const route = destination.split(/[/?]/)[0];
           if (route && this.views[route]) {
             e.preventDefault();
-            if(destination.includes('/')) {history.pushState(null,'',`#${destination}`);this.navigateTo(route,false);} else this.navigateTo(route);
+            if(destination.includes('/') || destination.includes('?')) {history.pushState(null,'',`#${destination}`);this.navigateTo(route,false);} else this.navigateTo(route);
           }
         }
       });

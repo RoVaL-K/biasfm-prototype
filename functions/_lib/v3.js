@@ -374,13 +374,33 @@ export async function listCollections(request, env) {
     const listCount = await env.DB.prepare(`SELECT COUNT(DISTINCT l.id) AS count
       FROM user_lists l JOIN user_list_items i ON i.list_id = l.id
       WHERE l.visibility = 'public' AND i.entity_id = ? AND i.kind = ?`).bind(itemKey, itemType).first();
+    const totalPublicLists = Number(listCount?.count || 0);
+    const allLists = url.searchParams.get('all') === '1';
+    const requestedLimit = Number(url.searchParams.get('limit'));
+    const requestedOffset = Number(url.searchParams.get('offset'));
+    const listLimit = allLists ? Math.min(100, Math.max(1, Number.isFinite(requestedLimit) ? Math.floor(requestedLimit) : 100)) : 3;
+    const listOffset = allLists ? Math.max(0, Number.isFinite(requestedOffset) ? Math.floor(requestedOffset) : 0) : 0;
+    const publicLists = await env.DB.prepare(`SELECT l.id, l.title, l.description, l.visibility, l.share_slug, l.updated_at,
+      COUNT(all_items.entity_id) AS item_count
+      FROM user_lists l
+      JOIN user_list_items matching_item ON matching_item.list_id = l.id
+      LEFT JOIN user_list_items all_items ON all_items.list_id = l.id
+      WHERE l.visibility = 'public' AND matching_item.entity_id = ? AND matching_item.kind = ?
+      GROUP BY l.id ORDER BY l.updated_at DESC LIMIT ${listLimit} OFFSET ${listOffset}`).bind(itemKey, itemType).all();
+    const listItems = (publicLists.results || []).map(list => ({
+      id: list.id, title: list.title, description: list.description, visibility: list.visibility,
+      shareSlug: list.share_slug, itemCount: Number(list.item_count || 0), updatedAt: list.updated_at
+    }));
     const {account: viewer} = await readSession(request, env);
     let viewerSaved = false; let viewerFavorite = false;
     if (viewer?.userId) {
       const saved = await env.DB.prepare('SELECT kind FROM saved_items WHERE user_id = ? AND item_key = ? AND item_type = ?').bind(viewer.userId, itemKey, itemType).all();
       for (const row of saved.results || []) { if (row.kind === 'saved') viewerSaved = true; if (row.kind === 'favorite') viewerFavorite = true; }
     }
-    return {itemKey, itemType, favoriteCount, listCount: Number(listCount?.count || 0), viewer: {saved: viewerSaved, favorite: viewerFavorite}};
+    return {itemKey, itemType, favoriteCount, listCount: totalPublicLists, lists: listItems,
+      listMoreCount: Math.max(0, totalPublicLists - listOffset - listItems.length),
+      nextOffset: listOffset + listItems.length < totalPublicLists ? listOffset + listItems.length : null,
+      viewer: {saved: viewerSaved, favorite: viewerFavorite}};
   }
   const {row} = await requireAccount(request, env);
   const lists = await env.DB.prepare('SELECT l.*, COUNT(i.entity_id) AS item_count FROM user_lists l LEFT JOIN user_list_items i ON i.list_id = l.id WHERE l.user_id = ? GROUP BY l.id ORDER BY l.updated_at DESC').bind(row.id).all();
