@@ -2096,3 +2096,147 @@ body.search-is-open .brand-search-cluster .search-trigger-btn:not(.search-input-
   .v3-item-list-row .btn { grid-column:2; justify-self:start; }
   .v3-item-lists-empty { align-items:flex-start; }
 }
+
+/* UX audit pass: a shared content rail, explicit control grouping and
+   predictable touch targets keep every route easier to scan. */
+:root { --content-rail: clamp(16px, 2vw, 28px); }
+.wrap,
+.main-content.wrap,
+.main-footer > .wrap { padding-inline: var(--content-rail); }
+.main-header > .nav-wrap { padding-inline: var(--content-rail); }
+
+/* The header uses the same inner edge as the page content. This also keeps
+   the brand dot from being clipped when the viewport is wider than the
+   max-width token. */
+@media (min-width: 801px) {
+  .main-header > .nav-wrap { padding-inline: var(--content-rail); }
+}
+
+/* Discovery controls are one decision surface: filters on the left, sorting
+   on the right. Grouping related choices reduces visual search and avoids the
+   loose, disconnected rows that previously pushed the results down. */
+.v3-discover-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(190px, 224px);
+  gap: 18px;
+  align-items: end;
+  margin: 0 0 18px;
+  padding: 14px 16px 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--bg-card) 72%, transparent);
+}
+.v3-discover-toolbar .v3-discover-filter-shell { min-width: 0; }
+.v3-discover-toolbar .v3-filter-row { margin: 0; }
+.v3-discover-toolbar .v3-filter-row label,
+.v3-discover-toolbar .v3-sort-control { font-size: 13px; letter-spacing: .025em; }
+.v3-discover-toolbar .v3-sort-control { width: 100%; margin: 0; }
+.v3-discover-toolbar .v3-sort-control .select-input { width: 100%; min-width: 0; margin: 0; }
+.v3-discover-toolbar .select-input { min-height: 44px; }
+.v3-results-meta { margin: 14px 2px 20px; }
+
+/* Keep the compact mobile filter sheet, while giving its trigger and sort
+   control the same rhythm as the rest of the toolbar. */
+@media (max-width: 720px) {
+  .v3-discover-toolbar {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    align-items: stretch;
+    margin-bottom: 18px;
+    padding: 12px;
+    border-radius: 16px;
+  }
+  .v3-discover-toolbar .v3-mobile-filter-toggle { margin: 0; min-height: 44px; justify-self: start; }
+  .v3-discover-toolbar .v3-sort-control { margin: 0; }
+  .v3-results-meta { margin: 12px 0 18px; }
+}
+
+/* Calendar filters keep their label together with the control at desktop
+   widths; wrapping the label made the row look like two unrelated fields. */
+.v3-radar-type-filter { white-space: nowrap; }
+
+/* A small amount of extra separation lets each surface read as a group while
+   preserving the existing compact card grid. */
+.v3-discover-grid,
+.v3-genre-grid,
+.v3-group-grid,
+.v3-list-grid,
+.v3-support-grid { row-gap: 20px; }
+.v3-profile-grid { gap: 20px; }
+.v3-profile-activity,
+.v3-profile-visual { gap: 20px; }
+.v3-profile-lists { margin-top: 20px; }
+
+/* All route-level controls retain a comfortable touch area and remove the
+   browser's blue tap flash without removing keyboard focus indication. */
+.v3-tabbar button,
+.v3-community-tabs button,
+.v3-pagination button,
+.v3-mobile-filter-toggle,
+.v3-radar-genre-menu > summary,
+.v3-radar-type-filter .select-input,
+.source-tab,
+.game-mode-tab {
+  min-height: 44px;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+:where(a, button, input, select, textarea):focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--bias) 80%, white 20%);
+  outline-offset: 3px;
+}
+:where(button, .btn, [role="button"], [role="tab"], summary) {
+  user-select: none;
+  -webkit-user-select: none;
+}
+:where(a, button, .v3-discover-card, .v3-group-card, .v3-list-card, .v3-support-card) {
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (max-width: 480px) {
+  .wrap,
+  .main-content.wrap,
+  .main-footer > .wrap,
+  .main-header > .nav-wrap { padding-inline: 16px; }
+  .v3-profile-grid,
+  .v3-profile-activity,
+  .v3-profile-visual { gap: 16px; }
+}
+
+/* Community tabs may scroll inside their own row on narrow screens, but the
+   toolbar itself must stay inside the content rail. */
+@media (max-width: 720px) {
+  .v3-community-toolbar,
+  .v3-community-toolbar .v3-tabbar {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+  .v3-community-toolbar .v3-tabbar {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    column-gap: 8px;
+    overflow: visible;
+  }
+  .v3-community-toolbar .v3-tabbar button {
+    min-width: 0;
+    white-space: normal;
+    text-align: center;
+  }
+  .v3-community-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    overflow: visible;
+  }
+  .v3-community-tabs button {
+    min-width: 0;
+    white-space: normal;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
