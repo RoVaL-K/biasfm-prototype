@@ -2205,8 +2205,8 @@ body.search-is-open .brand-search-cluster .search-trigger-btn:not(.search-input-
   .v3-profile-visual { gap: 16px; }
 }
 
-/* Community tabs may scroll inside their own row on narrow screens, but the
-   toolbar itself must stay inside the content rail. */
+/* Community tabs wrap into their own grid on narrow screens so the toolbar
+   stays inside the content rail and every destination remains visible. */
 @media (max-width: 720px) {
   .v3-community-toolbar,
   .v3-community-toolbar .v3-tabbar {
