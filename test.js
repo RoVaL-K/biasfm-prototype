@@ -345,3 +345,18 @@ test('V3 overview shows a real release tracklist and keeps profile list previews
   assert.match(w.document.querySelector('.v3-profile-list-more').textContent,/Weitere 1 Liste/);
  }finally{close();}
 });
+
+test('V3 profile overview follows the sketch without exposing the old Fan Identity label',()=>{
+ const {w,close}=app();
+ try{
+  w.biasStore.updateProfile({ultBiasArtist:'newjeans',ultBiasMember:'Hanni',favoriteArtists:['newjeans']});
+  w.biasApp.navigateTo('profile');
+  assert.equal(w.document.querySelector('.v3-profile .view-title').textContent,'Mein Profil');
+  assert.ok(w.document.querySelector('.v3-profile-header-actions a[href="#notifications"]'));
+  assert.equal(w.document.querySelectorAll('.v3-profile-identity .profile-facts-v2 dt')[1].textContent,'Bias in NewJeans');
+  assert.equal(w.document.querySelector('.v3-profile-art-copy .hero-eyebrow').textContent,'DEIN ARTIST-VISUAL');
+  assert.equal(w.document.querySelector('.v3-profile-art-copy h2').textContent,'NewJeans');
+  assert.ok(w.document.querySelector('.v3-profile-art-backdrop .artwork'));
+  assert.equal(w.document.querySelector('.v3-profile').textContent.includes('Fan Identity'),false);
+ }finally{close();}
+});

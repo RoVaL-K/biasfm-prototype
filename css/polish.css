@@ -2260,6 +2260,19 @@ body.search-is-open .brand-search-cluster .search-trigger-btn:not(.search-input-
 .v3-profile-list-more { display:flex; grid-column:1 / -1; align-items:center; justify-content:center; gap:7px; min-height:44px; padding:10px 14px; border:1px solid var(--line); border-radius:14px; color:var(--bias); font-size:12px; font-weight:750; text-decoration:none; transition:gap .2s var(--ease-spring), border-color .2s var(--ease-smooth), background .2s var(--ease-smooth); }
 .v3-profile-list-more:hover { gap:10px; border-color:color-mix(in srgb,var(--bias) 58%,var(--line)); background:color-mix(in srgb,var(--bg-subtle) 85%,var(--bias) 8%); }
 
+/* Profile sketch alignment: keep the header actions legible and give the
+   artist visual the same right-to-left fade as the original concept. */
+.v3-profile-header-actions { align-items:center; flex-wrap:wrap; justify-content:flex-end; }
+.v3-profile-visual .v3-profile-art { position:relative; min-height:300px; overflow:hidden; display:flex !important; align-items:flex-end; padding:0 !important; isolation:isolate; }
+.v3-profile-art-backdrop { position:absolute; z-index:-2; inset:0; overflow:hidden; background:linear-gradient(145deg,color-mix(in srgb,var(--profile-accent) 26%,var(--bg-card)),var(--bg-card)); }
+.v3-profile-art-backdrop .artwork { width:100% !important; height:100% !important; aspect-ratio:auto !important; border-radius:inherit !important; opacity:.92; }
+.v3-profile-art::after { position:absolute; z-index:-1; inset:0; content:""; pointer-events:none; background:linear-gradient(180deg,transparent 16%,color-mix(in srgb,var(--bg-card) 18%,transparent) 45%,var(--bg-card) 100%),linear-gradient(90deg,var(--bg-card) 0%,color-mix(in srgb,var(--bg-card) 78%,transparent) 32%,transparent 78%); }
+.v3-profile-art-copy { position:relative; z-index:1; max-width:92%; padding:24px; }
+.v3-profile-art-copy .hero-eyebrow { margin:0; color:var(--profile-accent); }
+.v3-profile-art-copy h2 { margin:7px 0 4px; color:var(--fg-bright); font-size:clamp(24px,3vw,34px); letter-spacing:-.04em; }
+.v3-profile-art-copy p:last-child { margin:0; color:var(--fg-mid); font-size:12px; }
+.v3-profile-fact-sub { display:block; margin-top:4px; color:var(--fg-dim); font-size:11px; }
+
 .v3-release-tracklist { margin-bottom:18px; }
 .v3-release-tracklist .section-heading-row { align-items:flex-end; gap:14px; }
 .v3-release-track-rows { display:grid; gap:2px; margin-top:14px; }
@@ -2280,4 +2293,11 @@ body.search-is-open .brand-search-cluster .search-trigger-btn:not(.search-input-
   .v3-release-track-row { grid-template-columns:24px 40px minmax(0,1fr) 16px; gap:8px; }
   .v3-release-track-art { width:40px; height:40px; }
   .v3-release-track-duration { display:none; }
+}
+
+@media (max-width:620px) {
+  .v3-profile-header-actions { width:100%; justify-content:flex-start; }
+  .v3-profile-header-actions .btn { flex:1 1 auto; }
+  .v3-profile-visual .v3-profile-art { min-height:260px; }
+  .v3-profile-art-copy { padding:20px; }
 }
