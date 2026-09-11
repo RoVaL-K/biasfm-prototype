@@ -331,3 +331,17 @@ test('Improvement V3 routes expose discover, community, detail, list, support an
   w.biasApp.navigateTo('settings');assert.ok(w.document.querySelector('[data-v3-security]'));
  }finally{close();}
 });
+
+test('V3 overview shows a real release tracklist and keeps profile list previews compact',()=>{
+ const lists=Array.from({length:4},(_,index)=>({id:`overview-list-${index}`,title:`Sammlung ${index+1}`,description:'Kuratiert für die Übersicht.',visibility:'public',items:[{kind:'song',entityId:'track-ditto',title:'Ditto',artistName:'NewJeans'}],itemCount:1,shareSlug:`sammlung-${index+1}`}));
+ const {w,close}=app({biasfm_v3_lists:JSON.stringify(lists)});
+ try{
+  w.history.pushState(null,'','#release/track-ditto');w.biasApp.navigateTo('release',false);
+  assert.equal(w.document.querySelector('.v3-release-tracklist h2').textContent,'Tracks');
+  assert.equal(w.document.querySelectorAll('.v3-release-track-row').length,1);
+  assert.equal(w.document.querySelector('.v3-release-track-row strong').textContent,'Ditto');
+  w.biasApp.navigateTo('profile');
+  assert.equal(w.document.querySelectorAll('.v3-profile-list-card').length,3);
+  assert.match(w.document.querySelector('.v3-profile-list-more').textContent,/Weitere 1 Liste/);
+ }finally{close();}
+});

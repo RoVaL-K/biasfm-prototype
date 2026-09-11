@@ -27,6 +27,17 @@
   };
   const artistGenresForSong = item => [...(item?.genres || []), ...(artistForSong(item)?.genres || [])];
   const popularity = item => Number(item?.communityCount || item?.monthlyListeners || item?.totalScrobbles || item?.plays || item?.playcount || 0);
+  const releaseTracksFor = item => {
+    if (!item) return [];
+    const releaseKey = norm(item.album || item.title);
+    return (data().songs || []).filter(track => track.artistId === item.artistId && norm(track.album || track.title) === releaseKey);
+  };
+  const durationSeconds = value => {
+    const parts = String(value || '').split(':').map(Number);
+    if (parts.length !== 2 || !parts.every(Number.isFinite)) return 0;
+    return Math.max(0, parts[0] * 60 + parts[1]);
+  };
+  const formatDuration = value => value ? `${Math.floor(value / 60)}:${String(value % 60).padStart(2, '0')}` : '—';
   const xpCostAnchors = [[1,100],[10,500],[25,1500],[50,4000],[75,8000],[100,12000]];
   const xpCost = level => { const value = Math.max(1, Math.min(100, Number(level) || 1)); for (let index = 1; index < xpCostAnchors.length; index += 1) { const [rightLevel, rightCost] = xpCostAnchors[index]; const [leftLevel, leftCost] = xpCostAnchors[index - 1]; if (value <= rightLevel) return Math.round(leftCost + (rightCost - leftCost) * ((value - leftLevel) / (rightLevel - leftLevel))); } return xpCostAnchors[xpCostAnchors.length - 1][1]; };
   const xpThreshold = level => { const value = Math.max(1, Math.min(100, Number(level) || 1)); let total = 0; for (let current = 1; current < value; current += 1) total += xpCost(current); return total; };
@@ -44,8 +55,9 @@
     const artist = type === 'artist' ? entityData : artistForSong(entityData);
     const href = type === 'artist' ? `#artist/${encodeURIComponent(artist.id)}` : `#release/${encodeURIComponent(entityData.id)}`;
     const title = type === 'artist' ? artist.name : entityData.album || entityData.title;
-    const subtitle = type === 'artist' ? `${artist.hangul || ''} · ${(artist.genres || []).slice(0, 2).join(' · ')}` : `${entityData.artistName || artist.name} · ${entityData.releaseYear || ''}`;
-    const description = type === 'artist' ? artist.bio : `${entityData.title} · ${(entityData.genres || []).slice(0, 3).join(' · ')}`;
+    const releaseTracks = type === 'release' ? releaseTracksFor(entityData) : [];
+    const subtitle = type === 'artist' ? `${artist.hangul || ''} · ${(artist.genres || []).slice(0, 2).join(' · ')}` : `${entityData.artistName || artist.name} · ${entityData.releaseYear || ''} · ${releaseTracks.length || 1} ${releaseTracks.length === 1 ? 'Track' : 'Tracks'}`;
+    const description = type === 'artist' ? artist.bio : `${(entityData.genres || []).slice(0, 3).join(' · ')} · ${releaseTracks.length || 1} ${releaseTracks.length === 1 ? 'Track' : 'Tracks'} mit Credits`;
     return `<a class="v3-discover-card" href="${href}">${cover(title, artist.name, true)}<span class="v3-card-kicker">${type === 'artist' ? (artist.type === 'solo' ? 'SOLO-ACT' : 'ARTIST') : 'RELEASE'}</span><h3>${esc(title)}</h3><p>${esc(subtitle)}</p><small>${esc(String(description || '').slice(0, 120))}${description?.length > 120 ? '…' : ''}</small><span class="v3-card-link">Profil öffnen ${icon('arrow')}</span></a>`;
   }
 
@@ -213,7 +225,16 @@
 
   function renderSong(container, id, release = false) {
     const item = song(id); if (!item) return renderMissing(container, release ? 'Release' : 'Song'); const artist = artistForSong(item);
-    container.innerHTML = `<div class="v3-detail-view"><a class="v3-back-link" href="#catalog">${icon('back')} Entdecken</a><header class="v3-release-header">${cover(item.album || item.title, artist.name, true)}<div><p class="hero-eyebrow">${release ? 'RELEASE' : 'SONG'} · ${item.releaseYear || ''}</p><h1>${esc(release ? (item.album || item.title) : item.title)}</h1><p class="v3-hangul">${esc(item.hangulTitle || '')} · <a href="#artist/${encodeURIComponent(artist.id)}">${esc(artist.name)}</a></p><div class="v3-chip-row">${(item.genres || []).map(tag => `<span class="tag">${esc(tag)}</span>`).join('')}</div><div class="v3-detail-actions"><button class="btn btn-ghost" data-v3-save="saved">${icon('save')} Merken</button><button class="btn btn-ghost" data-v3-save="favorite">${icon('heart')} Favourite</button><button class="btn btn-accent" data-v3-list-add>＋ Zu Liste</button></div><div class="v3-item-stats" data-v3-item-stats aria-live="polite"><span>Öffentliche Signale werden geladen …</span></div><p class="section-note">Covers und Providerlinks werden nur angezeigt, wenn das Matching eindeutig ist. bias.fm crawlt keine Anbieter.</p></div></header><div class="v3-detail-columns"><main><section id="v3-item-lists" class="settings-card v3-item-lists" aria-live="polite"><div class="section-heading-row"><div><p class="hero-eyebrow">SAMMLUNGEN · COMMUNITY</p><h2>In öffentlichen Listen</h2></div></div><p class="section-note">Öffentliche Listen werden geladen …</p></section><section class="settings-card"><p class="hero-eyebrow">CREDITS</p><h2>Credits &amp; Quellen</h2><dl class="v3-detail-facts"><div><dt>Artist</dt><dd>${esc(artist.name)}</dd></div><div><dt>Album / Release</dt><dd>${esc(item.album || 'Einzelrelease')}</dd></div><div><dt>Producer</dt><dd>${esc((item.credits?.producers || []).join(' · ') || 'Noch nicht zugeordnet')}</dd></div></dl><div class="import-actions"><a class="btn btn-ghost" href="${esc(item.links?.spotify || `https://open.spotify.com/search/${encodeURIComponent(`${artist.name} ${item.title}`)}`)}" target="_blank" rel="noopener">Spotify öffnen ↗</a><a class="btn btn-ghost" href="${esc(item.links?.apple || `https://music.apple.com/search?term=${encodeURIComponent(`${artist.name} ${item.title}`)}`)}" target="_blank" rel="noopener">Apple Music ↗</a></div></section></main><aside id="v3-review-host"></aside></div></div>`;
+    const matchingReleaseTracks = release ? releaseTracksFor(item) : [];
+    const releaseTracks = release ? (matchingReleaseTracks.length ? matchingReleaseTracks : [item]) : [item];
+    const releaseCredits = [...new Set(releaseTracks.flatMap(track => track.credits?.producers || []))];
+    const totalReleaseSeconds = releaseTracks.reduce((total, track) => total + durationSeconds(track.duration), 0);
+    const releaseTracklist = release ? `<section class="settings-card v3-release-tracklist"><div class="section-heading-row"><div><p class="hero-eyebrow">RELEASE · TRACKLIST</p><h2>Tracks</h2></div><span class="section-note">${releaseTracks.length} ${releaseTracks.length === 1 ? 'Track' : 'Tracks'} · ${totalReleaseSeconds ? `Gesamtlänge ${formatDuration(totalReleaseSeconds)}` : 'Längen werden ergänzt'}</span></div><div class="v3-release-track-rows">${releaseTracks.map((track, index) => `<a class="v3-release-track-row${track.id === item.id ? ' is-current' : ''}" href="#song/${encodeURIComponent(track.id)}"><span class="v3-release-track-number">${String(index + 1).padStart(2, '0')}</span><span class="v3-release-track-art">${cover(track.title, artist.name)}</span><span class="v3-release-track-copy"><strong>${esc(track.title)}</strong><small>${esc(track.hangulTitle || '')}${track.hangulTitle && track.artistName ? ' · ' : ''}${esc(track.artistName || artist.name)}</small></span><span class="v3-release-track-duration">${esc(track.duration || '—')}</span><span class="v3-release-track-arrow" aria-hidden="true">${icon('chevron')}</span></a>`).join('')}</div></section>` : '';
+    const pageTitle = release ? (item.album || item.title) : item.title;
+    const pageSubtitle = release ? `${releaseTracks.length} ${releaseTracks.length === 1 ? 'Track' : 'Tracks'} · <a href="#artist/${encodeURIComponent(artist.id)}">${esc(artist.name)}</a>` : `${esc(item.hangulTitle || '')} · <a href="#artist/${encodeURIComponent(artist.id)}">${esc(artist.name)}</a>`;
+    const releaseMeta = release ? `<span>${releaseTracks.length} ${releaseTracks.length === 1 ? 'Track' : 'Tracks'}</span>` : '';
+    const releaseKind = release ? 'release' : 'song';
+    container.innerHTML = `<div class="v3-detail-view"><a class="v3-back-link" href="#catalog">${icon('back')} Entdecken</a><header class="v3-release-header">${cover(item.album || item.title, artist.name, true)}<div><p class="hero-eyebrow">${release ? 'RELEASE' : 'SONG'} · ${item.releaseYear || ''}</p><h1>${esc(pageTitle)}</h1><p class="v3-hangul">${pageSubtitle}</p><div class="v3-chip-row">${(item.genres || []).map(tag => `<span class="tag">${esc(tag)}</span>`).join('')}${releaseMeta ? `<span class="tag tag-muted">${releaseMeta}</span>` : ''}</div><div class="v3-detail-actions"><button class="btn btn-ghost" data-v3-save="saved">${icon('save')} Merken</button><button class="btn btn-ghost" data-v3-save="favorite">${icon('heart')} Favourite</button><button class="btn btn-accent" data-v3-list-add>＋ Zu Liste</button></div><div class="v3-item-stats" data-v3-item-stats aria-live="polite"><span>Öffentliche Signale werden geladen …</span></div><p class="section-note">Covers und Providerlinks werden nur angezeigt, wenn das Matching eindeutig ist. bias.fm crawlt keine Anbieter.</p></div></header><div class="v3-detail-columns"><main>${releaseTracklist}<section id="v3-item-lists" class="settings-card v3-item-lists" aria-live="polite"><div class="section-heading-row"><div><p class="hero-eyebrow">SAMMLUNGEN · COMMUNITY</p><h2>In öffentlichen Listen</h2></div></div><p class="section-note">Öffentliche Listen werden geladen …</p></section><section class="settings-card"><p class="hero-eyebrow">CREDITS</p><h2>Credits &amp; Quellen</h2><dl class="v3-detail-facts"><div><dt>Artist</dt><dd>${esc(artist.name)}</dd></div><div><dt>Album / Release</dt><dd>${esc(item.album || 'Einzelrelease')}</dd></div><div><dt>Producer</dt><dd>${esc(releaseCredits.join(' · ') || 'Noch nicht zugeordnet')}</dd></div></dl><div class="import-actions"><a class="btn btn-ghost" href="${esc(item.links?.spotify || `https://open.spotify.com/search/${encodeURIComponent(`${artist.name} ${item.title}`)}`)}" target="_blank" rel="noopener">Spotify öffnen ↗</a><a class="btn btn-ghost" href="${esc(item.links?.apple || `https://music.apple.com/search?term=${encodeURIComponent(`${artist.name} ${item.title}`)}`)}" target="_blank" rel="noopener">Apple Music ↗</a></div></section></main><aside id="v3-review-host"></aside></div></div>`;
     const itemStats = container.querySelector('[data-v3-item-stats]');
     if (itemStats) api(`api/lists?item_key=${encodeURIComponent(item.id)}&item_type=${encodeURIComponent(release ? 'release' : 'song')}`).then(result => {
       const favoriteCount = Number(result.favoriteCount || 0); const listCount = Number(result.listCount || 0);
@@ -226,7 +247,7 @@
     container.querySelectorAll('[data-v3-save]').forEach(button => button.onclick = async () => {
       if (!root.biasAccount?.authenticated) { root.biasAccount?.openAuth('login'); return; }
       const kind = button.dataset.v3Save;
-      const payload = {action: kind === 'favorite' ? 'favorite' : 'save', itemKey: item.id, itemType: release ? 'release' : 'song', title: release ? item.album : item.title, artistName: artist.name};
+      const payload = {action: kind === 'favorite' ? 'favorite' : 'save', itemKey: item.id, itemType: releaseKind, title: release ? item.album : item.title, artistName: artist.name};
       let remote = true;
       try {
         await api('api/lists', {method:'POST',headers:formHeaders,body:JSON.stringify(payload)});
@@ -481,7 +502,8 @@
   function profileListsMarkup(lists) {
     const items = mergeUserLists(lists, []);
     if (!items.length) return `<div class="v3-profile-list-empty"><span class="v3-profile-list-empty-icon" aria-hidden="true">☷</span><div><h3>Deine Sammlung wartet</h3><p>Erstelle Listen mit Songs und Releases, die du behalten oder mit anderen teilen möchtest.</p></div><a class="btn btn-ghost btn-sm" href="#lists">Liste erstellen ${icon('arrow')}</a></div>`;
-    return items.map(item => {
+    const visible = items.slice(0, 3);
+    const cards = visible.map(item => {
       const visibility = item.visibility || 'private';
       const visibilityLabel = {public:'öffentlich', followers:'nur Follower', private:'privat', unlisted:'unlisted'}[visibility] || visibility;
       const count = Number(item.itemCount ?? item.items.length ?? 0);
@@ -490,6 +512,8 @@
       const action = shareSlug && ['public', 'unlisted'].includes(visibility) ? `<a class="btn btn-ghost btn-sm" href="#lists/${encodeURIComponent(shareSlug)}">Liste öffnen ${icon('arrow')}</a>` : `<a class="btn btn-ghost btn-sm" href="#lists">Liste bearbeiten ${icon('arrow')}</a>`;
       return `<article class="v3-profile-list-card"><div class="v3-profile-list-meta"><span class="hero-eyebrow">${esc(visibilityLabel)}</span><span>${count.toLocaleString('de-DE')} ${count === 1 ? 'Eintrag' : 'Einträge'}</span></div><h3>${esc(item.title || 'Unbenannte Liste')}</h3><p>${esc(item.description || 'Eine kuratierte Sammlung aus deiner bias.fm-Sammlung.')}</p><div class="v3-profile-list-preview">${preview}</div><div class="v3-profile-list-actions">${action}</div></article>`;
     }).join('');
+    const remaining = items.length - visible.length;
+    return `${cards}${remaining > 0 ? `<a class="v3-profile-list-more" href="#lists">Weitere ${remaining.toLocaleString('de-DE')} ${remaining === 1 ? 'Liste' : 'Listen'} anzeigen ${icon('arrow')}</a>` : ''}`;
   }
 
   function profileListCountLabel(count) {

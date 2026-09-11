@@ -2240,3 +2240,44 @@ body.search-is-open .brand-search-cluster .search-trigger-btn:not(.search-input-
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
 }
+
+/* The profile overview follows the V3 information order on wide screens:
+   identity, listening activity, then the visual/favourites column. Keeping
+   the activity and visual surfaces as columns of their own prevents the
+   dashboard from reading like a nested two-column sidebar. */
+@media (min-width:1101px) {
+  .v3-profile-grid { grid-template-columns: minmax(250px,.82fr) minmax(0,1.35fr) minmax(240px,1fr); gap:20px; align-items:start; }
+  .v3-profile-identity { grid-column:1; grid-row:1; height:max-content; align-self:start; }
+  .v3-profile-activity { grid-column:2; grid-row:1; display:flex; flex-direction:column; gap:16px; }
+  .v3-profile-activity #profile-listening,
+  .v3-profile-activity #music-connections,
+  .v3-profile-activity .v3-xp-card { grid-column:auto; grid-row:auto; width:100%; }
+  .v3-profile-activity .v3-xp-card { align-self:stretch; }
+  .v3-profile-visual { grid-column:3; grid-row:1; display:flex; flex-direction:column; gap:16px; }
+  .v3-profile-visual > .settings-card { width:100%; }
+}
+
+.v3-profile-list-more { display:flex; grid-column:1 / -1; align-items:center; justify-content:center; gap:7px; min-height:44px; padding:10px 14px; border:1px solid var(--line); border-radius:14px; color:var(--bias); font-size:12px; font-weight:750; text-decoration:none; transition:gap .2s var(--ease-spring), border-color .2s var(--ease-smooth), background .2s var(--ease-smooth); }
+.v3-profile-list-more:hover { gap:10px; border-color:color-mix(in srgb,var(--bias) 58%,var(--line)); background:color-mix(in srgb,var(--bg-subtle) 85%,var(--bias) 8%); }
+
+.v3-release-tracklist { margin-bottom:18px; }
+.v3-release-tracklist .section-heading-row { align-items:flex-end; gap:14px; }
+.v3-release-track-rows { display:grid; gap:2px; margin-top:14px; }
+.v3-release-track-row { display:grid; grid-template-columns:28px 44px minmax(0,1fr) auto 18px; gap:10px; align-items:center; min-width:0; padding:9px 8px; border-bottom:1px solid var(--line); color:var(--fg); text-decoration:none; transition:background .2s var(--ease-smooth), color .2s var(--ease-smooth); }
+.v3-release-track-row:hover, .v3-release-track-row:focus-visible { background:var(--bg-subtle); }
+.v3-release-track-row.is-current { color:var(--bias); }
+.v3-release-track-number { color:var(--fg-dim); font:700 11px var(--font-mono); }
+.v3-release-track-row.is-current .v3-release-track-number { color:var(--bias); }
+.v3-release-track-art { display:grid; place-items:center; width:44px; height:44px; overflow:hidden; border-radius:10px; background:var(--bg-subtle); }
+.v3-release-track-art .artwork { width:100%; height:100%; border-radius:inherit; }
+.v3-release-track-copy { min-width:0; }
+.v3-release-track-copy strong, .v3-release-track-copy small { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.v3-release-track-copy strong { font-size:13px; }
+.v3-release-track-copy small { margin-top:3px; color:var(--fg-mid); font-size:11px; }
+.v3-release-track-duration { color:var(--fg-mid); font-size:11px; white-space:nowrap; }
+.v3-release-track-arrow { color:var(--fg-dim); font-size:18px; }
+@media (max-width:560px) {
+  .v3-release-track-row { grid-template-columns:24px 40px minmax(0,1fr) 16px; gap:8px; }
+  .v3-release-track-art { width:40px; height:40px; }
+  .v3-release-track-duration { display:none; }
+}
