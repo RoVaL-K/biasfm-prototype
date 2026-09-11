@@ -240,7 +240,7 @@
       const favoriteCount = Number(result.favoriteCount || 0); const listCount = Number(result.listCount || 0);
       itemStats.innerHTML = `<span>${favoriteCount.toLocaleString('de-DE')} öffentliche Favourite${favoriteCount === 1 ? '' : 's'}</span><span>${listCount.toLocaleString('de-DE')} öffentliche${listCount === 1 ? 'r' : ''} Liste${listCount === 1 ? '' : 'n'}</span>`;
       const itemLists = container.querySelector('#v3-item-lists');
-      if (itemLists) itemLists.innerHTML = itemListsMarkup(result, item.id, release ? 'release' : 'song');
+      if (itemLists) { itemLists.innerHTML = itemListsMarkup(result, item.id, release ? 'release' : 'song'); bindListReactions(itemLists); }
       container.querySelectorAll('[data-v3-save]').forEach(button => { const kind = button.dataset.v3Save; const active = kind === 'favorite' ? result.viewer?.favorite : result.viewer?.saved; if (active) button.classList.add('is-active'); if (active) button.innerHTML = `${icon(kind === 'favorite' ? 'heart' : 'save')} ${kind === 'favorite' ? 'Favourite gespeichert' : 'Gemerkt'}`; });
     }).catch(() => { if (itemStats) itemStats.innerHTML = '<span>Öffentliche Sammlungszahlen werden nach Verfügbarkeit angezeigt.</span>'; const itemLists = container.querySelector('#v3-item-lists'); if (itemLists) itemLists.innerHTML = '<p class="section-note">Öffentliche Listen sind momentan nicht verfügbar.</p>'; });
     const review = renderReviews(release ? 'release' : 'song', item.id, artist.id); container.querySelector('#v3-review-host').appendChild(review);
@@ -261,7 +261,7 @@
       }
       root.biasApp.showToast(`${kind === 'favorite' ? 'Als Favourite gespeichert.' : 'Für später gemerkt.'}${remote ? '' : ' Lokal gespeichert; Server nicht erreichbar.'}`);
     });
-    container.querySelector('[data-v3-list-add]').onclick = () => { root.biasV3.lists.pending = {kind: release ? 'release' : 'song', entityId: item.id, title: release ? (item.album || item.title) : item.title, artistName: artist.name}; root.biasApp.navigateTo('lists'); };
+    container.querySelector('[data-v3-list-add]').onclick = () => { root.biasV3.lists.pending = {kind: release ? 'release' : 'song', entityId: item.id, title: release ? (item.album || item.title) : item.title, artistName: artist.name, releaseDate: item.releaseDate || (item.releaseYear ? `${item.releaseYear}-01-01` : ''), coverUrl: item.coverUrl || ''}; root.biasApp.navigateTo('lists'); };
   }
 
   function renderMissing(container, label) { container.innerHTML = `<div class="v3-empty-view"><p class="hero-eyebrow">${esc(label.toUpperCase())}</p><h1>Eintrag nicht gefunden</h1><p>Dieser Eintrag ist noch nicht im kanonischen bias.fm-Katalog. Unaufgelöste Plays bleiben als Stub erhalten, bis die Redaktion sie zuordnen kann.</p><a class="btn btn-accent" href="#catalog">Zurück zu Entdecken</a></div>`; }
@@ -454,7 +454,7 @@
 
   function renderSharedList(container, shareSlug) {
     const local = read('biasfm_v3_lists', []).find(item => item.shareSlug === shareSlug || item.share_slug === shareSlug);
-    const paint = list => { if (!list) return renderMissing(container, 'Liste'); const items = list.items || []; container.innerHTML = `<div class="v3-lists-view"><a class="v3-back-link" href="#lists">${icon('back')} Meine Listen</a><header class="v3-release-header"><div class="v3-group-cover large">☷</div><div><p class="hero-eyebrow">GETEILTE LISTE · ${esc(list.visibility || 'public')}</p><h1>${esc(list.title)}</h1><p>${esc(list.description || 'Eine kuratierte Sammlung aus der bias.fm-Community.')}</p><span class="section-note">${items.length} Einträge · geteilt über bias.fm</span></div></header><section class="settings-card v3-shared-list-items"><div class="section-heading-row"><div><p class="hero-eyebrow">TRACKLISTE</p><h2>Gespeicherte Einträge</h2></div><span class="section-note">Quelle bleibt beim Originalanbieter</span></div>${items.map(item => { const target = item.kind === 'release' ? 'release' : item.kind === 'artist' ? 'artist' : 'song'; return `<div class="v3-saved-track"><span><strong>${esc(item.title || item.entityId || 'Eintrag')}</strong><small>${esc(item.artistName || '')}</small></span>${item.entityId ? `<a class="btn btn-ghost btn-sm" href="#${target}/${encodeURIComponent(item.entityId)}">Öffnen ${icon('arrow')}</a>` : ''}</div>`; }).join('') || '<p class="section-note">Diese Liste enthält noch keine Einträge.</p>'}</section></div>`; };
+    const paint = list => { if (!list) return renderMissing(container, 'Liste'); const items = list.items || []; const canReact = list.id && list.visibility === 'public'; const liked = Boolean(list.liked || list.viewerLiked); const following = Boolean(list.following || list.viewerFollowing); const reactions = canReact ? `<div class="v3-shared-list-reactions"><button type="button" class="btn btn-ghost btn-sm" data-v3-list-reaction="like" data-list-id="${esc(list.id)}" aria-pressed="${liked}">♥ Gefällt mir${liked ? ' · aktiv' : ''}</button><button type="button" class="btn btn-ghost btn-sm" data-v3-list-reaction="follow" data-list-id="${esc(list.id)}" aria-pressed="${following}">↗ Folgen${following ? ' · aktiv' : ''}</button></div>` : ''; container.innerHTML = `<div class="v3-lists-view"><a class="v3-back-link" href="#lists">${icon('back')} Meine Listen</a><header class="v3-release-header">${listCoverMarkup({...list, coverData:list.coverData || list.cover_data, title:list.title}, true)}<div><p class="hero-eyebrow">GETEILTE LISTE · ${esc(list.visibility || 'public')}</p><h1>${esc(list.title)}</h1><p>${esc(list.description || 'Eine kuratierte Sammlung aus der bias.fm-Community.')}</p><span class="section-note" data-v3-shared-counts>${items.length} Einträge · ♥ ${Number(list.likes || 0).toLocaleString('de-DE')} · ↗ ${Number(list.followers || 0).toLocaleString('de-DE')}</span>${reactions}</div></header><section class="settings-card v3-shared-list-items"><div class="section-heading-row"><div><p class="hero-eyebrow">TRACKLISTE</p><h2>Gespeicherte Einträge</h2></div><span class="section-note">Quelle bleibt beim Originalanbieter</span></div>${items.map(item => { const target = item.kind === 'release' ? 'release' : item.kind === 'artist' ? 'artist' : 'song'; return `<div class="v3-saved-track"><span><strong>${esc(item.title || item.entityId || 'Eintrag')}</strong><small>${esc(item.artistName || '')}</small></span>${item.entityId ? `<a class="btn btn-ghost btn-sm" href="#${target}/${encodeURIComponent(item.entityId)}">Öffnen ${icon('arrow')}</a>` : ''}</div>`; }).join('') || '<p class="section-note">Diese Liste enthält noch keine Einträge.</p>'}</section></div>`; bindListReactions(container); };
     if (local) paint(local);
     api(`api/lists?share=${encodeURIComponent(shareSlug)}`).then(result => paint(result.list)).catch(() => { if (!local) paint(null); });
   }
@@ -465,7 +465,90 @@
     const rawCount = item.itemCount ?? item.item_count;
     const parsedCount = Number(rawCount);
     const itemCount = Number.isFinite(parsedCount) ? Math.max(0, parsedCount, items.length) : items.length;
-    return {...item, shareSlug: item.shareSlug || item.share_slug || '', itemCount, items};
+    const rawPosition = Number(item.listPosition ?? item.list_position);
+    const position = Number.isFinite(rawPosition) ? rawPosition : Number.MAX_SAFE_INTEGER;
+    const rawLikes = Number(item.likes ?? item.likeCount ?? item.like_count);
+    const rawFollowers = Number(item.followers ?? item.followerCount ?? item.follower_count);
+    return {
+      ...item,
+      shareSlug: item.shareSlug || item.share_slug || '',
+      coverData: item.coverData || item.cover_data || '',
+      listPosition: position,
+      sortMode: item.sortMode || item.sort_mode || 'release_date',
+      likes: Number.isFinite(rawLikes) ? Math.max(0, rawLikes) : 0,
+      followers: Number.isFinite(rawFollowers) ? Math.max(0, rawFollowers) : 0,
+      itemCount, items: items.map(entry => ({...entry, releaseDate: entry.releaseDate || entry.release_date || '', coverUrl: entry.coverUrl || entry.cover_url || ''}))
+    };
+  }
+
+  function safeListImage(value) {
+    const raw = String(value || '').trim();
+    return /^data:image\/(?:png|jpeg|webp);base64,[a-z0-9+/=]+$/i.test(raw) || /^https:\/\//i.test(raw) ? raw : '';
+  }
+
+  function listCoverMarkup(item, large = false) {
+    const source = safeListImage(item?.coverData || item?.coverUrl || item?.cover_data || item?.cover_url);
+    const fallback = String(item?.title || 'Liste').trim().slice(0, 2).toUpperCase() || '☷';
+    return `<span class="v3-list-cover${large ? ' is-large' : ''}">${source ? `<img src="${esc(source)}" alt="" loading="lazy">` : `<span aria-hidden="true">${esc(fallback)}</span>`}</span>`;
+  }
+
+  function sortListItems(items, mode = 'release_date') {
+    const values = Array.isArray(items) ? items.map(item => ({...item})) : [];
+    if (mode === 'manual') return values.sort((a, b) => Number(a.position || 0) - Number(b.position || 0));
+    if (mode === 'popular') return values.sort((a, b) => Number(b.favoriteCount || b.likes || 0) - Number(a.favoriteCount || a.likes || 0) || Number(b.position || 0) - Number(a.position || 0));
+    return values.sort((a, b) => String(b.releaseDate || '').localeCompare(String(a.releaseDate || '')) || Number(a.position || 0) - Number(b.position || 0));
+  }
+
+  function sortUserLists(lists, mode = 'manual') {
+    const values = Array.isArray(lists) ? lists.map(item => normalizeUserList(item)).filter(Boolean) : [];
+    if (mode === 'popular') return values.sort((a, b) => b.likes - a.likes || b.followers - a.followers || String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+    if (mode === 'followed') return values.sort((a, b) => b.followers - a.followers || b.likes - a.likes || String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+    if (mode === 'recent') return values.sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+    if (mode === 'release_date') return values.sort((a, b) => {
+      const latest = item => item.latestReleaseDate || item.items.reduce((date, entry) => date > (entry.releaseDate || '') ? date : (entry.releaseDate || ''), '');
+      return latest(b).localeCompare(latest(a)) || String(b.updatedAt || '').localeCompare(String(a.updatedAt || ''));
+    });
+    return values.sort((a, b) => a.listPosition - b.listPosition || String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
+  }
+
+  const listSortLabels = {manual:'Meine Reihenfolge', release_date:'Release-Datum · neueste zuerst', recent:'Zuletzt aktualisiert', popular:'Beliebteste zuerst', followed:'Meist gefolgt'};
+  const listVisibilityLabels = {public:'öffentlich', followers:'nur Follower', private:'privat', unlisted:'unlisted'};
+  const listSortLabel = mode => listSortLabels[mode] || listSortLabels.release_date;
+  const listVisibilityLabel = mode => listVisibilityLabels[mode] || mode || listVisibilityLabels.private;
+
+  function listMetricsMarkup(item) {
+    const count = Number(item?.itemCount || item?.items?.length || 0);
+    const likes = Number(item?.likes || 0);
+    const followers = Number(item?.followers || 0);
+    return `<div class="v3-list-metrics"><span>${count.toLocaleString('de-DE')} ${count === 1 ? 'Eintrag' : 'Einträge'}</span><span aria-label="Likes">♥ ${likes.toLocaleString('de-DE')}</span><span aria-label="Follower">↗ ${followers.toLocaleString('de-DE')}</span></div>`;
+  }
+
+  function readListCoverFile(file) {
+    if (!file || !file.size) return Promise.resolve('');
+    if (!/^image\/(?:png|jpeg|webp)$/i.test(file.type || '') || file.size > 3 * 1024 * 1024) return Promise.reject(new Error('Das Cover muss ein JPG, PNG oder WebP bis 3 MB sein.'));
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(new Error('Das Cover konnte nicht gelesen werden.'));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function listItemIdentity(item) { return `${item?.kind || 'song'}:${item?.entityId || ''}`; }
+
+  function listItemEditorMarkup(item, index, total) {
+    const title = item?.title || item?.entityId || 'Eintrag';
+    const subtitle = [item?.artistName, item?.releaseDate ? String(item.releaseDate).slice(0, 4) : ''].filter(Boolean).join(' · ');
+    return `<div class="v3-list-editor-item" data-v3-editor-item data-kind="${esc(item?.kind || 'song')}" data-entity-id="${esc(item?.entityId || '')}"><span class="v3-list-editor-rank">${String(index + 1).padStart(2, '0')}</span>${listCoverMarkup({coverUrl:item?.coverUrl,title})}<div class="v3-list-editor-copy"><strong>${esc(title)}</strong><small>${esc(subtitle || (item?.kind === 'release' ? 'Release' : item?.kind === 'artist' ? 'Artist' : 'Song'))}</small></div><div class="v3-list-editor-actions"><button type="button" class="btn btn-ghost btn-sm" data-v3-move="up" ${index === 0 ? 'disabled' : ''} aria-label="Nach oben">↑</button><button type="button" class="btn btn-ghost btn-sm" data-v3-move="down" ${index === total - 1 ? 'disabled' : ''} aria-label="Nach unten">↓</button><button type="button" class="btn btn-ghost btn-sm" data-v3-remove-item aria-label="Eintrag entfernen">Entfernen</button></div></div>`;
+  }
+
+  function listSortOptions(selected, includeManual = true) {
+    const modes = includeManual ? ['manual', 'release_date', 'popular'] : ['release_date', 'recent', 'popular', 'followed'];
+    return modes.map(mode => `<option value="${mode}" ${mode === selected ? 'selected' : ''}>${esc(listSortLabel(mode))}</option>`).join('');
+  }
+
+  function listVisibilityOptions(selected) {
+    return ['public', 'followers', 'private', 'unlisted'].map(mode => `<option value="${mode}" ${mode === selected ? 'selected' : ''}>${esc(listVisibilityLabel(mode))}</option>`).join('');
   }
 
   function mergeUserLists(remote, local) {
@@ -493,6 +576,12 @@
       existing.itemCount = Math.max(existing.itemCount, item.itemCount, existing.items.length);
       if (!existing.description && item.description) existing.description = item.description;
       if (!existing.shareSlug && item.shareSlug) existing.shareSlug = item.shareSlug;
+      if (!existing.coverData && item.coverData) existing.coverData = item.coverData;
+      if (existing.sortMode === 'release_date' && item.sortMode && item.sortMode !== 'release_date') existing.sortMode = item.sortMode;
+      existing.likes = Math.max(existing.likes || 0, item.likes || 0);
+      existing.followers = Math.max(existing.followers || 0, item.followers || 0);
+      if (item.updatedAt && (!existing.updatedAt || item.updatedAt > existing.updatedAt)) existing.updatedAt = item.updatedAt;
+      if (Number.isFinite(item.listPosition) && item.listPosition < existing.listPosition) existing.listPosition = item.listPosition;
     };
     (Array.isArray(remote) ? remote : []).forEach(add);
     (Array.isArray(local) ? local : []).forEach(add);
@@ -500,17 +589,17 @@
   }
 
   function profileListsMarkup(lists) {
-    const items = mergeUserLists(lists, []);
+    const items = sortUserLists(mergeUserLists(lists, []), 'manual');
     if (!items.length) return `<div class="v3-profile-list-empty"><span class="v3-profile-list-empty-icon" aria-hidden="true">☷</span><div><h3>Deine Sammlung wartet</h3><p>Erstelle Listen mit Songs und Releases, die du behalten oder mit anderen teilen möchtest.</p></div><a class="btn btn-ghost btn-sm" href="#lists">Liste erstellen ${icon('arrow')}</a></div>`;
     const visible = items.slice(0, 3);
     const cards = visible.map(item => {
       const visibility = item.visibility || 'private';
       const visibilityLabel = {public:'öffentlich', followers:'nur Follower', private:'privat', unlisted:'unlisted'}[visibility] || visibility;
       const count = Number(item.itemCount ?? item.items.length ?? 0);
-      const preview = item.items.slice(0, 3).map((entry, index) => { const safeEntry = entry && typeof entry === 'object' ? entry : {}; return `<div class="v3-profile-list-preview-row"><span>${String(index + 1).padStart(2, '0')}</span><div><strong>${esc(safeEntry.title || safeEntry.entityId || 'Eintrag')}</strong><small>${esc(safeEntry.artistName || (safeEntry.kind === 'release' ? 'Release' : 'Song'))}</small></div></div>`; }).join('') || '<p class="section-note">Noch keine Einträge. Füge Songs oder Releases von ihren Detailseiten hinzu.</p>';
+      const preview = sortListItems(item.items, item.sortMode).slice(0, 3).map((entry, index) => { const safeEntry = entry && typeof entry === 'object' ? entry : {}; return `<div class="v3-profile-list-preview-row"><span>${String(index + 1).padStart(2, '0')}</span><div><strong>${esc(safeEntry.title || safeEntry.entityId || 'Eintrag')}</strong><small>${esc(safeEntry.artistName || (safeEntry.kind === 'release' ? 'Release' : 'Song'))}${safeEntry.releaseDate ? ` · ${esc(safeEntry.releaseDate.slice(0, 4))}` : ''}</small></div></div>`; }).join('') || '<p class="section-note">Noch keine Einträge. Füge Songs oder Releases von ihren Detailseiten hinzu.</p>';
       const shareSlug = item.shareSlug;
       const action = shareSlug && ['public', 'unlisted'].includes(visibility) ? `<a class="btn btn-ghost btn-sm" href="#lists/${encodeURIComponent(shareSlug)}">Liste öffnen ${icon('arrow')}</a>` : `<a class="btn btn-ghost btn-sm" href="#lists">Liste bearbeiten ${icon('arrow')}</a>`;
-      return `<article class="v3-profile-list-card"><div class="v3-profile-list-meta"><span class="hero-eyebrow">${esc(visibilityLabel)}</span><span>${count.toLocaleString('de-DE')} ${count === 1 ? 'Eintrag' : 'Einträge'}</span></div><h3>${esc(item.title || 'Unbenannte Liste')}</h3><p>${esc(item.description || 'Eine kuratierte Sammlung aus deiner bias.fm-Sammlung.')}</p><div class="v3-profile-list-preview">${preview}</div><div class="v3-profile-list-actions">${action}</div></article>`;
+      return `<article class="v3-profile-list-card"><div class="v3-profile-list-card-head">${listCoverMarkup(item)}<div><div class="v3-profile-list-meta"><span class="hero-eyebrow">${esc(visibilityLabel)}</span><span>${esc(item.sortMode === 'manual' ? 'Ranking' : item.sortMode === 'popular' ? 'Beliebteste zuerst' : 'Neueste zuerst')}</span></div><h3>${esc(item.title || 'Unbenannte Liste')}</h3></div></div><p>${esc(item.description || 'Eine kuratierte Sammlung aus deiner bias.fm-Sammlung.')}</p>${listMetricsMarkup(item)}<div class="v3-profile-list-preview">${preview}</div><div class="v3-profile-list-actions">${action}</div></article>`;
     }).join('');
     const remaining = items.length - visible.length;
     return `${cards}${remaining > 0 ? `<a class="v3-profile-list-more" href="#lists">Weitere ${remaining.toLocaleString('de-DE')} ${remaining === 1 ? 'Liste' : 'Listen'} anzeigen ${icon('arrow')}</a>` : ''}`;
@@ -525,7 +614,31 @@
     const shareSlug = list.shareSlug || list.share_slug || '';
     const target = shareSlug ? `#lists/${encodeURIComponent(shareSlug)}` : '#lists';
     const count = Math.max(0, Number(list.itemCount ?? list.item_count ?? 0) || 0);
-    return `<article class="v3-item-list-row"><span class="v3-item-list-icon" aria-hidden="true">☷</span><div class="v3-item-list-copy"><h3>${esc(list.title || 'Unbenannte Liste')}</h3><p>${esc(list.description || 'Eine öffentliche Sammlung aus der bias.fm-Community.')}</p><small>${count.toLocaleString('de-DE')} ${count === 1 ? 'Eintrag' : 'Einträge'}</small></div><a class="btn btn-ghost btn-sm" href="${target}">Öffnen ${icon('arrow')}</a></article>`;
+    const sortMode = list.sortMode || list.sort_mode || 'release_date';
+    const likes = Number(list.likes ?? list.like_count ?? 0) || 0;
+    const followers = Number(list.followers ?? list.follower_count ?? 0) || 0;
+    const liked = Boolean(list.liked || list.viewerLiked);
+    const following = Boolean(list.following || list.viewerFollowing);
+    const reactions = list.id ? `<div class="v3-list-reactions"><button type="button" class="btn btn-ghost btn-sm" data-v3-list-reaction="like" data-list-id="${esc(list.id)}" aria-pressed="${liked}">♥ Gefällt mir${liked ? ' · aktiv' : ''}</button><button type="button" class="btn btn-ghost btn-sm" data-v3-list-reaction="follow" data-list-id="${esc(list.id)}" aria-pressed="${following}">↗ Folgen${following ? ' · aktiv' : ''}</button></div>` : '';
+    return `<article class="v3-item-list-row">${listCoverMarkup(list)}<div class="v3-item-list-copy"><div class="v3-item-list-title-row"><h3>${esc(list.title || 'Unbenannte Liste')}</h3><span class="v3-list-sort-chip">${esc(listSortLabel(sortMode))}</span></div><p>${esc(list.description || 'Eine öffentliche Sammlung aus der bias.fm-Community.')}</p><small data-v3-list-counts>${count.toLocaleString('de-DE')} ${count === 1 ? 'Eintrag' : 'Einträge'} · ♥ ${likes.toLocaleString('de-DE')} · ↗ ${followers.toLocaleString('de-DE')}</small>${reactions}</div><a class="btn btn-ghost btn-sm" href="${target}">Öffnen ${icon('arrow')}</a></article>`;
+  }
+
+  function bindListReactions(container) {
+    container.querySelectorAll('[data-v3-list-reaction]').forEach(button => button.addEventListener('click', async event => {
+      event.preventDefault(); event.stopPropagation();
+      if (!root.biasAccount?.authenticated) { root.biasAccount?.openAuth('login'); return; }
+      const type = button.dataset.v3ListReaction; const active = button.getAttribute('aria-pressed') === 'true'; const action = `${active ? 'un' : ''}${type}-list`;
+      button.disabled = true;
+      try {
+        const result = await api('api/lists', {method:'POST', headers:formHeaders, body:JSON.stringify({action, listId:button.dataset.listId})});
+        button.setAttribute('aria-pressed', String(!active)); button.textContent = type === 'like' ? `${!active ? '♥ Gefällt mir' : '♥ Gefällt mir'}${!active ? ' · aktiv' : ''}` : `${!active ? '↗ Folgen' : '↗ Folgen'}${!active ? ' · aktiv' : ''}`;
+        const counts = button.closest('.v3-item-list-copy')?.querySelector('[data-v3-list-counts]');
+        if (counts) { const itemCount = counts.textContent.match(/^\d+[.\d]*\s+\w+/)?.[0] || ''; counts.textContent = `${itemCount} · ♥ ${Number(result.likes || 0).toLocaleString('de-DE')} · ↗ ${Number(result.followers || 0).toLocaleString('de-DE')}`; }
+        const sharedCounts = button.closest('.v3-shared-list-reactions')?.parentElement?.querySelector('[data-v3-shared-counts]');
+        if (sharedCounts) { const itemCount = sharedCounts.textContent.match(/^\d+[.\d]*\s+\w+/)?.[0] || ''; sharedCounts.textContent = `${itemCount} · ♥ ${Number(result.likes || 0).toLocaleString('de-DE')} · ↗ ${Number(result.followers || 0).toLocaleString('de-DE')}`; }
+      } catch (error) { root.biasApp.showToast(error.message || 'Die Reaktion konnte nicht gespeichert werden.'); }
+      finally { button.disabled = false; }
+    }));
   }
 
   function itemListsMarkup(result, itemKey, itemType) {
@@ -535,7 +648,7 @@
     if (!total) return `<div class="v3-item-lists-empty"><span class="v3-item-list-icon" aria-hidden="true">☷</span><div><strong>Noch in keiner öffentlichen Liste</strong><p>Sei der Erste und füge diesen ${itemLabel} zu deiner eigenen Liste hinzu.</p></div></div>`;
     const more = Math.max(0, Number(result?.listMoreCount ?? total - lists.length) || 0);
     const allHref = `#lists?item_key=${encodeURIComponent(itemKey)}&item_type=${encodeURIComponent(itemType)}`;
-    return `<div class="section-heading-row"><div><p class="hero-eyebrow">SAMMLUNGEN · COMMUNITY</p><h2>In öffentlichen Listen</h2><p class="section-note">Andere Mitglieder haben diesen ${itemLabel} in ihren Sammlungen gespeichert.</p></div><span class="pill pill-muted">${total.toLocaleString('de-DE')}</span></div><div class="v3-item-list-rows">${lists.map(publicListRowMarkup).join('')}</div>${more ? `<a class="v3-item-list-more" href="${allHref}">Weitere ${more.toLocaleString('de-DE')} ${more === 1 ? 'Liste' : 'Listen'} ${icon('arrow')}</a>` : ''}`;
+    return `<div class="section-heading-row"><div><p class="hero-eyebrow">SAMMLUNGEN · COMMUNITY</p><h2>In öffentlichen Listen</h2><p class="section-note">Die fünf meistgemochten Sammlungen erscheinen zuerst. Alle weiteren Listen findest du über den Pfeil.</p></div><span class="pill pill-muted">${total.toLocaleString('de-DE')}</span></div><div class="v3-item-list-rows">${lists.map(publicListRowMarkup).join('')}</div>${more ? `<a class="v3-item-list-more" href="${allHref}">Weitere ${more.toLocaleString('de-DE')} ${more === 1 ? 'Liste' : 'Listen'} ${icon('arrow')}</a>` : ''}`;
   }
 
   function renderItemListDirectory(container, itemKey, itemType) {
@@ -543,28 +656,98 @@
     const itemLabel = itemType === 'release' ? 'Release' : itemType === 'artist' ? 'Artist' : 'Song';
     const itemTitle = itemType === 'artist' ? source?.name : itemType === 'release' ? source?.album || source?.title : source?.title;
     const backTarget = itemType === 'artist' ? `#artist/${encodeURIComponent(itemKey)}` : `#${itemType === 'release' ? 'release' : 'song'}/${encodeURIComponent(itemKey)}`;
-    container.innerHTML = `<div class="v3-lists-view v3-item-list-directory"><a class="v3-back-link" href="${backTarget}">${icon('back')} Zurück zum ${itemLabel}</a><div class="view-header v3-view-header"><div><p class="hero-eyebrow">COMMUNITY · SAMMLUNGEN</p><h1 class="view-title">Listen mit ${esc(itemTitle || itemKey)}</h1><p class="view-subtitle">Öffentliche bias.fm-Listen, in denen dieser ${itemLabel} vorkommt.</p></div><a class="btn btn-ghost" href="#lists">Meine Listen ${icon('arrow')}</a></div><section class="settings-card v3-item-lists"><div class="section-heading-row"><div><p class="hero-eyebrow">ÖFFENTLICHE LISTEN</p><h2>Community-Sammlungen</h2></div><span class="pill pill-muted" data-v3-item-list-count>…</span></div><div class="v3-item-list-directory-body" data-v3-item-list-directory-body><p class="section-note">Öffentliche Listen werden geladen …</p></div></section></div>`;
+    container.innerHTML = `<div class="v3-lists-view v3-item-list-directory"><a class="v3-back-link" href="${backTarget}">${icon('back')} Zurück zum ${itemLabel}</a><div class="view-header v3-view-header"><div><p class="hero-eyebrow">COMMUNITY · SAMMLUNGEN</p><h1 class="view-title">Listen mit ${esc(itemTitle || itemKey)}</h1><p class="view-subtitle">Öffentliche bias.fm-Listen, in denen dieser ${itemLabel} vorkommt.</p></div><a class="btn btn-ghost" href="#lists">Meine Listen ${icon('arrow')}</a></div><section class="settings-card v3-item-lists"><div class="section-heading-row"><div><p class="hero-eyebrow">ÖFFENTLICHE LISTEN</p><h2>Community-Sammlungen</h2><p class="section-note">Nur Listen, die diesen ${itemLabel} enthalten. Kommentare sind bewusst nicht nötig.</p></div><span class="pill pill-muted" data-v3-item-list-count>…</span></div><div class="v3-item-list-directory-toolbar"><label>Sortierung<select class="select-input" data-v3-item-list-sort><option value="popular">Beliebteste</option><option value="followed">Meist gefolgt</option><option value="recent">Zuletzt aktualisiert</option><option value="release_date">Neueste Releases</option></select></label></div><div class="v3-item-list-directory-body" data-v3-item-list-directory-body><p class="section-note">Öffentliche Listen werden geladen …</p></div></section></div>`;
     const body = container.querySelector('[data-v3-item-list-directory-body]');
     const count = container.querySelector('[data-v3-item-list-count]');
+    const sortControl = container.querySelector('[data-v3-item-list-sort]');
     const paint = result => {
       const lists = (Array.isArray(result?.lists) ? result.lists : []).map(normalizeUserList).filter(Boolean);
       const total = Math.max(Number(result?.listCount || 0) || 0, lists.length);
       if (count) count.textContent = total.toLocaleString('de-DE');
-      if (body) body.innerHTML = lists.length ? `<div class="v3-item-list-rows">${lists.map(publicListRowMarkup).join('')}</div>${result?.nextOffset !== null && result?.nextOffset !== undefined ? '<p class="section-note">Weitere Listen werden nach und nach ergänzt.</p>' : ''}` : '<div class="v3-item-lists-empty"><span class="v3-item-list-icon" aria-hidden="true">☷</span><div><strong>Noch keine öffentliche Liste</strong><p>Diese Sammlung kann als Erste:r öffentlich angelegt werden.</p></div></div>';
+      if (body) { body.innerHTML = lists.length ? `<div class="v3-item-list-rows">${lists.map(publicListRowMarkup).join('')}</div>${result?.nextOffset !== null && result?.nextOffset !== undefined ? '<p class="section-note">Weitere Listen werden nach und nach ergänzt.</p>' : ''}` : '<div class="v3-item-lists-empty"><span class="v3-item-list-icon" aria-hidden="true">☷</span><div><strong>Noch keine öffentliche Liste</strong><p>Diese Sammlung kann als Erste:r öffentlich angelegt werden.</p></div></div>'; bindListReactions(body); }
     };
-    api(`api/lists?item_key=${encodeURIComponent(itemKey)}&item_type=${encodeURIComponent(itemType)}&all=1`).then(paint).catch(() => { if (body) body.innerHTML = '<p class="section-note">Öffentliche Listen sind momentan nicht verfügbar.</p>'; });
+    const load = () => api(`api/lists?item_key=${encodeURIComponent(itemKey)}&item_type=${encodeURIComponent(itemType)}&all=1&sort=${encodeURIComponent(sortControl?.value || 'popular')}`).then(paint).catch(() => { if (body) body.innerHTML = '<p class="section-note">Öffentliche Listen sind momentan nicht verfügbar.</p>'; });
+    sortControl?.addEventListener('change', load);
+    load();
   }
 
   function renderLists(container) {
     const state = root.biasV3.lists; const route = routeFromHash(); const shareSlug = route.id && !route.params.has('item_key') ? route.id : ''; if (shareSlug) return renderSharedList(container, shareSlug);
     const itemKey = route.params.get('item_key'); const itemType = route.params.get('item_type'); if (itemKey && ['artist', 'release', 'song'].includes(itemType)) return renderItemListDirectory(container, itemKey, itemType);
     const localData = read('biasfm_v3_lists', []); const local = (Array.isArray(localData) ? localData : []).map(normalizeUserList).filter(Boolean); const pending = state.pending;
-    const paint = lists => { const items = lists || []; container.innerHTML = `<div class="v3-lists-view"><div class="view-header v3-view-header"><div><p class="hero-eyebrow">PROFIL · SAMMLUNG</p><h1 class="view-title">Meine Listen</h1><p class="view-subtitle">Jahreslisten, nächtliche Songs, K-R&amp;B-Einstiege — unbegrenzt viele private oder geteilte Listen.</p></div><button class="btn btn-accent" id="v3-new-list">＋ Liste erstellen</button></div>${pending ? `<div class="v3-community-notice" id="v3-pending-list-item"><strong>${icon('plus')} ${esc(pending.title)}</strong><p>${esc(pending.artistName)} · Wähle eine Liste, in der dieser Eintrag gespeichert werden soll.</p></div>` : ''}<div class="v3-community-notice"><strong>Vier Sichtbarkeiten</strong><p>Öffentlich, nur Follower, privat oder unlisted mit Share-Link. Kollaborative Listen kommen erst mit klaren Editrechten.</p></div><div class="v3-list-grid">${items.map(item => `<article class="v3-list-card" data-list-id="${esc(item.id || '')}"><p class="hero-eyebrow">${esc(item.visibility || 'private')}</p><h2>${esc(item.title)}</h2><p>${esc(item.description || 'Noch keine Beschreibung.')}</p><span>${Number(item.itemCount ?? item.items?.length ?? 0)} Einträge</span><div class="v3-list-actions">${pending ? `<button type="button" class="btn btn-accent btn-sm" data-v3-add-list="${esc(item.id || '')}">Hier speichern</button>` : ''}${item.shareSlug && ['public','unlisted'].includes(item.visibility) ? `<a class="btn btn-ghost btn-sm" href="#lists/${encodeURIComponent(item.shareSlug)}">Teilen ${icon('arrow')}</a>` : ''}</div></article>`).join('') || '<div class="v3-empty-view"><h2>Deine erste Liste wartet</h2><p>Speichere Releases und Songs aus ihren Detailseiten.</p></div>'}</div><div id="v3-list-form" hidden></div></div>`;
-      container.querySelector('#v3-new-list').onclick = () => { if (!root.biasAccount?.authenticated) return root.biasAccount?.openAuth('login'); const host = container.querySelector('#v3-list-form'); host.hidden = false; host.innerHTML = `<form class="v3-create-form settings-card"><h2>Neue Liste</h2><label>Titel<input name="title" class="text-input" maxlength="120" required placeholder="Songs für nachts"></label><label>Beschreibung<textarea name="description" class="text-input" maxlength="500"></textarea></label><label>Sichtbarkeit<select name="visibility" class="select-input"><option value="private">Privat</option><option value="public">Öffentlich</option><option value="followers">Nur Follower</option><option value="unlisted">Unlisted</option></select></label><button class="btn btn-accent">Liste speichern</button></form>`; host.querySelector('form').onsubmit = async event => { event.preventDefault(); const form = new FormData(event.target); const list = {id:`local-list-${Date.now()}`,title:String(form.get('title') || ''),description:String(form.get('description') || ''),visibility:String(form.get('visibility') || 'private'),items:[],itemCount:0,shareSlug:`${slugForShare(listTitle(form.get('title')))}-${Math.random().toString(36).slice(2, 7)}`}; let remote = true; try { const result = await api('api/lists',{method:'POST',headers:formHeaders,body:JSON.stringify({action:'create-list',title:list.title,description:list.description,visibility:list.visibility})}); Object.assign(list, result.list || {}); } catch (error) { if (error?.status && error.status < 500) { root.biasApp.showToast(error.message || 'Die Liste konnte nicht erstellt werden.'); return; } remote = false; } const lists = read('biasfm_v3_lists', []); lists.unshift(list); write('biasfm_v3_lists', lists); renderLists(container); root.biasApp.showToast(`Liste ${remote ? 'erstellt' : 'lokal gespeichert; Server nicht erreichbar'}.`); }; };
-      container.querySelectorAll('[data-v3-add-list]').forEach(button => button.onclick = async () => { const list = items.find(item => String(item.id) === button.dataset.v3AddList); if (!list || !pending) return; let remote = true; try { await api('api/lists',{method:'POST',headers:formHeaders,body:JSON.stringify({action:'add-item',listId:list.id,kind:pending.kind || 'song',entityId:pending.entityId,title:pending.title,artistName:pending.artistName})}); } catch (error) { if (error?.status && error.status < 500) { root.biasApp.showToast(error.message || 'Der Eintrag konnte nicht gespeichert werden.'); return; } remote = false; } const stored = read('biasfm_v3_lists', []); const target = stored.find(item => String(item.id) === String(list.id)); if (target) { target.items = target.items || []; if (!target.items.some(item => item.entityId === pending.entityId)) target.items.push({...pending}); target.itemCount = target.items.length; write('biasfm_v3_lists', stored); } state.pending = null; renderLists(container); root.biasApp.showToast(`Zur Liste hinzugefügt${remote ? '.' : ' (lokal; Server nicht erreichbar).'}`); });
+    state.sort = ['manual', 'release_date', 'recent', 'popular', 'followed'].includes(state.sort) ? state.sort : 'manual';
+    const localWrite = item => {
+      const stored = Array.isArray(read('biasfm_v3_lists', [])) ? read('biasfm_v3_lists', []) : [];
+      const index = stored.findIndex(value => String(value.id) === String(item.id));
+      const copy = {...item, items: (item.items || []).map((entry, position) => ({...entry, position}))};
+      copy.itemCount = copy.items.length;
+      if (index >= 0) stored[index] = {...stored[index], ...copy}; else stored.unshift(copy);
+      write('biasfm_v3_lists', stored);
+      return copy;
+    };
+    const isRemoteList = item => Boolean(root.biasAccount?.authenticated && item?.id && !String(item.id).startsWith('local-'));
+    const saveListOrder = async item => {
+      const payload = item.items.map((entry, position) => ({kind: entry.kind || 'song', entityId: entry.entityId, position}));
+      if (!isRemoteList(item)) return;
+      await api('api/lists', {method:'POST', headers:formHeaders, body:JSON.stringify({action:'update-list', listId:item.id, sortMode:'manual'})});
+      await api('api/lists', {method:'POST', headers:formHeaders, body:JSON.stringify({action:'reorder-items', listId:item.id, items:payload})});
+    };
+    const renderEditor = item => {
+      const editorItems = [...(item.items || [])].sort((a, b) => Number(a.position || 0) - Number(b.position || 0));
+      return `<details class="v3-list-editor"><summary><span>Liste bearbeiten</span><span class="v3-list-editor-summary">${esc(listSortLabel(item.sortMode))} · ${editorItems.length} Einträge</span></summary><form class="v3-list-editor-form" data-v3-edit-list="${esc(item.id || '')}"><div class="v3-list-form-grid"><label>Titel<input name="title" class="text-input" maxlength="120" required value="${esc(item.title || '')}"></label><label>Sichtbarkeit<select name="visibility" class="select-input">${listVisibilityOptions(item.visibility || 'public')}</select></label><label class="v3-list-form-wide">Kurzbeschreibung<textarea name="description" class="text-input" maxlength="500" placeholder="Worum geht es in dieser Liste?">${esc(item.description || '')}</textarea></label><label>Einträge sortieren<select name="sortMode" class="select-input">${listSortOptions(item.sortMode || 'release_date')}</select></label><label>Cover auswählen<input name="cover" type="file" accept="image/png,image/jpeg,image/webp"><small class="section-note">JPG, PNG oder WebP bis 3 MB.</small></label></div><div class="v3-list-editor-items">${editorItems.length ? editorItems.map((entry, index) => listItemEditorMarkup(entry, index, editorItems.length)).join('') : '<p class="section-note">Noch keine Einträge. Öffne einen Song oder Release und wähle „Zu Liste“.</p>'}</div><div class="v3-list-editor-footer"><button class="btn btn-accent btn-sm" type="submit">Änderungen speichern</button><button class="btn btn-ghost btn-sm" type="button" data-v3-delete-list="${esc(item.id || '')}">Liste löschen</button></div></form></details>`;
+    };
+    const paint = lists => {
+      const sourceItems = (lists || []).map(normalizeUserList).filter(Boolean);
+      const items = sortUserLists(sourceItems, state.sort);
+      const sortOptions = ['manual', 'release_date', 'recent', 'popular', 'followed'].map(mode => `<option value="${mode}" ${mode === state.sort ? 'selected' : ''}>${esc(listSortLabel(mode))}</option>`).join('');
+      container.innerHTML = `<div class="v3-lists-view"><div class="view-header v3-view-header"><div><p class="hero-eyebrow">PROFIL · SAMMLUNG</p><h1 class="view-title">Meine Listen</h1><p class="view-subtitle">Kuratierte Songs und Releases — öffentlich, für Follower, privat oder per unlisted Link.</p></div><button class="btn btn-accent" id="v3-new-list">＋ Liste erstellen</button></div>${pending ? `<div class="v3-community-notice" id="v3-pending-list-item"><strong>${icon('plus')} ${esc(pending.title)}</strong><p>${esc(pending.artistName || '')} · Wähle eine Liste, in der dieser Eintrag gespeichert werden soll.</p></div>` : ''}<div class="v3-list-toolbar"><div><strong>${items.length ? `${items.length} ${items.length === 1 ? 'Liste' : 'Listen'}` : 'Deine Sammlung'}</strong><span class="section-note">Neue Listen sind standardmäßig öffentlich.</span></div><label>Ansicht<select id="v3-list-sort" class="select-input">${sortOptions}</select></label></div><div class="v3-community-notice"><strong>Deine Regeln auf einen Blick</strong><p>Listen können kurz beschrieben und mit einem eigenen Cover versehen werden. Die Einträge lassen sich manuell als Ranking ordnen oder automatisch nach Release-Datum sortieren. Likes und Follows helfen beim Entdecken.</p></div><div class="v3-list-grid">${items.map(item => { const preview = sortListItems(item.items, item.sortMode).slice(0, 4).map((entry, index) => `<div class="v3-list-preview-row"><span>${String(index + 1).padStart(2, '0')}</span><div><strong>${esc(entry.title || entry.entityId || 'Eintrag')}</strong><small>${esc(entry.artistName || (entry.kind === 'release' ? 'Release' : entry.kind === 'artist' ? 'Artist' : 'Song'))}${entry.releaseDate ? ` · ${esc(String(entry.releaseDate).slice(0, 4))}` : ''}</small></div></div>`).join('') || '<p class="section-note">Noch keine Einträge.</p>'; return `<article class="v3-list-card" data-list-id="${esc(item.id || '')}"><div class="v3-list-card-head">${listCoverMarkup(item)}<div><div class="v3-list-meta"><span class="hero-eyebrow">${esc(listVisibilityLabel(item.visibility))}</span><span>${esc(listSortLabel(item.sortMode))}</span></div><h2>${esc(item.title || 'Unbenannte Liste')}</h2></div></div><p class="v3-list-description">${esc(item.description || 'Eine kuratierte Sammlung aus der bias.fm-Community.')}</p>${listMetricsMarkup(item)}<div class="v3-list-preview">${preview}</div><div class="v3-list-actions">${pending ? `<button type="button" class="btn btn-accent btn-sm" data-v3-add-list="${esc(item.id || '')}">Hier speichern</button>` : ''}${item.shareSlug && ['public','unlisted'].includes(item.visibility) ? `<a class="btn btn-ghost btn-sm" href="#lists/${encodeURIComponent(item.shareSlug)}">Liste öffnen ${icon('arrow')}</a>` : ''}</div>${renderEditor(item)}</article>`; }).join('') || '<div class="v3-empty-view"><h2>Deine erste Liste wartet</h2><p>Speichere Releases und Songs aus ihren Detailseiten.</p></div>'}</div><div id="v3-list-form" hidden></div></div>`;
+      const sortControl = container.querySelector('#v3-list-sort');
+      sortControl?.addEventListener('change', event => { state.sort = event.target.value; paint(sourceItems); });
+      container.querySelector('#v3-new-list').onclick = () => {
+        if (!root.biasAccount?.authenticated) return root.biasAccount?.openAuth('login');
+        const host = container.querySelector('#v3-list-form'); host.hidden = false;
+        host.innerHTML = `<form class="v3-create-form settings-card"><div class="section-heading-row"><div><p class="hero-eyebrow">NEUE SAMMLUNG</p><h2>Liste erstellen</h2><p class="section-note">Öffentlich ist der Startpunkt. Du kannst die Sichtbarkeit jederzeit ändern.</p></div><button type="button" class="btn btn-ghost btn-sm" data-v3-close-list>Schließen</button></div><div class="v3-list-form-grid"><label>Titel<input name="title" class="text-input" maxlength="120" required placeholder="Songs für nachts"></label><label>Sichtbarkeit<select name="visibility" class="select-input">${listVisibilityOptions('public')}</select></label><label class="v3-list-form-wide">Kurzbeschreibung<textarea name="description" class="text-input" maxlength="500" placeholder="Eine kurze Einordnung für andere …"></textarea></label><label>Einträge sortieren<select name="sortMode" class="select-input">${listSortOptions('release_date')}</select></label><label>Cover auswählen<input name="cover" type="file" accept="image/png,image/jpeg,image/webp"><small class="section-note">JPG, PNG oder WebP bis 3 MB.</small></label></div><button class="btn btn-accent" type="submit">Liste speichern</button></form>`;
+        host.querySelector('[data-v3-close-list]').onclick = () => { host.hidden = true; };
+        host.querySelector('form').onsubmit = async event => {
+          event.preventDefault(); const form = new FormData(event.target); let coverData = '';
+          try { coverData = await readListCoverFile(event.target.querySelector('input[name="cover"]')?.files?.[0]); } catch (error) { root.biasApp.showToast(error.message); return; }
+          const title = listTitle(form.get('title')); const list = {id:`local-list-${Date.now()}`, title, description:String(form.get('description') || ''), visibility:String(form.get('visibility') || 'public'), sortMode:String(form.get('sortMode') || 'release_date'), coverData, items:[], itemCount:0, likes:0, followers:0, listPosition:sourceItems.length, shareSlug:`${slugForShare(title)}-${Math.random().toString(36).slice(2, 7)}`, updatedAt:new Date().toISOString()};
+          let remote = false;
+          try { const result = await api('api/lists',{method:'POST',headers:formHeaders,body:JSON.stringify({action:'create-list',title:list.title,description:list.description,visibility:list.visibility,sortMode:list.sortMode,coverData:list.coverData})}); Object.assign(list, normalizeUserList(result.list || {})); remote = true; } catch (error) { if (error?.status && error.status < 500) { root.biasApp.showToast(error.message || 'Die Liste konnte nicht erstellt werden.'); return; } }
+          localWrite(list); state.sort = 'manual'; renderLists(container); root.biasApp.showToast(`Liste ${remote ? 'erstellt' : 'lokal gespeichert; Server nicht erreichbar'}.`);
+        };
+      };
+      container.querySelectorAll('[data-v3-add-list]').forEach(button => button.onclick = async () => {
+        const list = items.find(item => String(item.id) === button.dataset.v3AddList); if (!list || !pending) return;
+        const payload = {action:'add-item',listId:list.id,kind:pending.kind || 'song',entityId:pending.entityId,title:pending.title,artistName:pending.artistName,releaseDate:pending.releaseDate || '',coverUrl:pending.coverUrl || ''}; let remote = false;
+        try { await api('api/lists',{method:'POST',headers:formHeaders,body:JSON.stringify(payload)}); remote = true; } catch (error) { if (error?.status && error.status < 500) { root.biasApp.showToast(error.message || 'Der Eintrag konnte nicht gespeichert werden.'); return; } }
+        const next = {...list, items:[...(list.items || [])]}; if (!next.items.some(item => listItemIdentity(item) === listItemIdentity(pending))) next.items.push({...pending, position:next.items.length}); next.itemCount = next.items.length; localWrite(next); state.pending = null; renderLists(container); root.biasApp.showToast(`Zur Liste hinzugefügt${remote ? '.' : ' (lokal; Server nicht erreichbar).'}`);
+      });
+      container.querySelectorAll('[data-v3-edit-list]').forEach(form => form.addEventListener('submit', async event => {
+        event.preventDefault(); const item = items.find(value => String(value.id) === String(form.dataset.v3EditList)); if (!item) return; const values = new FormData(form); let coverData = null;
+        try { const file = form.querySelector('input[name="cover"]')?.files?.[0]; if (file?.size) coverData = await readListCoverFile(file); } catch (error) { root.biasApp.showToast(error.message); return; }
+        const patch = {title:listTitle(values.get('title')),description:String(values.get('description') || ''),visibility:String(values.get('visibility') || item.visibility || 'public'),sortMode:String(values.get('sortMode') || item.sortMode || 'release_date')}; if (coverData !== null) patch.coverData = coverData;
+        let remote = false;
+        if (isRemoteList(item)) { try { const result = await api('api/lists',{method:'POST',headers:formHeaders,body:JSON.stringify({action:'update-list',listId:item.id,...patch})}); const updated = normalizeUserList(result.list || {}); if (updated?.id) Object.assign(item, updated); remote = true; } catch (error) { if (error?.status && error.status < 500) { root.biasApp.showToast(error.message || 'Die Liste konnte nicht aktualisiert werden.'); return; } } }
+        Object.assign(item, patch); localWrite(item); renderLists(container); root.biasApp.showToast(`Liste aktualisiert${remote ? '.' : ' (lokal; Server nicht erreichbar).'}`);
+      }));
+      container.querySelectorAll('[data-v3-delete-list]').forEach(button => button.onclick = async () => {
+        const item = items.find(value => String(value.id) === String(button.dataset.v3DeleteList)); if (!item) return;
+        if (root.confirm && !root.confirm(`Liste „${item.title}“ wirklich löschen?`)) return;
+        let remote = false; if (isRemoteList(item)) { try { await api('api/lists',{method:'POST',headers:formHeaders,body:JSON.stringify({action:'delete-list',listId:item.id})}); remote = true; } catch (error) { if (error?.status && error.status < 500) { root.biasApp.showToast(error.message || 'Die Liste konnte nicht gelöscht werden.'); return; } } }
+        const stored = (Array.isArray(read('biasfm_v3_lists', [])) ? read('biasfm_v3_lists', []) : []).filter(value => String(value.id) !== String(item.id)); write('biasfm_v3_lists', stored); renderLists(container); root.biasApp.showToast(`Liste gelöscht${remote ? '.' : ' (lokal; Server nicht erreichbar).'}`);
+      });
+      container.querySelectorAll('[data-v3-editor-item]').forEach(row => row.querySelectorAll('[data-v3-move]').forEach(button => button.onclick = async () => {
+        const item = items.find(value => String(value.id) === String(row.closest('[data-list-id]')?.dataset.listId)); if (!item) return; const ordered = [...(item.items || [])].sort((a, b) => Number(a.position || 0) - Number(b.position || 0)); const index = ordered.findIndex(value => listItemIdentity(value) === `${row.dataset.kind}:${row.dataset.entityId}`); const nextIndex = index + (button.dataset.v3Move === 'up' ? -1 : 1); if (index < 0 || nextIndex < 0 || nextIndex >= ordered.length) return; [ordered[index], ordered[nextIndex]] = [ordered[nextIndex], ordered[index]]; item.items = ordered.map((value, position) => ({...value, position})); item.sortMode = 'manual'; localWrite(item); try { await saveListOrder(item); } catch (error) { if (error?.status && error.status < 500) root.biasApp.showToast(error.message || 'Die Reihenfolge konnte nicht gespeichert werden.'); } paint(items);
+      }));
+      container.querySelectorAll('[data-v3-remove-item]').forEach(button => button.onclick = async () => {
+        const row = button.closest('[data-v3-editor-item]'); const item = items.find(value => String(value.id) === String(row?.closest('[data-list-id]')?.dataset.listId)); if (!item || !row) return; const kind = row.dataset.kind || 'song'; const entityId = row.dataset.entityId; let remote = false;
+        if (isRemoteList(item)) { try { await api('api/lists',{method:'POST',headers:formHeaders,body:JSON.stringify({action:'remove-item',listId:item.id,kind,entityId})}); remote = true; } catch (error) { if (error?.status && error.status < 500) { root.biasApp.showToast(error.message || 'Der Eintrag konnte nicht entfernt werden.'); return; } } }
+        item.items = (item.items || []).filter(value => listItemIdentity(value) !== `${kind}:${entityId}`).map((value, position) => ({...value, position})); item.itemCount = item.items.length; localWrite(item); renderLists(container); root.biasApp.showToast(`Eintrag entfernt${remote ? '.' : ' (lokal; Server nicht erreichbar).'}`);
+      });
     };
     paint(local);
-    if (root.biasAccount?.authenticated) api('api/lists').then(result => { const remote = (result.lists || []).map(normalizeUserList).filter(Boolean); if (!remote.length) return; paint(mergeUserLists(remote, local)); }).catch(() => {});
+    if (root.biasAccount?.authenticated) api(`api/lists?sort=${encodeURIComponent(state.sort)}`).then(result => { const remote = (result.lists || []).map(normalizeUserList).filter(Boolean); paint(mergeUserLists(remote, local)); }).catch(() => {});
   }
 
   function listTitle(value) { return String(value || 'liste').slice(0, 120); }

@@ -1,8 +1,9 @@
 import {fail} from './http.js';
 import {ARTISTS} from './catalog.js';
-import {accountProfile, ensureSchema, readActivityPrivacy, readSession, requireAccount} from './auth.js';
+import {accountProfile, readActivityPrivacy, readSession, requireAccount} from './auth.js';
 import {listListens} from './catalog-store.js';
 import {publicNowPlaying} from './lastfm.js';
+import {ensureV3Schema} from './v3.js';
 
 function artist(artistId) {
   const value = String(artistId || '').trim();
@@ -93,7 +94,7 @@ export async function markNotification(request, env, all = false) {
 
 export async function publicProfile(request, env, username) {
   if (!env.DB) throw fail(503, 'Die Cloudflare-Datenbank ist noch nicht verbunden.');
-  await ensureSchema(env.DB);
+  await ensureV3Schema(env.DB);
   const normalized = String(username || '').trim().toLowerCase();
   if (!/^[a-z0-9_-]{3,20}$/.test(normalized)) throw fail(400, 'Ungültiger Username.');
   const row = await env.DB.prepare('SELECT * FROM accounts WHERE username = ?').bind(normalized).first();
@@ -112,23 +113,31 @@ export async function publicProfile(request, env, username) {
   // V3 collection schema has been created by the lists endpoint.
   try {
     const visibleLists = await env.DB.prepare(`SELECT l.id, l.title, l.description, l.visibility, l.share_slug, l.updated_at,
-      COUNT(i.entity_id) AS item_count
-      FROM user_lists l LEFT JOIN user_list_items i ON i.list_id = l.id
+      m.cover_data, m.list_position, m.sort_mode,
+      (SELECT COUNT(*) FROM user_list_items i0 WHERE i0.list_id = l.id) AS item_count,
+      (SELECT COUNT(*) FROM user_list_likes ll WHERE ll.list_id = l.id) AS like_count,
+      (SELECT COUNT(*) FROM user_list_follows lf WHERE lf.list_id = l.id) AS follower_count
+      FROM user_lists l LEFT JOIN user_list_meta m ON m.list_id = l.id
       WHERE l.user_id = ? AND (l.visibility = 'public' OR (l.visibility = 'followers' AND ? = 1) OR (? = 1 AND l.visibility = 'private'))
-      GROUP BY l.id ORDER BY l.updated_at DESC LIMIT 50`).bind(row.id, isFollower ? 1 : 0, isOwner ? 1 : 0).all();
+      ORDER BY COALESCE(m.list_position, 2147483647) ASC, l.updated_at DESC LIMIT 50`).bind(row.id, isFollower ? 1 : 0, isOwner ? 1 : 0).all();
     const listRows = visibleLists.results || [];
-    const itemRows = listRows.length ? await env.DB.prepare(`SELECT list_id, kind, entity_id, title, artist_name, note, position
-      FROM user_list_items WHERE list_id IN (SELECT id FROM user_lists WHERE user_id = ?)
-      ORDER BY position ASC, created_at ASC`).bind(row.id).all() : {results: []};
+    const itemRows = listRows.length ? await env.DB.prepare(`SELECT i.list_id, i.kind, i.entity_id, i.title, i.artist_name, i.note, i.position,
+      COALESCE(m.release_date, '') AS release_date, COALESCE(m.cover_url, '') AS cover_url
+      FROM user_list_items i LEFT JOIN user_list_item_meta m ON m.list_id = i.list_id AND m.kind = i.kind AND m.entity_id = i.entity_id
+      WHERE i.list_id IN (SELECT id FROM user_lists WHERE user_id = ?)
+      ORDER BY i.list_id, i.position ASC, i.created_at ASC`).bind(row.id).all() : {results: []};
     const itemsByList = (itemRows.results || []).reduce((map, item) => {
       if (listRows.some(list => list.id === item.list_id)) (map[item.list_id] ||= []).push({
-        kind: item.kind, entityId: item.entity_id, title: item.title, artistName: item.artist_name, note: item.note
+        kind: item.kind, entityId: item.entity_id, title: item.title, artistName: item.artist_name, note: item.note,
+        position: Number(item.position || 0), releaseDate: item.release_date || '', coverUrl: item.cover_url || ''
       });
       return map;
     }, {});
     profile.lists = listRows.map(list => ({
       id: list.id, title: list.title, description: list.description, visibility: list.visibility,
-      shareSlug: list.share_slug, itemCount: Number(list.item_count || 0), items: itemsByList[list.id] || [],
+      shareSlug: list.share_slug, coverData: list.cover_data || '', listPosition: Number(list.list_position || 0),
+      sortMode: list.sort_mode || 'release_date', itemCount: Number(list.item_count || 0),
+      likes: Number(list.like_count || 0), followers: Number(list.follower_count || 0), items: itemsByList[list.id] || [],
       updatedAt: list.updated_at
     }));
   } catch {

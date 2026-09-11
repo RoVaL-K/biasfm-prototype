@@ -360,3 +360,20 @@ test('V3 profile overview follows the sketch without exposing the old Fan Identi
   assert.equal(w.document.querySelector('.v3-profile').textContent.includes('Fan Identity'),false);
  }finally{close();}
 });
+
+test('V3 community lists support release sorting, covers, metrics and in-place ranking edits',()=>{
+ const cover='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+ const lists=[{id:'list-new',title:'Neue Releases',description:'Frische Platten.',visibility:'public',sortMode:'release_date',listPosition:0,coverData:cover,likes:7,followers:4,items:[{kind:'song',entityId:'track-ditto',title:'Ditto',artistName:'NewJeans',releaseDate:'2022-12-19',position:0},{kind:'song',entityId:'track-bibi',title:'Bam Yang Gang',artistName:'BIBI',releaseDate:'2024-02-13',position:1}]},{id:'list-rank',title:'Mein Ranking',description:'Von Hand geordnet.',visibility:'unlisted',sortMode:'manual',listPosition:1,items:[{kind:'release',entityId:'track-ditto',title:'OMG',artistName:'NewJeans',position:0}]}];
+ const {w,close}=app({biasfm_v3_lists:JSON.stringify(lists)});
+ try {
+  w.biasApp.navigateTo('lists');
+  assert.equal(w.document.querySelectorAll('.v3-list-card').length,2);
+  assert.equal(w.document.querySelectorAll('.v3-list-cover').length>=2,true);
+  assert.equal(w.document.querySelector('#v3-list-sort').options.length,5);
+  assert.match(w.document.querySelector('.v3-list-card').textContent,/♥ 7/);
+  w.document.querySelector('#v3-list-sort').value='release_date';w.document.querySelector('#v3-list-sort').dispatchEvent(new w.Event('change',{bubbles:true}));
+  assert.equal(w.document.querySelector('#v3-list-sort').value,'release_date');
+  const editor=w.document.querySelector('.v3-list-editor');editor.open=true;assert.equal(editor.querySelectorAll('[data-v3-editor-item]').length,2);assert.ok(editor.querySelector('[data-v3-move="down"]'));assert.ok(editor.querySelector('[data-v3-remove-item]'));
+  w.biasApp.navigateTo('profile');assert.equal(w.document.querySelectorAll('.v3-profile-list-card').length,2);assert.ok(w.document.querySelector('.v3-profile-list-card .v3-list-cover'));
+ } finally { close(); }
+});

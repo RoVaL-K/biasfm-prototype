@@ -2301,3 +2301,89 @@ body.search-is-open .brand-search-cluster .search-trigger-btn:not(.search-input-
   .v3-profile-visual .v3-profile-art { min-height:260px; }
   .v3-profile-art-copy { padding:20px; }
 }
+
+/* Community lists: covers, ranking controls and lightweight editing stay on
+   one calm surface. The editor opens in place so ordering never feels like a
+   second workflow. */
+.v3-list-toolbar { display:flex; align-items:center; justify-content:space-between; gap:16px; margin:18px 0; padding:13px 16px; border:1px solid var(--line); border-radius:18px; background:color-mix(in srgb,var(--bg-card) 78%,transparent); }
+.v3-list-toolbar > div { display:flex; flex-direction:column; gap:3px; min-width:0; }
+.v3-list-toolbar > div > strong { color:var(--fg-bright); }
+.v3-list-toolbar .section-note { margin:0; font-size:12px; }
+.v3-list-toolbar > label, .v3-item-list-directory-toolbar label { display:flex; align-items:center; gap:9px; color:var(--fg-mid); font-size:12px; white-space:nowrap; }
+.v3-list-toolbar .select-input, .v3-item-list-directory-toolbar .select-input { min-width:190px; min-height:40px; }
+.v3-list-card { gap:12px; overflow:hidden; }
+.v3-list-card-head { display:grid; grid-template-columns:58px minmax(0,1fr); gap:12px; align-items:center; min-width:0; }
+.v3-list-cover { display:grid; place-items:center; flex:0 0 auto; width:58px; height:58px; margin:0 !important; overflow:hidden; border:1px solid color-mix(in srgb,var(--bias) 32%,var(--line)); border-radius:17px; color:var(--bias); background:linear-gradient(135deg,color-mix(in srgb,var(--bias) 20%,var(--bg-subtle)),var(--bg-subtle)); font:700 14px var(--font-mono); }
+.v3-list-cover > span { margin:0 !important; color:inherit !important; }
+.v3-list-cover.is-large { width:84px; height:84px; border-radius:22px; }
+.v3-list-cover img { display:block; width:100%; height:100%; object-fit:cover; }
+.v3-list-meta, .v3-profile-list-meta { display:flex; align-items:center; justify-content:space-between; gap:8px; min-width:0; color:var(--fg-dim); font-size:11px; }
+.v3-list-meta .hero-eyebrow, .v3-profile-list-meta .hero-eyebrow { margin:0; }
+.v3-list-card h2 { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.v3-list-description { display:-webkit-box; min-height:42px; margin:0 !important; overflow:hidden; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
+.v3-list-metrics { display:flex; flex-wrap:wrap; gap:9px; color:var(--fg-mid); font-size:11px; }
+.v3-list-card .v3-list-metrics span { margin:0; color:var(--fg-mid); }
+.v3-list-preview { display:grid; gap:7px; margin-top:2px; padding-top:12px; border-top:1px solid var(--line); }
+.v3-list-preview-row { display:grid; grid-template-columns:24px minmax(0,1fr); gap:8px; min-width:0; }
+.v3-list-preview-row > span { margin:0 !important; color:var(--bias); font:700 10px var(--font-mono); }
+.v3-list-preview-row div { min-width:0; }
+.v3-list-preview-row strong, .v3-list-preview-row small { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.v3-list-preview-row strong { color:var(--fg); font-size:12px; }
+.v3-list-preview-row small { margin-top:2px; color:var(--fg-dim); font-size:10px; }
+.v3-list-sort-chip { overflow:hidden; color:var(--fg-dim); font-size:10px; text-overflow:ellipsis; white-space:nowrap; }
+.v3-item-list-title-row { display:flex; align-items:center; justify-content:space-between; gap:8px; min-width:0; }
+.v3-item-list-title-row h3 { min-width:0; }
+.v3-item-list-row .v3-list-cover { width:42px; height:42px; border-radius:13px; }
+.v3-item-list-row .v3-list-cover > span { margin:0; }
+.v3-item-list-directory-toolbar { display:flex; justify-content:flex-end; margin-top:15px; padding-top:14px; border-top:1px solid var(--line); }
+.v3-item-list-directory-toolbar .select-input { min-height:38px; }
+.v3-list-editor { margin-top:4px; border-top:1px solid var(--line); }
+.v3-list-editor > summary { display:flex; align-items:center; justify-content:space-between; gap:10px; padding-top:13px; color:var(--bias); cursor:pointer; list-style:none; font-size:12px; font-weight:700; user-select:none; -webkit-user-select:none; }
+.v3-list-editor > summary::-webkit-details-marker { display:none; }
+.v3-list-editor > summary::after { content:'＋'; color:var(--fg-dim); font-size:16px; transition:transform .2s var(--ease-smooth); }
+.v3-list-editor[open] > summary::after { transform:rotate(45deg); }
+.v3-list-editor-summary { margin-left:auto; overflow:hidden; color:var(--fg-dim); font-size:10px; font-weight:500; text-overflow:ellipsis; white-space:nowrap; }
+.v3-list-editor-form { display:grid; gap:15px; margin-top:15px; padding:15px; border:1px solid var(--line); border-radius:16px; background:color-mix(in srgb,var(--bg-subtle) 78%,transparent); }
+.v3-list-form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.v3-list-form-grid label { display:grid; gap:6px; color:var(--fg-mid); font-size:11px; }
+.v3-list-form-grid .v3-list-form-wide { grid-column:1 / -1; }
+.v3-list-form-grid .text-input, .v3-list-form-grid .select-input { width:100%; min-width:0; }
+.v3-list-form-grid input[type=file] { width:100%; min-height:40px; padding:9px; border:1px dashed var(--line); border-radius:12px; color:var(--fg-mid); background:var(--bg-card); font-size:11px; }
+.v3-list-form-grid .section-note { margin:0; font-size:10px; }
+.v3-list-editor-items { display:grid; gap:7px; }
+.v3-list-editor-item { display:grid; grid-template-columns:24px 38px minmax(0,1fr) auto; gap:8px; align-items:center; min-width:0; padding:7px; border:1px solid var(--line); border-radius:13px; background:var(--bg-card); }
+.v3-list-editor-item .v3-list-cover { width:38px; height:38px; border-radius:10px; }
+.v3-list-editor-rank { margin:0 !important; color:var(--bias); font:700 10px var(--font-mono); }
+.v3-list-editor-copy { min-width:0; }
+.v3-list-editor-copy strong, .v3-list-editor-copy small { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.v3-list-editor-copy strong { color:var(--fg); font-size:12px; }
+.v3-list-editor-copy small { margin-top:2px; color:var(--fg-dim); font-size:10px; }
+.v3-list-editor-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:5px; }
+.v3-list-editor-actions .btn { min-height:34px; padding:7px 9px; }
+.v3-list-editor-footer { display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px; }
+.v3-list-editor-footer [data-v3-delete-list] { color:var(--fg-dim); }
+.v3-list-reactions, .v3-shared-list-reactions { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+.v3-list-reactions .btn, .v3-shared-list-reactions .btn { min-height:32px; padding:6px 9px; font-size:11px; }
+.v3-shared-list-reactions { margin-top:12px; }
+@media(max-width:620px) {
+  .v3-list-toolbar { align-items:stretch; flex-direction:column; }
+  .v3-list-toolbar > label { justify-content:space-between; }
+  .v3-list-toolbar .select-input { flex:1; min-width:0; }
+  .v3-list-form-grid { grid-template-columns:1fr; }
+  .v3-list-form-grid .v3-list-form-wide { grid-column:auto; }
+  .v3-list-editor-item { grid-template-columns:22px 36px minmax(0,1fr); }
+  .v3-list-editor-actions { grid-column:2 / -1; justify-content:flex-start; }
+  .v3-list-editor-summary { max-width:42%; }
+  .v3-item-list-directory-toolbar { justify-content:stretch; }
+  .v3-item-list-directory-toolbar label { width:100%; justify-content:space-between; }
+  .v3-item-list-directory-toolbar .select-input { flex:1; min-width:0; }
+}
+
+.riddle-audio-card { display:grid; gap:12px; margin:16px 0; padding:14px; border:1px solid var(--line); border-radius:16px; background:color-mix(in srgb,var(--bg-subtle) 80%,transparent); }
+.riddle-audio-card h3 { margin:3px 0 0; color:var(--fg-bright); font-size:16px; }
+.riddle-audio-card .section-note { margin:5px 0 0; }
+.riddle-audio-card iframe { width:100%; min-height:116px; border:0; border-radius:12px; background:var(--bg-card); }
+.listening-heading-actions { display:flex; align-items:center; gap:12px; }
+.listening-provider-picker { display:flex; align-items:center; gap:7px; color:var(--fg-dim); font-size:11px; }
+.listening-provider-picker .select-input { min-height:34px; padding-block:6px; font-size:11px; }
+@media(max-width:560px) { .listening-heading-actions { align-items:flex-end; flex-direction:column; gap:7px; } .listening-provider-picker { width:100%; justify-content:flex-end; } }

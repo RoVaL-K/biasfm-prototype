@@ -42,6 +42,24 @@ CREATE TABLE IF NOT EXISTS listen_imports (
   id TEXT PRIMARY KEY, user_id TEXT NOT NULL, source TEXT NOT NULL, external_user TEXT, period TEXT,
   row_count INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS user_list_meta (
+  list_id TEXT PRIMARY KEY, cover_data TEXT NOT NULL DEFAULT '',
+  list_position INTEGER NOT NULL DEFAULT 0, sort_mode TEXT NOT NULL DEFAULT 'release_date',
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS user_list_item_meta (
+  list_id TEXT NOT NULL, kind TEXT NOT NULL, entity_id TEXT NOT NULL,
+  release_date TEXT NOT NULL DEFAULT '', cover_url TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL, PRIMARY KEY (list_id, kind, entity_id)
+);
+CREATE TABLE IF NOT EXISTS user_list_likes (
+  list_id TEXT NOT NULL, user_id TEXT NOT NULL, created_at TEXT NOT NULL,
+  PRIMARY KEY (list_id, user_id)
+);
+CREATE TABLE IF NOT EXISTS user_list_follows (
+  list_id TEXT NOT NULL, user_id TEXT NOT NULL, created_at TEXT NOT NULL,
+  PRIMARY KEY (list_id, user_id)
+);
 CREATE INDEX IF NOT EXISTS catalog_aliases_lookup ON catalog_aliases (entity_type, normalized_key);
 CREATE INDEX IF NOT EXISTS catalog_tracks_artist_title ON catalog_tracks (artist_id, normalized_title);
 CREATE INDEX IF NOT EXISTS catalog_albums_artist_title ON catalog_albums (artist_id, normalized_title);
@@ -49,3 +67,7 @@ CREATE INDEX IF NOT EXISTS listens_user_played ON listens (user_id, played_at DE
 CREATE INDEX IF NOT EXISTS listens_resolution ON listens (resolution_status, updated_at DESC);
 CREATE INDEX IF NOT EXISTS listens_source ON listens (source, source_id);
 CREATE INDEX IF NOT EXISTS account_activity_privacy_visibility ON account_activity_privacy (visibility);
+CREATE INDEX IF NOT EXISTS user_list_meta_position ON user_list_meta (list_position ASC, updated_at DESC);
+CREATE INDEX IF NOT EXISTS user_list_items_release_date ON user_list_item_meta (list_id, release_date DESC);
+CREATE INDEX IF NOT EXISTS user_list_likes_list ON user_list_likes (list_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS user_list_follows_list ON user_list_follows (list_id, created_at DESC);

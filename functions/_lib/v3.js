@@ -6,6 +6,8 @@ import {SEED_TRACKS} from './catalog-store.js';
 
 const ready = new WeakSet();
 const VISIBILITY = new Set(['public', 'followers', 'private', 'unlisted']);
+const LIST_SORTS = new Set(['manual', 'release_date', 'recent', 'popular', 'followed']);
+const LIST_ITEM_KINDS = new Set(['song', 'release', 'artist']);
 const GROUP_VISIBILITY = new Set(['public', 'private', 'unlisted']);
 const GROUP_JOIN = new Set(['open', 'request']);
 
@@ -17,6 +19,36 @@ async function body(request) { try { return await request.json(); } catch { thro
 function safeUrl(value) {
   const raw = text(value, 1000); if (!raw) return '';
   try { const url = new URL(raw); return ['http:', 'https:'].includes(url.protocol) ? url.href : ''; } catch { return ''; }
+}
+
+function listCover(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (!/^data:image\/(?:png|jpeg|webp);base64,[a-z0-9+/=]+$/i.test(raw) || raw.length > 4_000_000) throw fail(400, 'Das Listen-Cover muss ein JPG, PNG oder WebP bis 3 MB sein.');
+  try {
+    const binary = atob(raw.split(',')[1]);
+    if (binary.length > 3 * 1024 * 1024) throw fail(400, 'Das Listen-Cover muss ein JPG, PNG oder WebP bis 3 MB sein.');
+  } catch (error) { if (error?.status) throw error; throw fail(400, 'Das Listen-Cover konnte nicht geprüft werden.'); }
+  return raw;
+}
+
+function listSort(value, fallback = 'release_date') {
+  return LIST_SORTS.has(value) ? value : fallback;
+}
+
+function releaseDate(value) {
+  const raw = text(value, 20);
+  return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : '';
+}
+
+function listKind(value) {
+  const kind = text(value, 30).toLowerCase();
+  if (!LIST_ITEM_KINDS.has(kind)) throw fail(400, 'Dieser Eintragstyp kann nicht in eine Liste aufgenommen werden.');
+  return kind;
+}
+
+function listMetrics(row) {
+  return {likes: Number(row?.like_count || 0), followers: Number(row?.follower_count || 0)};
 }
 
 function canonicalArtistKey(value) {
@@ -64,6 +96,27 @@ export async function ensureV3Schema(db) {
       list_id TEXT NOT NULL, kind TEXT NOT NULL, entity_id TEXT NOT NULL, title TEXT NOT NULL DEFAULT '',
       artist_name TEXT NOT NULL DEFAULT '', note TEXT NOT NULL DEFAULT '', position INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL, PRIMARY KEY (list_id, kind, entity_id)
+    )`),
+    // Metadata lives in side tables so deployments that already have the V3
+    // list tables can adopt covers, list order and ranking modes without a
+    // destructive ALTER TABLE migration.
+    db.prepare(`CREATE TABLE IF NOT EXISTS user_list_meta (
+      list_id TEXT PRIMARY KEY, cover_data TEXT NOT NULL DEFAULT '',
+      list_position INTEGER NOT NULL DEFAULT 0, sort_mode TEXT NOT NULL DEFAULT 'release_date',
+      updated_at TEXT NOT NULL
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS user_list_item_meta (
+      list_id TEXT NOT NULL, kind TEXT NOT NULL, entity_id TEXT NOT NULL,
+      release_date TEXT NOT NULL DEFAULT '', cover_url TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL, PRIMARY KEY (list_id, kind, entity_id)
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS user_list_likes (
+      list_id TEXT NOT NULL, user_id TEXT NOT NULL, created_at TEXT NOT NULL,
+      PRIMARY KEY (list_id, user_id)
+    )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS user_list_follows (
+      list_id TEXT NOT NULL, user_id TEXT NOT NULL, created_at TEXT NOT NULL,
+      PRIMARY KEY (list_id, user_id)
     )`),
     db.prepare(`CREATE TABLE IF NOT EXISTS saved_items (
       user_id TEXT NOT NULL, item_key TEXT NOT NULL, item_type TEXT NOT NULL, title TEXT NOT NULL DEFAULT '',
@@ -117,6 +170,10 @@ export async function ensureV3Schema(db) {
     db.prepare('CREATE INDEX IF NOT EXISTS community_posts_group_created ON community_posts (group_id, created_at DESC)'),
     db.prepare('CREATE INDEX IF NOT EXISTS community_invites_group_expires ON community_invites (group_id, expires_at DESC)'),
     db.prepare('CREATE INDEX IF NOT EXISTS user_lists_user_updated ON user_lists (user_id, updated_at DESC)'),
+    db.prepare('CREATE INDEX IF NOT EXISTS user_list_meta_position ON user_list_meta (list_position ASC, updated_at DESC)'),
+    db.prepare('CREATE INDEX IF NOT EXISTS user_list_items_release_date ON user_list_item_meta (list_id, release_date DESC)'),
+    db.prepare('CREATE INDEX IF NOT EXISTS user_list_likes_list ON user_list_likes (list_id, created_at DESC)'),
+    db.prepare('CREATE INDEX IF NOT EXISTS user_list_follows_list ON user_list_follows (list_id, created_at DESC)'),
     db.prepare('CREATE INDEX IF NOT EXISTS content_reviews_entity ON content_reviews (entity_type, entity_id, created_at DESC)'),
     db.prepare('CREATE INDEX IF NOT EXISTS moderation_reports_status ON moderation_reports (status, created_at DESC)'),
     db.prepare('CREATE INDEX IF NOT EXISTS artist_xp_artist ON artist_xp (artist_id, season_key, xp DESC)'),
@@ -351,80 +408,208 @@ export async function communityWrite(request, env) {
   throw fail(400, 'Unbekannte Community-Aktion.');
 }
 
+function listOrder(sort = 'manual') {
+  if (sort === 'popular') return 'like_count DESC, follower_count DESC, l.updated_at DESC';
+  if (sort === 'followed') return 'follower_count DESC, like_count DESC, l.updated_at DESC';
+  if (sort === 'release_date') return "latest_release_date DESC, l.updated_at DESC";
+  if (sort === 'recent') return 'l.updated_at DESC';
+  return 'COALESCE(m.list_position, 2147483647) ASC, l.updated_at DESC';
+}
+
+function listSelect() {
+  return `SELECT l.id, l.user_id, l.title, l.description, l.visibility, l.share_slug, l.created_at, l.updated_at,
+    COALESCE(m.cover_data, '') AS cover_data, COALESCE(m.list_position, 2147483647) AS list_position,
+    COALESCE(m.sort_mode, 'release_date') AS sort_mode,
+    (SELECT COUNT(*) FROM user_list_items i0 WHERE i0.list_id = l.id) AS item_count,
+    (SELECT COUNT(*) FROM user_list_likes ll WHERE ll.list_id = l.id) AS like_count,
+    (SELECT COUNT(*) FROM user_list_follows lf WHERE lf.list_id = l.id) AS follower_count,
+    COALESCE((SELECT MAX(im.release_date) FROM user_list_items i1 LEFT JOIN user_list_item_meta im ON im.list_id = i1.list_id AND im.kind = i1.kind AND im.entity_id = i1.entity_id WHERE i1.list_id = l.id), '') AS latest_release_date
+    FROM user_lists l LEFT JOIN user_list_meta m ON m.list_id = l.id`;
+}
+
+function listView(row, items = []) {
+  const metrics = listMetrics(row);
+  return {
+    id: row.id, title: row.title, description: row.description || '', visibility: row.visibility,
+    shareSlug: row.share_slug || row.shareSlug || '', coverData: row.cover_data || row.coverData || '',
+    listPosition: Number(row.list_position ?? row.listPosition ?? 2147483647),
+    sortMode: listSort(row.sort_mode || row.sortMode, 'release_date'),
+    itemCount: Number(row.item_count ?? row.itemCount ?? items.length) || 0,
+    likes: metrics.likes, followers: metrics.followers, updatedAt: row.updated_at || row.updatedAt || '',
+    createdAt: row.created_at || row.createdAt || '', latestReleaseDate: row.latest_release_date || '', items
+  };
+}
+
+async function listItemsFor(db, listIds, ownerId = '') {
+  const ids = Array.isArray(listIds) ? listIds.filter(Boolean) : [];
+  if (!ids.length) return {};
+  // IDs originate from rows selected above; placeholders keep values bound even
+  // when a user has many lists.
+  const placeholders = ids.map(() => '?').join(',');
+  const values = ownerId ? [...ids, ownerId] : ids;
+  const query = ownerId
+    ? `SELECT i.list_id, i.kind, i.entity_id, i.title, i.artist_name, i.note, i.position, COALESCE(im.release_date, '') AS release_date, COALESCE(im.cover_url, '') AS cover_url
+       FROM user_list_items i LEFT JOIN user_list_item_meta im ON im.list_id = i.list_id AND im.kind = i.kind AND im.entity_id = i.entity_id
+       WHERE i.list_id IN (${placeholders}) AND i.list_id IN (SELECT id FROM user_lists WHERE user_id = ?) ORDER BY i.list_id, i.position ASC, i.created_at ASC`
+    : `SELECT i.list_id, i.kind, i.entity_id, i.title, i.artist_name, i.note, i.position, COALESCE(im.release_date, '') AS release_date, COALESCE(im.cover_url, '') AS cover_url
+       FROM user_list_items i LEFT JOIN user_list_item_meta im ON im.list_id = i.list_id AND im.kind = i.kind AND im.entity_id = i.entity_id
+       WHERE i.list_id IN (${placeholders}) ORDER BY i.list_id, i.position ASC, i.created_at ASC`;
+  const result = await db.prepare(query).bind(...values).all();
+  return (result.results || []).reduce((map, item) => {
+    (map[item.list_id] ||= []).push({kind: item.kind, entityId: item.entity_id, title: item.title, artistName: item.artist_name, note: item.note, position: Number(item.position || 0), releaseDate: item.release_date || '', coverUrl: item.cover_url || ''});
+    return map;
+  }, {});
+}
+
+async function listMetricsFor(db, listId, userId = '') {
+  const row = await db.prepare(`SELECT (SELECT COUNT(*) FROM user_list_likes WHERE list_id = ?) AS like_count,
+    (SELECT COUNT(*) FROM user_list_follows WHERE list_id = ?) AS follower_count,
+    ${userId ? '(SELECT 1 FROM user_list_likes WHERE list_id = ? AND user_id = ?) AS viewer_liked, (SELECT 1 FROM user_list_follows WHERE list_id = ? AND user_id = ?) AS viewer_following' : '0 AS viewer_liked, 0 AS viewer_following'}`)
+    .bind(...(userId ? [listId, listId, listId, userId, listId, userId] : [listId, listId])).first();
+  return {likes: Number(row?.like_count || 0), followers: Number(row?.follower_count || 0), liked: Boolean(row?.viewer_liked), following: Boolean(row?.viewer_following)};
+}
+
 export async function listCollections(request, env) {
   await ensureV3Schema(env.DB);
   const url = new URL(request.url);
   const share = text(url.searchParams.get('share'), 120);
   if (share) {
-    const list = await env.DB.prepare('SELECT id, title, description, visibility, share_slug, updated_at FROM user_lists WHERE share_slug = ?').bind(share).first();
-    if (!list || !['public', 'unlisted'].includes(list.visibility)) throw fail(404, 'Diese Liste ist nicht öffentlich verfügbar.');
-    const rows = await env.DB.prepare('SELECT kind, entity_id, title, artist_name, note, position FROM user_list_items WHERE list_id = ? ORDER BY position ASC, created_at ASC').bind(list.id).all();
-    return {list: {id: list.id, title: list.title, description: list.description, visibility: list.visibility, shareSlug: list.share_slug, updatedAt: list.updated_at, items: (rows.results || []).map(item => ({kind: item.kind, entityId: item.entity_id, title: item.title, artistName: item.artist_name, note: item.note}))}};
+    const row = await env.DB.prepare(`${listSelect()} WHERE l.share_slug = ?`).bind(share).first();
+    if (!row || !['public', 'unlisted'].includes(row.visibility)) throw fail(404, 'Diese Liste ist nicht öffentlich verfügbar.');
+    const grouped = await listItemsFor(env.DB, [row.id]);
+    const {account: viewer} = await readSession(request, env);
+    const metrics = await listMetricsFor(env.DB, row.id, viewer?.userId || '');
+    return {list: {...listView(row, grouped[row.id] || []), ...metrics}};
   }
   const itemKey = text(url.searchParams.get('item_key'), 180);
   const itemType = text(url.searchParams.get('item_type'), 40);
-  if (itemKey && ['artist', 'release', 'song'].includes(itemType)) {
-    // Counts are intentionally anonymised. Only accounts that explicitly
-    // expose their favourites contribute to the public favourite count;
-    // private and follower-only favourites never leak through this endpoint.
-    const favoriteRows = await env.DB.prepare(`SELECT a.privacy_json
-      FROM saved_items s JOIN accounts a ON a.id = s.user_id
-      WHERE s.item_key = ? AND s.item_type = ? AND s.kind = 'favorite'`).bind(itemKey, itemType).all();
+  if (itemKey && LIST_ITEM_KINDS.has(itemType)) {
+    const favoriteRows = await env.DB.prepare(`SELECT a.privacy_json FROM saved_items s JOIN accounts a ON a.id = s.user_id WHERE s.item_key = ? AND s.item_type = ? AND s.kind = 'favorite'`).bind(itemKey, itemType).all();
     const favoriteCount = (favoriteRows.results || []).filter(item => json(item.privacy_json).favorites === 'public').length;
-    const listCount = await env.DB.prepare(`SELECT COUNT(DISTINCT l.id) AS count
-      FROM user_lists l JOIN user_list_items i ON i.list_id = l.id
-      WHERE l.visibility = 'public' AND i.entity_id = ? AND i.kind = ?`).bind(itemKey, itemType).first();
-    const totalPublicLists = Number(listCount?.count || 0);
+    const countRow = await env.DB.prepare(`SELECT COUNT(DISTINCT l.id) AS count FROM user_lists l JOIN user_list_items i ON i.list_id = l.id WHERE l.visibility = 'public' AND i.entity_id = ? AND i.kind = ?`).bind(itemKey, itemType).first();
+    const totalPublicLists = Number(countRow?.count || 0);
     const allLists = url.searchParams.get('all') === '1';
     const requestedLimit = Number(url.searchParams.get('limit'));
     const requestedOffset = Number(url.searchParams.get('offset'));
-    const listLimit = allLists ? Math.min(100, Math.max(1, Number.isFinite(requestedLimit) ? Math.floor(requestedLimit) : 100)) : 3;
+    const listLimit = allLists ? Math.min(100, Math.max(1, Number.isFinite(requestedLimit) ? Math.floor(requestedLimit) : 100)) : 5;
     const listOffset = allLists ? Math.max(0, Number.isFinite(requestedOffset) ? Math.floor(requestedOffset) : 0) : 0;
-    const publicLists = await env.DB.prepare(`SELECT l.id, l.title, l.description, l.visibility, l.share_slug, l.updated_at,
-      COUNT(all_items.entity_id) AS item_count
-      FROM user_lists l
-      JOIN user_list_items matching_item ON matching_item.list_id = l.id
-      LEFT JOIN user_list_items all_items ON all_items.list_id = l.id
-      WHERE l.visibility = 'public' AND matching_item.entity_id = ? AND matching_item.kind = ?
-      GROUP BY l.id ORDER BY l.updated_at DESC LIMIT ${listLimit} OFFSET ${listOffset}`).bind(itemKey, itemType).all();
-    const listItems = (publicLists.results || []).map(list => ({
-      id: list.id, title: list.title, description: list.description, visibility: list.visibility,
-      shareSlug: list.share_slug, itemCount: Number(list.item_count || 0), updatedAt: list.updated_at
-    }));
+    const sort = listSort(url.searchParams.get('sort'), allLists ? 'popular' : 'popular');
+    const publicRows = await env.DB.prepare(`${listSelect()} WHERE l.visibility = 'public' AND EXISTS (SELECT 1 FROM user_list_items matching_item WHERE matching_item.list_id = l.id AND matching_item.entity_id = ? AND matching_item.kind = ?) ORDER BY ${listOrder(sort)} LIMIT ${listLimit} OFFSET ${listOffset}`).bind(itemKey, itemType).all();
+    const rows = publicRows.results || [];
+    const grouped = await listItemsFor(env.DB, rows.map(row => row.id));
     const {account: viewer} = await readSession(request, env);
-    let viewerSaved = false; let viewerFavorite = false;
-    if (viewer?.userId) {
-      const saved = await env.DB.prepare('SELECT kind FROM saved_items WHERE user_id = ? AND item_key = ? AND item_type = ?').bind(viewer.userId, itemKey, itemType).all();
-      for (const row of saved.results || []) { if (row.kind === 'saved') viewerSaved = true; if (row.kind === 'favorite') viewerFavorite = true; }
-    }
-    return {itemKey, itemType, favoriteCount, listCount: totalPublicLists, lists: listItems,
-      listMoreCount: Math.max(0, totalPublicLists - listOffset - listItems.length),
-      nextOffset: listOffset + listItems.length < totalPublicLists ? listOffset + listItems.length : null,
-      viewer: {saved: viewerSaved, favorite: viewerFavorite}};
+    const viewerSaved = viewer?.userId ? await env.DB.prepare('SELECT 1 FROM saved_items WHERE user_id = ? AND item_key = ? AND item_type = ? AND kind = \'saved\'').bind(viewer.userId, itemKey, itemType).first() : null;
+    const viewerFavorite = viewer?.userId ? await env.DB.prepare('SELECT 1 FROM saved_items WHERE user_id = ? AND item_key = ? AND item_type = ? AND kind = \'favorite\'').bind(viewer.userId, itemKey, itemType).first() : null;
+    const listMetrics = await Promise.all(rows.map(row => listMetricsFor(env.DB, row.id, viewer?.userId || '')));
+    return {itemKey, itemType, favoriteCount, listCount: totalPublicLists, sort, lists: rows.map((row, index) => ({...listView(row, grouped[row.id] || []), ...listMetrics[index]})), listMoreCount: Math.max(0, totalPublicLists - listOffset - rows.length), nextOffset: listOffset + rows.length < totalPublicLists ? listOffset + rows.length : null, viewer: {saved: Boolean(viewerSaved), favorite: Boolean(viewerFavorite)}};
+  }
+  const discover = url.searchParams.get('discover') === '1';
+  if (discover) {
+    const sort = listSort(url.searchParams.get('sort'), 'popular');
+    const query = text(url.searchParams.get('q'), 80).toLowerCase();
+    const limit = Math.min(100, Math.max(1, Number(url.searchParams.get('limit')) || 50));
+    const offset = Math.max(0, Number(url.searchParams.get('offset')) || 0);
+    const rows = await env.DB.prepare(`${listSelect()} WHERE l.visibility = 'public' ${query ? "AND LOWER(l.title || ' ' || l.description) LIKE ?" : ''} ORDER BY ${listOrder(sort)} LIMIT ${limit} OFFSET ${offset}`).bind(...(query ? [`%${query}%`] : [])).all();
+    const values = rows.results || [];
+    const grouped = await listItemsFor(env.DB, values.map(row => row.id));
+    return {lists: values.map(row => listView(row, grouped[row.id] || [])), sort, nextOffset: values.length === limit ? offset + values.length : null};
   }
   const {row} = await requireAccount(request, env);
-  const lists = await env.DB.prepare('SELECT l.*, COUNT(i.entity_id) AS item_count FROM user_lists l LEFT JOIN user_list_items i ON i.list_id = l.id WHERE l.user_id = ? GROUP BY l.id ORDER BY l.updated_at DESC').bind(row.id).all();
+  const sort = listSort(url.searchParams.get('sort'), 'manual');
+  const listsResult = await env.DB.prepare(`${listSelect()} WHERE l.user_id = ? ORDER BY ${listOrder(sort)}`).bind(row.id).all();
+  const listRows = listsResult.results || [];
+  const grouped = await listItemsFor(env.DB, listRows.map(item => item.id), row.id);
   const saved = await env.DB.prepare("SELECT item_key, item_type, title, artist_name, cover_url, kind, created_at FROM saved_items WHERE user_id = ? ORDER BY created_at DESC LIMIT 200").bind(row.id).all();
-  const ownItems = await env.DB.prepare('SELECT list_id, kind, entity_id, title, artist_name, note, position FROM user_list_items WHERE list_id IN (SELECT id FROM user_lists WHERE user_id = ?) ORDER BY list_id, position ASC, created_at ASC').bind(row.id).all();
-  const grouped = (ownItems.results || []).reduce((map, item) => { (map[item.list_id] ||= []).push({kind: item.kind, entityId: item.entity_id, title: item.title, artistName: item.artist_name, note: item.note}); return map; }, {});
-  return {lists: (lists.results || []).map(item => ({id: item.id, title: item.title, description: item.description, visibility: item.visibility, shareSlug: item.share_slug, itemCount: Number(item.item_count || 0), items: grouped[item.id] || [], updatedAt: item.updated_at})), saved: saved.results || []};
+  return {lists: listRows.map(item => listView(item, grouped[item.id] || [])), saved: saved.results || [], sort};
 }
 
 export async function writeCollections(request, env) {
   await ensureV3Schema(env.DB);
   const {row} = await requireAccount(request, env);
-  const input = await body(request); const action = text(input.action, 40); const now = new Date().toISOString();
+  const input = await body(request); const action = text(input.action, 40).toLowerCase(); const now = new Date().toISOString();
   if (action === 'create-list') {
     const title = text(input.title, 120); if (title.length < 1) throw fail(400, 'Bitte gib der Liste einen Namen.');
-    const list = {id: id('list'), title, description: text(input.description, 500), visibility: VISIBILITY.has(input.visibility) ? input.visibility : 'private', shareSlug: `${slug(title)}-${Math.random().toString(36).slice(2, 8)}`};
-    await env.DB.prepare('INSERT INTO user_lists (id, user_id, title, description, visibility, share_slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').bind(list.id, row.id, list.title, list.description, list.visibility, list.shareSlug, now, now).run();
-    return {list: {...list, itemCount: 0, updatedAt: now}};
+    const visibility = VISIBILITY.has(input.visibility) ? input.visibility : 'public';
+    const sortMode = listSort(input.sortMode, 'release_date');
+    const coverData = listCover(input.coverData);
+    const list = {id: id('list'), title, description: text(input.description, 500), visibility, sortMode, coverData, shareSlug: `${slug(title)}-${Math.random().toString(36).slice(2, 8)}`};
+    const position = await env.DB.prepare('SELECT COALESCE(MAX(list_position), -1) + 1 AS next_position FROM user_list_meta WHERE list_id IN (SELECT id FROM user_lists WHERE user_id = ?)').bind(row.id).first();
+    await env.DB.batch([
+      env.DB.prepare('INSERT INTO user_lists (id, user_id, title, description, visibility, share_slug, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').bind(list.id, row.id, list.title, list.description, list.visibility, list.shareSlug, now, now),
+      env.DB.prepare('INSERT INTO user_list_meta (list_id, cover_data, list_position, sort_mode, updated_at) VALUES (?, ?, ?, ?, ?)').bind(list.id, list.coverData, Number(position?.next_position || 0), list.sortMode, now)
+    ]);
+    return {list: {...list, listPosition: Number(position?.next_position || 0), itemCount: 0, likes: 0, followers: 0, updatedAt: now}};
   }
-  if (action === 'add-item') {
-    const list = await env.DB.prepare('SELECT id FROM user_lists WHERE id = ? AND user_id = ?').bind(text(input.listId, 120), row.id).first(); if (!list) throw fail(404, 'Liste nicht gefunden.');
-    const kind = text(input.kind, 30) || 'song'; const entityId = text(input.entityId, 180); if (!entityId) throw fail(400, 'Eintrag fehlt.');
-    await env.DB.prepare('INSERT INTO user_list_items (list_id, kind, entity_id, title, artist_name, note, position, created_at) VALUES (?, ?, ?, ?, ?, ?, COALESCE((SELECT MAX(position)+1 FROM user_list_items WHERE list_id = ?), 0), ?) ON CONFLICT(list_id,kind,entity_id) DO UPDATE SET note=excluded.note').bind(list.id, kind, entityId, text(input.title, 200), text(input.artistName, 160), text(input.note, 500), list.id, now).run();
-    await env.DB.prepare('UPDATE user_lists SET updated_at = ? WHERE id = ?').bind(now, list.id).run(); return {saved: true};
+  const listId = text(input.listId, 120);
+  if (['update-list', 'delete-list', 'add-item', 'remove-item', 'reorder-items'].includes(action)) {
+    const owner = await env.DB.prepare('SELECT id, title, description, visibility, share_slug FROM user_lists WHERE id = ? AND user_id = ?').bind(listId, row.id).first();
+    if (!owner) throw fail(404, 'Liste nicht gefunden.');
+    if (action === 'update-list') {
+      const title = Object.hasOwn(input, 'title') ? text(input.title, 120) : owner.title; if (!title) throw fail(400, 'Bitte gib der Liste einen Namen.');
+      const description = Object.hasOwn(input, 'description') ? text(input.description, 500) : owner.description;
+      const visibility = Object.hasOwn(input, 'visibility') && VISIBILITY.has(input.visibility) ? input.visibility : owner.visibility;
+      const meta = await env.DB.prepare('SELECT cover_data, list_position, sort_mode FROM user_list_meta WHERE list_id = ?').bind(listId).first();
+      const coverData = Object.hasOwn(input, 'coverData') ? listCover(input.coverData) : (meta?.cover_data || '');
+      const sortMode = Object.hasOwn(input, 'sortMode') ? listSort(input.sortMode, 'release_date') : listSort(meta?.sort_mode, 'release_date');
+      const position = Number.isFinite(Number(input.listPosition)) ? Math.max(0, Math.min(1000000, Math.floor(Number(input.listPosition)))) : Number(meta?.list_position || 0);
+      await env.DB.batch([
+        env.DB.prepare('UPDATE user_lists SET title = ?, description = ?, visibility = ?, updated_at = ? WHERE id = ? AND user_id = ?').bind(title, description, visibility, now, listId, row.id),
+        env.DB.prepare('INSERT INTO user_list_meta (list_id, cover_data, list_position, sort_mode, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(list_id) DO UPDATE SET cover_data=excluded.cover_data, list_position=excluded.list_position, sort_mode=excluded.sort_mode, updated_at=excluded.updated_at').bind(listId, coverData, position, sortMode, now)
+      ]);
+      const updated = await env.DB.prepare(`${listSelect()} WHERE l.id = ? AND l.user_id = ?`).bind(listId, row.id).first();
+      const grouped = await listItemsFor(env.DB, [listId], row.id);
+      return {list: listView(updated, grouped[listId] || [])};
+    }
+    if (action === 'delete-list') {
+      await env.DB.batch([
+        env.DB.prepare('DELETE FROM user_list_items WHERE list_id = ?').bind(listId),
+        env.DB.prepare('DELETE FROM user_list_item_meta WHERE list_id = ?').bind(listId),
+        env.DB.prepare('DELETE FROM user_list_meta WHERE list_id = ?').bind(listId),
+        env.DB.prepare('DELETE FROM user_list_likes WHERE list_id = ?').bind(listId),
+        env.DB.prepare('DELETE FROM user_list_follows WHERE list_id = ?').bind(listId),
+        env.DB.prepare('DELETE FROM user_lists WHERE id = ? AND user_id = ?').bind(listId, row.id)
+      ]);
+      return {deleted: true, listId};
+    }
+    if (action === 'add-item') {
+      const kind = listKind(input.kind || 'song'); const entityId = text(input.entityId, 180); if (!entityId) throw fail(400, 'Eintrag fehlt.');
+      const release = releaseDate(input.releaseDate);
+      const coverUrl = safeUrl(input.coverUrl);
+      await env.DB.batch([
+        env.DB.prepare('INSERT INTO user_list_items (list_id, kind, entity_id, title, artist_name, note, position, created_at) VALUES (?, ?, ?, ?, ?, ?, COALESCE((SELECT MAX(position)+1 FROM user_list_items WHERE list_id = ?), 0), ?) ON CONFLICT(list_id,kind,entity_id) DO UPDATE SET title=excluded.title, artist_name=excluded.artist_name, note=excluded.note').bind(listId, kind, entityId, text(input.title, 200), text(input.artistName, 160), text(input.note, 500), listId, now),
+        env.DB.prepare('INSERT INTO user_list_item_meta (list_id, kind, entity_id, release_date, cover_url, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(list_id,kind,entity_id) DO UPDATE SET release_date=excluded.release_date, cover_url=excluded.cover_url, updated_at=excluded.updated_at').bind(listId, kind, entityId, release, coverUrl, now),
+        env.DB.prepare('UPDATE user_lists SET updated_at = ? WHERE id = ?').bind(now, listId)
+      ]);
+      const grouped = await listItemsFor(env.DB, [listId], row.id);
+      return {saved: true, item: grouped[listId]?.find(item => item.kind === kind && item.entityId === entityId) || null};
+    }
+    if (action === 'remove-item') {
+      const kind = listKind(input.kind || 'song'); const entityId = text(input.entityId, 180); if (!entityId) throw fail(400, 'Eintrag fehlt.');
+      await env.DB.batch([env.DB.prepare('DELETE FROM user_list_items WHERE list_id = ? AND kind = ? AND entity_id = ?').bind(listId, kind, entityId), env.DB.prepare('DELETE FROM user_list_item_meta WHERE list_id = ? AND kind = ? AND entity_id = ?').bind(listId, kind, entityId), env.DB.prepare('UPDATE user_lists SET updated_at = ? WHERE id = ?').bind(now, listId)]);
+      return {removed: true};
+    }
+    if (action === 'reorder-items') {
+      const entries = Array.isArray(input.items) ? input.items.slice(0, 500) : [];
+      const seen = new Set(); const statements = [];
+      for (let index = 0; index < entries.length; index += 1) {
+        const value = entries[index] || {}; const kind = listKind(value.kind || 'song'); const entityId = text(value.entityId, 180); if (!entityId) continue;
+        const key = `${kind}:${entityId}`; if (seen.has(key)) continue; seen.add(key);
+        statements.push(env.DB.prepare('UPDATE user_list_items SET position = ? WHERE list_id = ? AND kind = ? AND entity_id = ?').bind(index, listId, kind, entityId));
+      }
+      if (statements.length) statements.push(env.DB.prepare('UPDATE user_lists SET updated_at = ? WHERE id = ?').bind(now, listId));
+      if (statements.length) await env.DB.batch(statements);
+      return {reordered: true, count: seen.size};
+    }
+  }
+  if (['like-list', 'unlike-list', 'follow-list', 'unfollow-list'].includes(action)) {
+    const target = await env.DB.prepare('SELECT id, visibility FROM user_lists WHERE id = ?').bind(listId).first();
+    if (!target || target.visibility !== 'public') throw fail(404, 'Diese Liste ist nicht öffentlich verfügbar.');
+    const table = action.includes('like') ? 'user_list_likes' : 'user_list_follows';
+    const enabled = !action.startsWith('un');
+    if (enabled) await env.DB.prepare(`INSERT OR IGNORE INTO ${table} (list_id, user_id, created_at) VALUES (?, ?, ?)`).bind(listId, row.id, now).run();
+    else await env.DB.prepare(`DELETE FROM ${table} WHERE list_id = ? AND user_id = ?`).bind(listId, row.id).run();
+    const metrics = await listMetricsFor(env.DB, listId, row.id);
+    return {listId, liked: metrics.liked, following: metrics.following, likes: metrics.likes, followers: metrics.followers};
   }
   if (action === 'save' || action === 'favorite') {
     const kind = action === 'favorite' ? 'favorite' : 'saved'; const key = text(input.itemKey, 180); if (!key) throw fail(400, 'Eintrag fehlt.');
